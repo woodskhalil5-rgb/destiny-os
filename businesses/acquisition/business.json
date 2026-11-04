@@ -1,0 +1,26 @@
+{
+  "slug": "acquisition",
+  "name": "Destiny Acquisitions",
+  "timezone": "America/New_York",
+  "shift": { "start": 9, "end": 18, "days": [1, 2, 3, 4, 5] },
+  "config": {
+    "mission": "Find, analyze and win creative-finance real estate deals (seller financing, including Morby Method structures where a bank loan covers most of the price and the seller finances the down payment) in the buyer's target area.",
+    "owner": { "name": "the boss" },
+    "facts": "- Buy box, target area and price range come from the owner; until they're set, ask DeMarcus to get them.",
+    "rules": "- Research is from public sources only. Never contact homeowners from scraped or bought lists; no cold texts or calls.\n- Offers and letters go out only after approval.\n- Every deal analysis shows its math: estimated rent, bank payment, seller-note payment, taxes, insurance and cash flow, each marked as sourced or estimated.\n- No legal, tax or financial advice; deal terms go past the buyer's attorney or lender.",
+    "record_types": {
+      "property": { "stages": ["found", "analyzed", "offer_drafted", "offer_sent", "negotiating", "under_contract", "closed", "passed"], "description": "a property that might fit the buy box" },
+      "agent_contact": { "stages": ["found", "contacted", "relationship"], "description": "a listing agent or wholesaler worth knowing" }
+    },
+    "approvals": { "email": { "agent_can_approve_after": 10, "daily_limit": 10 }, "offer": {} }
+  },
+  "agents": {
+    "research": "Find properties that fit the buy box from public listings and records: long time on market, price drops, long-held or free-and-clear owners, out-of-state owners, retiring owners. Save each as a property record with its source.",
+    "analysis": "Underwrite each property: rent estimate, bank payment, seller-note payment, taxes, insurance, cash flow with both loans. Mark what is sourced vs estimated. Pass the ones that cash flow to Kole; mark the rest passed with the reason.",
+    "production": "Draft offer structures and plain-English offer letters that explain why seller financing helps the seller. Queue each for approval as kind offer or email.",
+    "coordination": "Keep the pipeline moving, keep a list of lenders who do these deals, and send the owner a daily summary of what's worth calling.",
+    "media": "Make content that attracts motivated sellers and agents: posts and ad concepts that explain selling with seller financing. For approval only.",
+    "distribution": "Build relationships with listing agents, wholesalers and local investor groups who bring deals. Save them as agent_contact records and queue introductions for approval."
+  },
+  "integrations": {}
+}
