@@ -1,8 +1,12 @@
 // os-jobs: runs every 5 minutes (pg_cron -> os.jobs()).
 //  1. Sends alert emails (agent errors, failed payments, budget) to the platform owner or the business owner.
 //  2. Publishes approved content whose scheduled time has come (Facebook Page today; anything else is flagged to post by hand).
+//  3. Watches each business's connected Gmail inbox (when "watch for replies" is on): owner emails go on the board,
+//     replies from records' email addresses mark the record "replied" and wake the team.
 import { audit, post, secret, sql } from "../_core/core.ts";
 import { platformMail } from "../_core/mail.ts";
+import { ImapFlow } from "npm:imapflow@1";
+import { simpleParser } from "npm:mailparser@3";
 
 async function ownerEmailFor(bid: string | null) {
   if (!bid) return null;
@@ -76,10 +80,95 @@ async function publishDue() {
   return done;
 }
 
+
+function stripQuoted(text: string) {
+  const out: string[] = [];
+  for (const line of text.replace(/\r/g, "").split("\n")) {
+    const t = line.trim();
+    if ((/^On .+/.test(t) && /wrote:?$/.test(t)) || /^-{2,}\s*Original Message/i.test(t) || /^From:\s/.test(t) || /^Sent from my/i.test(t)) break;
+    if (line.startsWith(">")) continue;
+    out.push(line);
+  }
+  return out.join("\n").trim().slice(0, 3000);
+}
+
+async function watchInboxes() {
+  const conns = await sql`select i.business_id, i.settings, i.updated_at, b.slug, b.name from os.integrations i join os.businesses b on b.id = i.business_id
+    where i.provider = 'gmail' and i.status = 'connected' and coalesce((i.settings->>'check_inbox')::boolean, false) and b.status = 'live'`;
+  const result: Record<string, unknown> = {};
+  for (const c of conns) {
+    const [pw] = await sql`select decrypted_secret as v from vault.decrypted_secrets where name = ${c.slug + ":GMAIL_APP_PASSWORD"}`;
+    if (!pw || !c.settings.user) { result[c.slug] = "no password"; continue; }
+    const startAt = new Date(c.settings.mail_since ?? c.updated_at);
+    const [cfg] = await sql`select config->'owner'->>'email' as owner from os.business_config where business_id = ${c.business_id} and active`;
+    const owner = String(cfg?.owner ?? "").toLowerCase();
+    const recs = await sql`select id, title, lower(data->>'email') as email from os.records where business_id = ${c.business_id} and coalesce(data->>'email', '') <> ''`;
+    const byEmail = new Map(recs.map((r: any) => [r.email, r]));
+    const client = new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user: c.settings.user, pass: String(pw.v).replace(/\s+/g, "") }, logger: false });
+    let handled = 0;
+    try {
+      await client.connect();
+      const lock = await client.getMailboxLock("INBOX");
+      try {
+        const uids = (await client.search({ since: new Date(Date.now() - 3 * 86400000) }, { uid: true })) || [];
+        const wanted: { uid: number; mid: string; from: string }[] = [];
+        for await (const m of client.fetch(uids.slice(-80), { envelope: true }, { uid: true })) {
+          const from = (m.envelope?.from?.[0]?.address ?? "").toLowerCase();
+          if (from !== owner && !byEmail.has(from)) continue;
+          if (m.envelope?.date && new Date(m.envelope.date) < startAt) continue;
+          wanted.push({ uid: m.uid, mid: m.envelope?.messageId || `uid-${m.uid}`, from });
+        }
+        for (const w of wanted) {
+          const [claimed] = await sql`insert into os.mail_seen (business_id, message_id) values (${c.business_id}, ${w.mid}) on conflict do nothing returning message_id`;
+          if (!claimed) continue;
+          const one = await client.fetchOne(String(w.uid), { source: true }, { uid: true });
+          if (!one) continue;
+          const parsed = await simpleParser(one.source);
+          const text = stripQuoted(parsed.text ?? "") || (parsed.subject ?? "");
+          if (w.from === owner) {
+            await post(c.business_id, "owner", `(by email) ${text}`, { senderName: "Owner" });
+          } else {
+            const r: any = byEmail.get(w.from);
+            await sql`update os.records set status = 'replied', next_step = 'owner to respond', updated_at = now() where id = ${r.id}`;
+            await post(c.business_id, "system", `@demarcus #${r.id} ${r.title} replied by email: "${text.slice(0, 1200)}"`, { recordId: r.id });
+            await sql`select os.alert(${c.business_id}, 'business', 'reply', ${`${r.title} replied`}, ${`${r.title} replied to your team's email:\n\n${text.slice(0, 1500)}\n\nThe team has been told; reply from your inbox or the dashboard.`}, ${"reply:" + w.mid})`;
+          }
+          handled++;
+        }
+      } finally { lock.release(); }
+    } catch (e) {
+      result[c.slug] = `error: ${(e as Error).message}`;
+      await sql`select os.alert(${c.business_id}, 'platform', 'inbox_error', ${c.name + ": inbox check failed"}, ${(e as Error).message}, ${"inbox:" + c.business_id + ":" + new Date().toISOString().slice(0, 13)})`;
+      continue;
+    } finally { await client.logout().catch(() => {}); }
+    result[c.slug] = handled;
+  }
+  return result;
+}
+
+// One-time move of the original JHP team's Edge Function secrets into the vault (values never leave the server).
+const ADOPT: Record<string, string> = { "jhp:RESEND_API_KEY": "RESEND_API_KEY", "jhp:GMAIL_APP_PASSWORD": "GMAIL_APP_PASSWORD" };
+async function adoptEnv() {
+  const done: string[] = [];
+  for (const [vaultName, envName] of Object.entries(ADOPT)) {
+    const v = Deno.env.get(envName)?.trim();
+    if (!v) continue;
+    const [have] = await sql`select id from vault.secrets where name = ${vaultName}`;
+    if (have) continue;
+    await sql`select vault.create_secret(${v}, ${vaultName}, ${"copied from the " + envName + " function secret"})`;
+    done.push(vaultName);
+  }
+  await audit(null, "system", "jobs", "adopt_env", null, { copied: done });
+  return done;
+}
+
 Deno.serve(async (req) => {
   const key = await secret("OS_INVOKE_KEY");
   if (!key || (req.headers.get("authorization") ?? "") !== `Bearer ${key}`) return new Response("forbidden", { status: 403 });
+  const body = await req.json().catch(() => ({}));
+  if (body.action === "adopt_env") return new Response(JSON.stringify({ copied: await adoptEnv() }), { headers: { "content-type": "application/json" } });
   const out: Record<string, unknown> = {};
+  try { out.inbox = await watchInboxes(); } catch (e) { out.inbox_error = (e as Error).message; }
   try { out.alerts = await sendAlerts(); } catch (e) { out.alerts_error = (e as Error).message; }
   try { out.published = await publishDue(); } catch (e) { out.publish_error = (e as Error).message; }
   return new Response(JSON.stringify(out), { headers: { "content-type": "application/json" } });

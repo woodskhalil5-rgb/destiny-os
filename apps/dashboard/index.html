@@ -284,7 +284,8 @@ const PANES = {
         ${i.settings.page_name ? `<div class="meta">Page: ${esc(i.settings.page_name)}</div>` : ""}
         ${conns.can_edit ? `<details${i.status === "connected" ? "" : " open"}><summary class="meta" style="cursor:pointer">${i.status === "connected" ? "Change" : "Set up"}</summary>
           <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-          ${i.fields.map(f => `<label class="field">${LBL[f] || f}<input data-cs="${f}" value="${esc(i.settings[f] || "")}"></label>`).join("")}
+          ${i.fields.map(f => f === "check_inbox" ? `<label class="days"><label><input type="checkbox" data-cs="${f}"${i.settings[f] === "true" ? " checked" : ""}> Watch this inbox for replies and put them on the board</label></label>`
+            : `<label class="field">${LBL[f] || f}<input data-cs="${f}" value="${esc(i.settings[f] || "")}"></label>`).join("")}
           ${i.secrets.map(f => `<label class="field">${LBL[f] || f}<input data-ck="${f}" type="password" autocomplete="off" placeholder="${i.status === "not_connected" ? "" : "saved; paste a new one to replace"}"></label>`).join("")}
           <div class="howto">${HOW[i.provider] || ""}</div>
           <div class="row"><button class="primary" data-xact="connect">Save and test</button>${i.status !== "not_connected" ? `<button class="danger" data-xact="disconnect">Disconnect</button>` : ""}</div>
@@ -367,7 +368,7 @@ $("pane").addEventListener("click", async e => {
   try {
     if (act === "connect") {
       const settings = {}, secrets = {};
-      box.querySelectorAll("[data-cs]").forEach(i => settings[i.dataset.cs] = i.value.trim());
+      box.querySelectorAll("[data-cs]").forEach(i => settings[i.dataset.cs] = i.type === "checkbox" ? String(i.checked) : i.value.trim());
       box.querySelectorAll("[data-ck]").forEach(i => secrets[i.dataset.ck] = i.value.trim());
       const r = await call("connect", {provider, settings, secrets});
       conns = null; editing.delete("conn"); renderPane(true);

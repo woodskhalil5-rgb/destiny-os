@@ -114,7 +114,7 @@ async function addMember(bid: string, rawEmail: string, newRole: string, inviter
 
 // Integrations a business can connect itself. Secrets go to the vault as "<slug>:<NAME>" and are never sent back.
 const PROVIDERS: Record<string, { label: string; settings: string[]; secrets: string[] }> = {
-  gmail: { label: "Gmail", settings: ["user", "from_name"], secrets: ["GMAIL_APP_PASSWORD"] },
+  gmail: { label: "Gmail", settings: ["user", "from_name", "check_inbox"], secrets: ["GMAIL_APP_PASSWORD"] },
   resend: { label: "Resend (email from your own domain)", settings: ["from", "reply_to"], secrets: ["RESEND_API_KEY"] },
   facebook: { label: "Facebook Page", settings: ["page_id"], secrets: ["FACEBOOK_PAGE_TOKEN"] },
 };
@@ -371,9 +371,11 @@ Deno.serve(async (req) => {
     const settings: Record<string, string> = {};
     for (const f of p.settings) settings[f] = clip(body.settings?.[f], 300).trim();
     if (body.provider === "gmail" && !/^[^@\s]+@[^@\s]+$/.test(settings.user)) return json({ error: "Enter the Gmail address." }, 400);
+    if (body.provider === "gmail") settings.check_inbox = settings.check_inbox === "true" ? "true" : "false";
     if (body.provider === "resend" && !/@/.test(settings.from)) return json({ error: "Enter the From address, like Your Company <hello@yourdomain.com>." }, 400);
     if (body.provider === "facebook" && !/^\d{5,}$/.test(settings.page_id)) return json({ error: "Enter the Page ID (numbers only)." }, 400);
     const [existing] = await sql`select settings from os.integrations where business_id = ${bid} and provider = ${String(body.provider)}`;
+    if (settings.check_inbox === "true" && existing?.settings?.check_inbox !== "true") (settings as any).mail_since = new Date().toISOString();
     for (const sname of p.secrets) {
       const v = clip(body.secrets?.[sname], 2000).trim();
       if (v) await putSecret(`${b.slug}:${sname}`, v, `Destiny OS ${body.provider} for ${b.name}`);
@@ -381,7 +383,7 @@ Deno.serve(async (req) => {
     }
     await sql`insert into os.integrations (business_id, provider, status, secret_names, settings, updated_at)
       values (${bid}, ${String(body.provider)}, 'testing', ${p.secrets}, ${sql.json(settings)}, now())
-      on conflict (business_id, provider) do update set settings = excluded.settings, secret_names = excluded.secret_names, status = 'testing', updated_at = now()`;
+      on conflict (business_id, provider) do update set settings = os.integrations.settings || excluded.settings, secret_names = excluded.secret_names, status = 'testing', updated_at = now()`;
     const t = await testIntegration(b, String(body.provider), user.email);
     await sql`update os.integrations set status = ${t.ok ? "connected" : "error"}, settings = settings || ${sql.json(t.settings ?? {})}, updated_at = now() where business_id = ${bid} and provider = ${String(body.provider)}`;
     await audit(bid, "user", user.email, `connect:${body.provider}`, null, { ok: t.ok });
