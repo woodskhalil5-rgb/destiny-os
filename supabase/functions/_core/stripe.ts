@@ -40,10 +40,17 @@ export async function ensureCustomer(bid: string, email: string) {
   return c.id as string;
 }
 
-/** Checks a webhook's Stripe-Signature header against STRIPE_WEBHOOK_SECRET (5-minute tolerance). */
+/** Checks a webhook's Stripe-Signature header (5-minute tolerance). */
 export async function verifyWebhook(raw: string, header: string | null) {
-  const secret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
-  if (!secret || !header) return false;
+  // The endpoint's signing secret: set by os-billing's setup_webhook (vault), or by hand as an Edge Function secret.
+  const rows = await sql`select decrypted_secret as s from vault.decrypted_secrets where name in ('OS_STRIPE_WEBHOOK_SECRET_test', 'OS_STRIPE_WEBHOOK_SECRET_live')`;
+  const secrets = [Deno.env.get("STRIPE_WEBHOOK_SECRET"), ...rows.map((r: any) => r.s as string)].filter(Boolean) as string[];
+  for (const secret of secrets) if (await checkSig(raw, header, secret)) return true;
+  return false;
+}
+
+async function checkSig(raw: string, header: string | null, secret: string) {
+  if (!header) return false;
   const parts = Object.fromEntries(header.split(",").map((p) => p.split("=", 2) as [string, string]).filter((p) => p[0] === "t"));
   const sigs = header.split(",").filter((p) => p.startsWith("v1=")).map((p) => p.slice(3));
   const t = Number(parts.t);
@@ -52,4 +59,12 @@ export async function verifyWebhook(raw: string, header: string | null) {
   const mac = new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(`${t}.${raw}`)));
   const hex = Array.from(mac).map((x) => x.toString(16).padStart(2, "0")).join("");
   return sigs.some((s) => s.length === hex.length && [...s].reduce((d, c, i) => d | (c.charCodeAt(0) ^ hex.charCodeAt(i)), 0) === 0);
+}
+
+/** Which Stripe account and mode the configured key belongs to. Never returns the key. */
+export async function stripeAccount() {
+  const key = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
+  const a = await stripe("GET", "account");
+  return { id: a.id as string, name: (a.settings?.dashboard?.display_name ?? a.business_profile?.name ?? "") as string,
+    mode: key.startsWith("sk_live") || key.startsWith("rk_live") ? "live" : "test" };
 }

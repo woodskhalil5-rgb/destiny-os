@@ -2,8 +2,12 @@
 // Each business with a Stripe customer is invoiced for last month: platform fee + AI team usage + other charges,
 // exactly the lines on its Costs tab. A failed payment puts the team on hold until it's paid.
 import { audit, post, secret, sql } from "../_core/core.ts";
-import { stripe, verifyWebhook } from "../_core/stripe.ts";
+import { stripe, stripeAccount, verifyWebhook } from "../_core/stripe.ts";
 
+// JHP's contractor billing lives on the Destiny Marketing Group account; Destiny OS never configures it.
+const FORBIDDEN_ACCOUNTS = ["acct_1UWNu2ISquyuV0hE"];
+const EVENTS = ["checkout.session.completed", "invoice.paid", "invoice.payment_failed", "invoice.overdue", "invoice.finalized",
+  "invoice.updated", "invoice.voided", "invoice.marked_uncollectible"];
 const cents = (usd: number) => Math.round(Number(usd) * 100);
 
 async function billBusiness(b: any, month: string) {
@@ -103,6 +107,27 @@ Deno.serve(async (req) => {
   const key = await secret("OS_INVOKE_KEY");
   if (!key || (req.headers.get("authorization") ?? "") !== `Bearer ${key}`) return new Response("forbidden", { status: 403 });
   const body = JSON.parse(raw || "{}");
+  const out = (j: unknown, status = 200) => new Response(JSON.stringify(j), { status, headers: { "content-type": "application/json" } });
+  if (body.action === "stripe_status") {
+    try { return out(await stripeAccount()); } catch (e) { return out({ error: (e as Error).message }, 502); }
+  }
+  if (body.action === "setup_webhook") {
+    // Creates this platform's webhook endpoint on the connected Stripe account and keeps its signing secret in the vault.
+    // Refuses the JHP / Destiny Marketing Group account so the two billing systems never share events.
+    const acct = await stripeAccount();
+    if (FORBIDDEN_ACCOUNTS.includes(acct.id) || /destiny marketing group/i.test(acct.name)) return out({ error: `refusing: key belongs to ${acct.name} (${acct.id})` }, 409);
+    const name = `OS_STRIPE_WEBHOOK_SECRET_${acct.mode}`;
+    const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/os-billing`;
+    const existing = (await stripe("GET", "webhook_endpoints", { limit: 100 })).data?.find((w: any) => w.url === url);
+    const [have] = await sql`select id from vault.secrets where name = ${name}`;
+    if (existing && have) return out({ ok: true, account: acct, endpoint: existing.id, note: "already set up" });
+    if (existing) await stripe("POST", `webhook_endpoints/${existing.id}`, { disabled: true }); // secret unknown; replace it
+    const we = await stripe("POST", "webhook_endpoints", { url, description: "Destiny OS billing", enabled_events: EVENTS }, `we-${acct.id}-${acct.mode}-${Date.now()}`);
+    if (have) await sql`select vault.update_secret(${have.id}, ${we.secret})`;
+    else await sql`select vault.create_secret(${we.secret}, ${name}, 'Stripe webhook signing secret for Destiny OS billing')`;
+    await audit(null, "system", "billing", "setup_webhook", we.id, { account: acct.id, mode: acct.mode });
+    return out({ ok: true, account: acct, endpoint: we.id, events: we.enabled_events });
+  }
   if (body.action !== "run_month") return new Response("unknown action", { status: 400 });
   const results = await runMonth(body.month);
   return new Response(JSON.stringify(results), { headers: { "content-type": "application/json" } });
