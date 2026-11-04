@@ -12,9 +12,16 @@ function form(obj: Record<string, unknown>, prefix = "", out = new URLSearchPara
   return out;
 }
 
+/** The platform's Stripe key: the secret named "OS KEY" (the owner's live key) if set, else STRIPE_SECRET_KEY. */
+export function stripeKey() {
+  const env = Deno.env.toObject() as Record<string, string>;
+  const os = Object.entries(env).find(([k]) => k.trim().toUpperCase().replace(/[\s-]+/g, "_") === "OS_KEY")?.[1]?.trim();
+  return os || env.STRIPE_SECRET_KEY?.trim() || null;
+}
+
 export async function stripe(method: "GET" | "POST", path: string, params: Record<string, unknown> = {}, idempotencyKey?: string) {
-  const key = Deno.env.get("STRIPE_SECRET_KEY");
-  if (!key) throw new Error("Stripe isn't connected yet: add STRIPE_SECRET_KEY to the Edge Function secrets.");
+  const key = stripeKey();
+  if (!key) throw new Error("Stripe isn't connected yet: add the key as OS KEY (or STRIPE_SECRET_KEY) in the Edge Function secrets.");
   const body = form(params).toString();
   const r = await fetch(`https://api.stripe.com/v1/${path}${method === "GET" && body ? "?" + body : ""}`, {
     method,
@@ -63,10 +70,13 @@ async function checkSig(raw: string, header: string | null, secret: string) {
 
 /** Which Stripe account and mode the configured key belongs to. Never returns the key. */
 export async function stripeAccount() {
-  const key = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
+  const key = stripeKey() ?? "";
   const a = await stripe("GET", "account");
   const bal = await stripe("GET", "balance"); // Stripe says itself whether this key is live
   return { id: a.id as string, name: (a.settings?.dashboard?.display_name ?? a.business_profile?.name ?? "") as string,
     mode: bal.livemode ? "live" : "test", key_type: key.slice(0, key.indexOf("_", 3) + 1) || "?",
-    charges_enabled: !!a.charges_enabled };
+    charges_enabled: !!a.charges_enabled,
+    // Names (never values) of every Edge Function secret that holds a Stripe key, with its key type.
+    stripe_secrets: Object.entries(Deno.env.toObject() as Record<string, string>).filter(([, v]) => /^(sk|rk)_(live|test)_/.test(v))
+      .map(([k, v]) => `${k}: ${v.slice(0, v.indexOf("_", 3) + 1)}`) };
 }
