@@ -153,6 +153,59 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   }
 
+  // ---- People: owners and admins add or remove people in their own business ----
+  if (action === "members") {
+    if (!need("admin")) return json({ error: "Only admins can see the people list." }, 403);
+    const rows = await sql`select u.id, u.email, m.role, m.created_at from os.business_members m join auth.users u on u.id = m.user_id where m.business_id = ${bid} order by m.created_at`;
+    return json({ members: rows });
+  }
+  if (action === "invite") {
+    if (!need("admin")) return json({ error: "Only admins can add people." }, 403);
+    const email = String(body.email ?? "").trim().toLowerCase();
+    const newRole = String(body.role ?? "viewer");
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "That email doesn't look right." }, 400);
+    if (!RANK[newRole]) return json({ error: "Pick a role." }, 400);
+    if (RANK[newRole] > RANK[r]) return json({ error: "You can't give someone a higher role than your own." }, 403);
+    let [u] = await sql`select id from auth.users where lower(email) = ${email}`;
+    if (!u) {
+      const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/admin/users`, {
+        method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`, apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+        body: JSON.stringify({ email, email_confirm: true }),
+      });
+      const j = await res.json();
+      if (!res.ok) return json({ error: `Couldn't add them: ${j.msg ?? res.status}` }, 500);
+      u = { id: j.id };
+    }
+    await sql`insert into os.business_members (business_id, user_id, role) values (${bid}, ${u.id}, ${newRole})
+      on conflict (business_id, user_id) do update set role = excluded.role`;
+    await audit(bid, "user", user.email, "invite", email, { role: newRole });
+    // Let them know where to sign in.
+    try {
+      const [mu] = await sql`select decrypted_secret as u from vault.decrypted_secrets where name = 'OS_MAIL_USER'`;
+      const [biz] = await sql`select name from os.businesses where id = ${bid}`;
+      const [app] = await sql`select decrypted_secret as u from vault.decrypted_secrets where name = 'OS_APP_URL'`;
+      const pass = Deno.env.get("GMAIL_APP_PASSWORD");
+      if (mu && pass) {
+        const nodemailer = (await import("npm:nodemailer@6")).default;
+        const t = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: mu.u, pass: pass.replace(/\s+/g, "") } });
+        await t.sendMail({ from: `"Destiny OS" <${mu.u}>`, to: email, subject: `You've been added to ${biz.name} on Destiny OS`,
+          text: `You now have ${newRole} access to ${biz.name}'s team on Destiny OS.\n\nSign in with this email address at ${app?.u ?? "the Destiny OS dashboard"}. We'll email you a 6-digit code each time; no password needed.` });
+      }
+    } catch { /* the membership stands even if the email fails */ }
+    return json({ ok: true });
+  }
+  if (action === "remove_member") {
+    if (!need("admin")) return json({ error: "Only admins can remove people." }, 403);
+    if (body.user_id === user.id) return json({ error: "You can't remove yourself." }, 400);
+    const [m] = await sql`select role from os.business_members where business_id = ${bid} and user_id = ${body.user_id}`;
+    if (!m) return json({ error: "Not found." }, 404);
+    if (RANK[m.role] > RANK[r]) return json({ error: "You can't remove someone above your role." }, 403);
+    await sql`delete from os.business_members where business_id = ${bid} and user_id = ${body.user_id}`;
+    await sql`delete from os.sessions where user_id = ${body.user_id} and not exists (select 1 from os.business_members where user_id = ${body.user_id})`;
+    await audit(bid, "user", user.email, "remove_member", String(body.user_id));
+    return json({ ok: true });
+  }
+
   // ---- Pricing (platform owner only): markup on AI usage, platform fee, budget, other charges ----
   if (action === "set_pricing") {
     if (!isAdmin) return json({ error: "Only the platform owner can change pricing." }, 403);

@@ -124,6 +124,7 @@ td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-num
       <button role="tab" data-t="records">Records</button>
       <button role="tab" data-t="tasks">Tasks</button>
       <button role="tab" data-t="usage">Costs</button>
+      <button role="tab" data-t="people">People</button>
       <button role="tab" data-t="activity">Activity</button>
     </div>
     <div class="pane" id="pane"></div>
@@ -135,7 +136,7 @@ const API = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-api";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let token = ""; try { token = localStorage.getItem("osToken") || ""; } catch {}
-let biz = null, lastId = 0, data = null, tab = "approvals", editing = new Set(), timer;
+let biz = null, lastId = 0, data = null, tab = "approvals", editing = new Set(), timer, people = null;
 
 async function call(action, extra = {}) {
   const r = await fetch(API, {method:"POST", headers:{"content-type":"application/json","x-os-token":token}, body:JSON.stringify({action, business_id: biz, ...extra})});
@@ -231,6 +232,14 @@ const PANES = {
     }
     return h;
   },
+  people(){
+    if (!["owner","admin"].includes(data.role)) return `<p class="empty">Only owners and admins can manage people.</p>`;
+    if (!people) { call("members").then(r => { people = r.members; renderPane(); }).catch(e => { $("pane").innerHTML = `<p class="err">${esc(e.message)}</p>`; }); return `<p class="empty">Loading…</p>`; }
+    const roles = ["viewer","operator","admin","owner"].filter(x => ({viewer:1,operator:2,admin:3,owner:4})[x] <= ({viewer:1,operator:2,admin:3,owner:4})[data.role]);
+    return (people.length ? people.map(p => `<div class="item" style="cursor:default"><span class="num">${esc(p.role)}</span><span class="name">${esc(p.email)}</span><button class="danger" data-mact="remove" data-uid="${p.id}">Remove</button></div>`).join("") : `<p class="empty">Nobody else has access yet.</p>`) +
+      `<div class="card" id="invite"><b>Add a person</b><div class="meta">Viewer: can watch. Operator: can post and approve. Admin: can also pause the team and add people. They sign in with a code sent to their email.</div>
+        <input data-i="email" type="email" placeholder="their@email.com"><div class="row"><select data-i="role">${roles.map(x => `<option>${x}</option>`).join("")}</select><button class="primary" data-mact="invite">Add</button></div></div>`;
+  },
   activity(){
     return (data.activity || []).map(a => `<div class="item" style="cursor:default"><span class="num">${new Date(a.at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})}</span><span class="name">${esc(teamBy()[a.actor]?.name || a.actor)} · ${esc(a.action)}${a.target ? " · " + esc(a.target) : ""}</span><span></span></div>`).join("") || `<p class="empty">No activity yet.</p>`;
   },
@@ -242,7 +251,17 @@ function renderPane(){
   $("nAp").textContent = data.approvals.filter(a => a.status === "pending" || a.status === "failed").length;
   $("nCt").textContent = data.content.filter(c => c.status === "pending").length;
 }
-$("tabs").addEventListener("click", e => { const t = e.target.closest("button")?.dataset.t; if (!t) return; tab = t; editing.clear(); [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); renderPane(); });
+$("tabs").addEventListener("click", e => { const t = e.target.closest("button")?.dataset.t; if (!t) return; tab = t; if (t === "people") people = null; editing.clear(); [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); renderPane(); });
+$("pane").addEventListener("click", async e => {
+  const act = e.target.dataset?.mact; if (!act) return;
+  e.target.disabled = true;
+  try {
+    if (act === "invite") { const box = $("invite"); await call("invite", {email: box.querySelector('[data-i="email"]').value.trim(), role: box.querySelector('[data-i="role"]').value}); }
+    if (act === "remove") await call("remove_member", {user_id: e.target.dataset.uid});
+    editing.delete("invite"); people = null; renderPane();
+  } catch(err) { e.target.disabled = false; e.target.closest(".card,.item").insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+});
+$("pane").addEventListener("input", e => { if (e.target.closest("#invite")) editing.add("invite"); });
 $("pane").addEventListener("input", e => { const c = e.target.closest("[data-ap],[data-ct]"); if (c) editing.add(c.dataset.ap || "c" + c.dataset.ct); if (e.target.closest("#pricing")) editing.add("pricing"); });
 $("pane").addEventListener("click", async e => {
   const act = e.target.dataset?.pact; if (!act) return;
@@ -304,7 +323,7 @@ async function start(){
   $("gate").hidden = true; $("app").hidden = false;
   lastId = 0; tick(); clearInterval(timer); timer = setInterval(tick, 3000);
 }
-$("bizSel").addEventListener("change", () => { biz = $("bizSel").value; try { localStorage.setItem("osBiz", biz); } catch {} lastId = 0; data = null; editing.clear(); $("feed").innerHTML = ""; tick(); });
+$("bizSel").addEventListener("change", () => { people = null; biz = $("bizSel").value; try { localStorage.setItem("osBiz", biz); } catch {} lastId = 0; data = null; editing.clear(); $("feed").innerHTML = ""; tick(); });
 $("pauseBtn").addEventListener("click", async () => { await call("pause", {paused: data.business.status !== "paused"}); tick(); });
 $("outBtn").addEventListener("click", () => showGate(""));
 $("compose").addEventListener("submit", async e => {
