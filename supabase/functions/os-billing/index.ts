@@ -51,7 +51,11 @@ async function runMonth(monthOverride?: string) {
   const results: Record<string, string> = {};
   for (const b of list) {
     try { results[b.slug] = await billBusiness(b, m); }
-    catch (e) { results[b.slug] = `failed: ${(e as Error).message}`; await audit(b.id, "system", "billing", "invoice_error", m, { error: (e as Error).message }); }
+    catch (e) {
+      results[b.slug] = `failed: ${(e as Error).message}`;
+      await audit(b.id, "system", "billing", "invoice_error", m, { error: (e as Error).message });
+      await sql`select os.alert(${b.id}, 'platform', 'invoice_error', ${b.name + ": monthly invoice failed"}, ${`The ${m} invoice for ${b.name} couldn't be created: ${(e as Error).message}`}, ${"inv:" + b.id + ":" + m})`;
+    }
   }
   await audit(null, "system", "billing", "run_month", m, results);
   return results;

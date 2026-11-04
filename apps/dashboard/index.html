@@ -81,6 +81,21 @@ td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-num
 .gate form{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;width:min(360px,100%);box-sizing:border-box;display:flex;flex-direction:column;gap:10px}
 .gate input{font:16px var(--f-body);padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
 .err{color:var(--bad);font-size:13px;min-height:1em}
+.ok{color:var(--good);font-size:13px}
+.legal{font-size:12px;color:var(--muted);text-align:center}
+.legal a{color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.field small{font-size:11px}
+.days{display:flex;gap:6px;flex-wrap:wrap}
+.days label{display:flex;gap:4px;align-items:center;font-size:13px;color:var(--ink)}
+.days input{width:auto}
+details.agent{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+details.agent summary{cursor:pointer;font-weight:600;font-size:14px;display:flex;gap:8px;align-items:center}
+details.agent summary input{width:auto}
+.pill.good{color:var(--good);border-color:var(--good)}
+.pill.bad{color:var(--bad);border-color:var(--bad)}
+.howto{font-size:12px;color:var(--muted);line-height:1.5}
+.howto ol{margin:4px 0 0;padding-left:18px}
 @media (max-width:900px){
   .app{grid-template-columns:1fr;grid-template-rows:auto 70vh auto;height:auto;min-height:100%}
   .room{border-right:0}
@@ -99,6 +114,7 @@ td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-num
     <div class="err" id="gateErr"></div>
     <button class="primary" type="submit" id="gateBtn">Email me a code</button>
     <button type="button" id="backBtn" hidden>Use a different email or resend</button>
+    <p class="legal">By signing in you agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</p>
   </form>
 </div>
 
@@ -108,7 +124,7 @@ td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-num
     <select id="bizSel" aria-label="Business"></select>
     <div class="team" id="team"></div>
     <div class="status"><span class="dot" id="liveDot"></span><span id="liveText">Live</span>
-      <button id="pauseBtn" type="button">Pause team</button><button id="outBtn" type="button">Sign out</button></div>
+      <button id="newBizBtn" type="button" hidden>+ New business</button><button id="pauseBtn" type="button">Pause team</button><button id="outBtn" type="button">Sign out</button></div>
   </header>
   <section class="room">
     <div class="feed" id="feed" aria-live="polite"></div>
@@ -125,6 +141,8 @@ td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-num
       <button role="tab" data-t="tasks">Tasks</button>
       <button role="tab" data-t="usage">Costs</button>
       <button role="tab" data-t="people">People</button>
+      <button role="tab" data-t="connections">Connections</button>
+      <button role="tab" data-t="settings">Settings</button>
       <button role="tab" data-t="activity">Activity</button>
     </div>
     <div class="pane" id="pane"></div>
@@ -136,7 +154,8 @@ const API = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-api";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let token = ""; try { token = localStorage.getItem("osToken") || ""; } catch {}
-let biz = null, lastId = 0, data = null, tab = "approvals", editing = new Set(), timer, people = null;
+let biz = null, lastId = 0, data = null, tab = "approvals", editing = new Set(), timer, people = null, settingsData = null, conns = null, isAdmin = false, paneFor = "";
+const STATIC = new Set(["people", "connections", "settings", "new"]);
 
 async function call(action, extra = {}) {
   const r = await fetch(API, {method:"POST", headers:{"content-type":"application/json","x-os-token":token}, body:JSON.stringify({action, business_id: biz, ...extra})});
@@ -168,7 +187,7 @@ function renderTeam(){
 function billing(){
   const st = data.business.billing_status, canManage = ["owner","admin"].includes(data.role);
   const text = {active:"Card on file. Invoices are charged automatically on the 1st.", card_needed:"No card on file yet. Invoices are emailed with a payment link until one is added.", past_due:"A payment didn't go through. The team is on hold until it's paid.", none:"Billing isn't set up for this business."}[st] || "";
-  return `<div class="card"${st === "past_due" ? ' style="border-color:var(--bad)"' : ""}><b>Billing</b><div class="meta"${st === "past_due" ? ' style="color:var(--bad)"' : ""}>${esc(text)} Billed on the 1st for the month before: platform fee, AI team usage and any other charges below.</div>
+  return `<div class="card"${st === "past_due" ? ' style="border-color:var(--bad)"' : ""}><b>Billing</b><div class="meta"${st === "past_due" ? ' style="color:var(--bad)"' : ""}>${esc(text)} Billed on the 1st for the month before: platform fee, AI team usage and any other charges below. Adding a card means you agree to the <a href="/terms" target="_blank">Terms</a>.</div>
     ${canManage ? `<div class="row"><button class="${st === "active" ? "" : "primary"}" data-bact="card">${st === "active" ? "Update card" : "Add a card"}</button></div>` : ""}</div>`;
 }
 const PANES = {
@@ -191,11 +210,13 @@ const PANES = {
   },
   content(){
     const p = data.content.filter(c => c.status === "pending");
-    const rest = data.content.filter(c => c.status !== "pending").slice(0, 12);
+    const rest = data.content.filter(c => !["pending","needs_manual","failed"].includes(c.status)).slice(0, 12);
     return (p.length ? p.map(c => `<div class="card" data-ct="${c.id}"><div class="meta">#${c.id} · ${esc(c.kind)}${c.channel ? " · " + esc(c.channel) : ""}${c.audience ? " · for " + esc(c.audience) : ""}</div>${c.title ? `<b>${esc(c.title)}</b>` : ""}
       <textarea data-f="body">${esc(c.body)}</textarea><input data-f="note" placeholder="Optional note for Grayson">
       <div class="row"><button class="primary" data-act="approve">Approve</button><button class="danger" data-act="reject">Reject</button></div></div>`).join("")
-      : `<p class="empty">No content waiting. Grayson's posts, ads and scripts land here for your OK.</p>`)
+      : `<p class="empty">Nothing waiting for approval. Grayson's posts, ads and scripts land here for your OK.</p>`)
+      + data.content.filter(c => c.status === "needs_manual" || c.status === "failed").map(c => `<div class="card" data-cm="${c.id}" style="border-color:var(--warn)"><div class="meta">#${c.id} · ${esc(c.channel || "Facebook")} · <span style="color:var(--warn)">${c.status === "failed" ? "didn't publish" : "post this by hand"}</span>${c.note ? " · " + esc(c.note) : ""}</div>${c.title ? `<b>${esc(c.title)}</b>` : ""}<div style="white-space:pre-wrap;font-size:14px">${esc(c.body)}</div>
+        <div class="row"><button data-cact="copy">Copy text</button><button class="primary" data-cact="done">Mark posted</button></div></div>`).join("")
       + rest.map(c => `<details><summary class="item"><span class="num">#${c.id}</span><span class="name">${esc(c.title || c.kind)}</span><span class="pill ${c.status === "rejected" ? "" : "hot"}">${c.scheduled_for ? new Date(c.scheduled_for).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}) : esc(c.status)}</span></summary><div class="meta" style="white-space:pre-wrap;padding:6px 0 10px">${esc(c.body)}</div></details>`).join("");
   },
   records(){
@@ -242,31 +263,95 @@ const PANES = {
   },
   people(){
     if (!["owner","admin"].includes(data.role)) return `<p class="empty">Only owners and admins can manage people.</p>`;
-    if (!people) { call("members").then(r => { people = r.members; renderPane(); }).catch(e => { $("pane").innerHTML = `<p class="err">${esc(e.message)}</p>`; }); return `<p class="empty">Loading…</p>`; }
+    if (!people) { call("members").then(r => { people = r.members; renderPane(true); }).catch(e => { $("pane").innerHTML = `<p class="err">${esc(e.message)}</p>`; }); return `<p class="empty">Loading…</p>`; }
     const roles = ["viewer","operator","admin","owner"].filter(x => ({viewer:1,operator:2,admin:3,owner:4})[x] <= ({viewer:1,operator:2,admin:3,owner:4})[data.role]);
     return (people.length ? people.map(p => `<div class="item" style="cursor:default"><span class="num">${esc(p.role)}</span><span class="name">${esc(p.email)}</span><button class="danger" data-mact="remove" data-uid="${p.id}">Remove</button></div>`).join("") : `<p class="empty">Nobody else has access yet.</p>`) +
       `<div class="card" id="invite"><b>Add a person</b><div class="meta">Viewer: can watch. Operator: can post and approve. Admin: can also pause the team and add people. They sign in with a code sent to their email.</div>
         <input data-i="email" type="email" placeholder="their@email.com"><div class="row"><select data-i="role">${roles.map(x => `<option>${x}</option>`).join("")}</select><button class="primary" data-mact="invite">Add</button></div></div>`;
+  },
+  connections(){
+    if (!conns) { call("integrations").then(r => { conns = r; renderPane(true); }).catch(e => { $("pane").innerHTML = `<p class="err">${esc(e.message)}</p>`; }); return `<p class="empty">Loading…</p>`; }
+    const HOW = {
+      gmail: `<ol><li>Turn on 2-Step Verification for the Gmail account.</li><li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a>, make an app password named "Destiny OS".</li><li>Paste the 16-letter password here.</li></ol>`,
+      resend: `<ol><li>Sign up at <a href="https://resend.com" target="_blank">resend.com</a> and add your domain (they show the DNS records to add).</li><li>Create an API key with "Sending access".</li><li>From = your name and address on that domain, like <i>Acme Roofing &lt;hello@acmeroofing.com&gt;</i>.</li></ol>`,
+      facebook: `<ol><li>In <a href="https://business.facebook.com/settings/system-users" target="_blank">Meta Business Settings → System users</a>, add a system user (Admin) and give it your Page.</li><li>Click "Generate new token", pick your app, and tick <i>pages_manage_posts</i>, <i>pages_read_engagement</i>, <i>pages_show_list</i>.</li><li>Your Page ID is on the Page under About → Page transparency.</li></ol>`,
+    };
+    const LBL = {user:"Gmail address", from_name:"Name people see", from:"From, e.g. Acme &lt;hi@acme.com&gt;", reply_to:"Replies go to (optional)", page_id:"Facebook Page ID", GMAIL_APP_PASSWORD:"App password", RESEND_API_KEY:"Resend API key", FACEBOOK_PAGE_TOKEN:"Page access token"};
+    const pill = (st) => st === "connected" ? `<span class="pill good">connected</span>` : st === "error" ? `<span class="pill bad">not working</span>` : `<span class="pill">not connected</span>`;
+    return `<p class="meta">Connect the accounts your team works through. Passwords and keys are stored encrypted and never shown again. Emails go out through Resend if it's connected, otherwise Gmail.</p>` +
+      conns.integrations.map(i => i.readonly ? `<div class="card"><div class="row" style="justify-content:space-between"><b>${esc(i.label)}</b>${pill(i.status)}</div></div>` :
+      `<div class="card" data-conn="${i.provider}"><div class="row" style="justify-content:space-between;align-items:center"><b>${esc(i.label)}</b>${pill(i.status)}</div>
+        ${i.settings.page_name ? `<div class="meta">Page: ${esc(i.settings.page_name)}</div>` : ""}
+        ${conns.can_edit ? `<details${i.status === "connected" ? "" : " open"}><summary class="meta" style="cursor:pointer">${i.status === "connected" ? "Change" : "Set up"}</summary>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+          ${i.fields.map(f => `<label class="field">${LBL[f] || f}<input data-cs="${f}" value="${esc(i.settings[f] || "")}"></label>`).join("")}
+          ${i.secrets.map(f => `<label class="field">${LBL[f] || f}<input data-ck="${f}" type="password" autocomplete="off" placeholder="${i.status === "not_connected" ? "" : "saved; paste a new one to replace"}"></label>`).join("")}
+          <div class="howto">${HOW[i.provider] || ""}</div>
+          <div class="row"><button class="primary" data-xact="connect">Save and test</button>${i.status !== "not_connected" ? `<button class="danger" data-xact="disconnect">Disconnect</button>` : ""}</div>
+          </div></details>` : ""}</div>`).join("");
+  },
+  settings(){
+    if (!settingsData) { call("settings_get").then(r => { settingsData = r; renderPane(true); }).catch(e => { $("pane").innerHTML = `<p class="err">${esc(e.message)}</p>`; }); return `<p class="empty">Loading…</p>`; }
+    const d = settingsData, c = d.config || {}, b = d.business, ro = d.can_edit ? "" : " disabled";
+    const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    return `<div class="card" id="settingsForm">
+      ${data.business.status !== "live" ? `<div class="meta"><b>Getting started:</b> write the mission and facts below, connect email under Connections${data.admin ? "" : ", add a card on the Costs tab"}, then click <b>Start team</b> at the top.</div>` : ""}
+      <label class="field">Business name<input data-s="name" value="${esc(b.name)}"${ro}></label>
+      <label class="field">What the business does and what the team should achieve<textarea data-s="mission"${ro}>${esc(c.mission || "")}</textarea><small>The team reads this before every piece of work.</small></label>
+      <label class="field">Facts (prices, offers, service area, links) — the team uses these exactly and never adds to them<textarea data-s="facts"${ro}>${esc(c.facts || "")}</textarea></label>
+      <label class="field">Rules the team must follow<textarea data-s="rules"${ro}>${esc(c.rules || "")}</textarea></label>
+      <div class="row"><label class="field" style="flex:1">Owner's name<input data-s="owner_name" value="${esc(c.owner?.name || "")}"${ro}></label>
+        <label class="field" style="flex:1">Owner's email (reports go here)<input data-s="owner_email" value="${esc(c.owner?.email || "")}"${ro}></label></div>
+      <div class="row"><label class="field" style="flex:2">Time zone<input data-s="timezone" value="${esc(b.timezone)}"${ro}></label>
+        <label class="field" style="flex:1">Starts (0–23)<input data-s="shift_start" type="number" min="0" max="23" value="${b.shift_start}"${ro}></label>
+        <label class="field" style="flex:1">Ends (1–24)<input data-s="shift_end" type="number" min="1" max="24" value="${b.shift_end}"${ro}></label></div>
+      <div class="field">Work days<div class="days">${DAYS.map((n, i) => `<label><input type="checkbox" data-day="${i + 1}"${(b.shift_days || []).includes(i + 1) ? " checked" : ""}${ro}> ${n}</label>`).join("")}</div></div>
+      <div class="meta" style="margin-top:6px"><b>The team</b> · switch someone off or give them instructions for this business</div>
+      ${d.agents.map(a => `<details class="agent" data-agent="${a.slot}"><summary><input type="checkbox" data-a="enabled"${a.enabled ? " checked" : ""}${ro}> <span style="color:var(--c-${a.slot})">${esc(a.name)}</span> <span class="meta">${esc(a.role)}</span></summary>
+        <label class="field" style="margin-top:8px">Instructions for ${esc(a.name)} at this business<textarea data-a="role_instructions"${ro}>${esc(a.role_instructions || "")}</textarea></label></details>`).join("")}
+      ${d.advanced ? `<details><summary class="meta" style="cursor:pointer">Advanced (platform owner): full settings JSON</summary><textarea data-s="raw_config" style="min-height:200px;font-family:var(--f-mono);font-size:12px">${esc(JSON.stringify(c, null, 2))}</textarea><small class="meta">Edit only if you know what you're changing. Mission, facts, rules and owner above still apply on top.</small></details>` : ""}
+      ${d.can_edit ? `<div class="row"><button class="primary" data-sact="save">Save settings</button></div>` : `<p class="meta">Only admins can change settings.</p>`}
+    </div>
+    <div class="meta">Saved versions (restore any time)</div>
+    ${d.versions.map(v => `<div class="item" style="cursor:default"><span class="num">v${v.version}</span><span class="name">${new Date(v.created_at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})} · ${esc(v.created_by || "")} · ${esc(v.note || "")}</span>${v.active ? `<span class="pill hot">current</span>` : d.can_edit ? `<button data-sact="restore" data-v="${v.version}">Restore</button>` : "<span></span>"}</div>`).join("")}`;
+  },
+  new(){
+    return `<div class="card" id="newBiz"><b>Add a business</b><div class="meta">Creates its own team of six, its own data and billing, and emails the owner a sign-in link. The team stays off until someone clicks Start team.</div>
+      <label class="field">Business name<input data-n="name"></label>
+      <div class="row"><label class="field" style="flex:1">Owner's name<input data-n="owner_name"></label><label class="field" style="flex:1">Owner's email<input data-n="owner_email" type="email"></label></div>
+      <label class="field">What they do and what the team should achieve<textarea data-n="mission" placeholder="e.g. Acme Roofing is a South Jersey roofer. Find homeowners who need roof work and book estimates."></textarea></label>
+      <label class="field">Facts (prices, offers, service area, links)<textarea data-n="facts"></textarea></label>
+      <label class="field">Rules<textarea data-n="rules"></textarea></label>
+      <div class="row"><label class="field" style="flex:2">Time zone<input data-n="timezone" value="America/New_York"></label>
+        <label class="field" style="flex:1">Platform fee $/mo<input data-n="platform_fee_usd" type="number" min="0" value="650"></label>
+        <label class="field" style="flex:1">AI markup %<input data-n="markup_pct" type="number" min="0" value="30"></label>
+        <label class="field" style="flex:1">AI budget $/mo<input data-n="monthly_budget_usd" type="number" min="0" value="200"></label></div>
+      <div class="row"><button class="primary" data-nact="create">Create business</button><button data-nact="cancel">Cancel</button></div></div>`;
   },
   activity(){
     return (data.activity || []).map(a => `<div class="item" style="cursor:default"><span class="num">${new Date(a.at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})}</span><span class="name">${esc(teamBy()[a.actor]?.name || a.actor)} · ${esc(a.action)}${a.target ? " · " + esc(a.target) : ""}</span><span></span></div>`).join("") || `<p class="empty">No activity yet.</p>`;
   },
 };
 
-function renderPane(){
-  if (!data || editing.size) return;
+function renderPane(force){
+  if (!data || (editing.size && !force)) return;
+  if (STATIC.has(tab) && paneFor === tab + biz && !force) { counts(); return; }
+  paneFor = tab + biz;
   $("pane").innerHTML = PANES[tab]();
-  $("nAp").textContent = data.approvals.filter(a => a.status === "pending" || a.status === "failed").length;
-  $("nCt").textContent = data.content.filter(c => c.status === "pending").length;
+  counts();
 }
-$("tabs").addEventListener("click", e => { const t = e.target.closest("button")?.dataset.t; if (!t) return; tab = t; if (t === "people") people = null; editing.clear(); [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); renderPane(); });
+function counts(){
+  $("nAp").textContent = data.approvals.filter(a => a.status === "pending" || a.status === "failed").length;
+  $("nCt").textContent = data.content.filter(c => ["pending","needs_manual","failed"].includes(c.status)).length;
+}
+$("tabs").addEventListener("click", e => { const t = e.target.closest("button")?.dataset.t; if (!t) return; tab = t; people = null; conns = null; settingsData = null; paneFor = ""; editing.clear(); [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); renderPane(); });
 $("pane").addEventListener("click", async e => {
   const act = e.target.dataset?.mact; if (!act) return;
   e.target.disabled = true;
   try {
     if (act === "invite") { const box = $("invite"); await call("invite", {email: box.querySelector('[data-i="email"]').value.trim(), role: box.querySelector('[data-i="role"]').value}); }
     if (act === "remove") await call("remove_member", {user_id: e.target.dataset.uid});
-    editing.delete("invite"); people = null; renderPane();
+    editing.delete("invite"); people = null; renderPane(true);
   } catch(err) { e.target.disabled = false; e.target.closest(".card,.item").insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
 });
 $("pane").addEventListener("click", async e => {
@@ -275,6 +360,59 @@ $("pane").addEventListener("click", async e => {
   try { const r = await call("billing_link"); location.href = r.url; }
   catch(err) { e.target.disabled = false; e.target.closest(".card").insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
 });
+$("pane").addEventListener("click", async e => {
+  const act = e.target.dataset?.xact; if (!act) return;
+  const box = e.target.closest("[data-conn]"), provider = box.dataset.conn;
+  e.target.disabled = true; box.querySelectorAll(".err,.ok").forEach(x => x.remove());
+  try {
+    if (act === "connect") {
+      const settings = {}, secrets = {};
+      box.querySelectorAll("[data-cs]").forEach(i => settings[i.dataset.cs] = i.value.trim());
+      box.querySelectorAll("[data-ck]").forEach(i => secrets[i.dataset.ck] = i.value.trim());
+      const r = await call("connect", {provider, settings, secrets});
+      conns = null; editing.delete("conn"); renderPane(true);
+      setTimeout(() => $("pane").querySelector(`[data-conn="${provider}"]`)?.insertAdjacentHTML("beforeend", `<p class="${r.ok ? "ok" : "err"}">${esc(r.detail)}</p>`), 900);
+    }
+    if (act === "disconnect") { await call("disconnect", {provider}); conns = null; editing.delete("conn"); renderPane(true); }
+  } catch(err) { e.target.disabled = false; box.insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+});
+$("pane").addEventListener("click", async e => {
+  const act = e.target.dataset?.sact; if (!act) return;
+  const f = $("settingsForm"); e.target.disabled = true;
+  try {
+    if (act === "save") {
+      const v = (k) => f.querySelector(`[data-s="${k}"]`)?.value ?? "";
+      const agents = [...f.querySelectorAll("[data-agent]")].map(a => ({slot: a.dataset.agent, enabled: a.querySelector('[data-a="enabled"]').checked, role_instructions: a.querySelector('[data-a="role_instructions"]').value}));
+      await call("settings_save", {name: v("name"), mission: v("mission"), facts: v("facts"), rules: v("rules"), owner_name: v("owner_name"), owner_email: v("owner_email"),
+        timezone: v("timezone"), shift_start: v("shift_start"), shift_end: v("shift_end"), shift_days: [...f.querySelectorAll("[data-day]:checked")].map(x => Number(x.dataset.day)),
+        agents, raw_config: f.querySelector('[data-s="raw_config"]') && editing.has("raw") ? v("raw_config") : undefined});
+    }
+    if (act === "restore") await call("settings_restore", {version: Number(e.target.dataset.v)});
+    editing.clear(); settingsData = null; renderPane(true); tick();
+    setTimeout(() => $("settingsForm")?.insertAdjacentHTML("afterbegin", `<p class="ok">Saved.</p>`), 900);
+  } catch(err) { e.target.disabled = false; (f || $("pane")).insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+});
+$("pane").addEventListener("click", async e => {
+  const act = e.target.dataset?.nact; if (!act) return;
+  if (act === "cancel") { editing.clear(); tab = "approvals"; selectTab(); return; }
+  const f = $("newBiz"), v = (k) => f.querySelector(`[data-n="${k}"]`).value.trim(); e.target.disabled = true;
+  try {
+    const r = await call("create_business", {name: v("name"), owner_name: v("owner_name"), owner_email: v("owner_email"), mission: v("mission"), facts: v("facts"), rules: v("rules"),
+      timezone: v("timezone"), platform_fee_usd: v("platform_fee_usd"), markup_pct: v("markup_pct"), monthly_budget_usd: v("monthly_budget_usd")});
+    editing.clear(); try { localStorage.setItem("osBiz", r.business_id); } catch {}
+    tab = "settings"; await start();
+  } catch(err) { e.target.disabled = false; f.insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+});
+$("pane").addEventListener("click", async e => {
+  const act = e.target.dataset?.cact; if (!act) return;
+  const c = e.target.closest("[data-cm]"), item = data.content.find(x => String(x.id) === c.dataset.cm);
+  if (act === "copy") { try { await navigator.clipboard.writeText([item.title, item.body].filter(Boolean).join("\n\n")); e.target.textContent = "Copied"; } catch { e.target.textContent = "Select and copy the text above"; } return; }
+  e.target.disabled = true;
+  try { await call("content_done", {id: item.id}); c.remove(); tick(); } catch(err) { e.target.disabled = false; c.insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+});
+$("pane").addEventListener("input", e => { if (e.target.closest("[data-conn]")) editing.add("conn"); if (e.target.closest("#settingsForm")) editing.add("settings"); if (e.target.dataset?.s === "raw_config") editing.add("raw"); if (e.target.closest("#newBiz")) editing.add("new"); });
+function selectTab(){ [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === tab)); paneFor = ""; renderPane(true); }
+$("newBizBtn").addEventListener("click", () => { tab = "new"; editing.clear(); selectTab(); });
 $("pane").addEventListener("input", e => { if (e.target.closest("#invite")) editing.add("invite"); });
 $("pane").addEventListener("input", e => { const c = e.target.closest("[data-ap],[data-ct]"); if (c) editing.add(c.dataset.ap || "c" + c.dataset.ct); if (e.target.closest("#pricing")) editing.add("pricing"); });
 $("pane").addEventListener("click", async e => {
@@ -320,7 +458,7 @@ async function tick(){
     if (first || (atBottom && d.messages.length)) $("feed").scrollTop = $("feed").scrollHeight;
     renderTeam(); renderPane();
     const paused = d.business.status === "paused";
-    $("pauseBtn").textContent = paused ? "Resume team" : "Pause team";
+    $("pauseBtn").textContent = d.business.status === "live" ? "Pause team" : "Start team";
     $("pauseBtn").hidden = !["owner","admin"].includes(d.role);
     $("liveDot").className = "dot" + (d.business.status === "live" ? "" : " off");
     $("liveText").textContent = {live:"Live", paused:"Paused", setup:"Setup"}[d.business.status] || d.business.status;
@@ -329,16 +467,18 @@ async function tick(){
 
 async function start(){
   const me = await call("me");
+  isAdmin = !!me.admin; $("newBizBtn").hidden = !isAdmin;
+  if (!me.businesses.length && isAdmin) { $("gate").hidden = true; $("app").hidden = false; tab = "new"; data = {team: [], working: [], approvals: [], content: [], business: {}}; selectTab(); return; }
   if (!me.businesses.length) return showGate("You're signed in, but you haven't been added to a business yet.");
   $("bizSel").innerHTML = me.businesses.map(b => `<option value="${b.id}">${esc(b.name)}${b.status !== "live" ? " (" + esc(b.status) + ")" : ""}</option>`).join("");
   let saved = ""; try { saved = localStorage.getItem("osBiz") || ""; } catch {}
   biz = me.businesses.some(b => b.id === saved) ? saved : me.businesses[0].id;
   $("bizSel").value = biz;
   $("gate").hidden = true; $("app").hidden = false;
-  lastId = 0; tick(); clearInterval(timer); timer = setInterval(tick, 3000);
+  lastId = 0; paneFor = ""; [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === tab)); tick(); clearInterval(timer); timer = setInterval(tick, 3000);
 }
-$("bizSel").addEventListener("change", () => { people = null; biz = $("bizSel").value; try { localStorage.setItem("osBiz", biz); } catch {} lastId = 0; data = null; editing.clear(); $("feed").innerHTML = ""; tick(); });
-$("pauseBtn").addEventListener("click", async () => { await call("pause", {paused: data.business.status !== "paused"}); tick(); });
+$("bizSel").addEventListener("change", () => { people = null; conns = null; settingsData = null; paneFor = ""; biz = $("bizSel").value; try { localStorage.setItem("osBiz", biz); } catch {} lastId = 0; data = null; editing.clear(); $("feed").innerHTML = ""; tick(); });
+$("pauseBtn").addEventListener("click", async () => { try { await call("pause", {paused: data.business.status === "live"}); } catch(err) { alert(err.message); } tick(); });
 $("outBtn").addEventListener("click", () => showGate(""));
 $("compose").addEventListener("submit", async e => {
   e.preventDefault(); const t = $("draft").value.trim(); if (!t) return;

@@ -3,6 +3,8 @@
 import { audit, post, sql } from "../_core/core.ts";
 import { execute } from "../_core/tools.ts";
 import { ensureCustomer, stripe } from "../_core/stripe.ts";
+import { appUrl, platformMail } from "../_core/mail.ts";
+import { sendEmail } from "../_core/integrations.ts";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, authorization, apikey, x-os-token", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, "content-type": "application/json" } });
@@ -26,12 +28,9 @@ async function login(body: any) {
       if (n >= 8) return json({ error: "Too many codes requested. Try again in an hour." }, 429);
       const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, "0");
       await sql`insert into os.login_codes (email, code_hash, expires_at) values (${email}, ${await sha256(code)}, now() + interval '15 minutes')`;
-      const [mu] = await sql`select decrypted_secret as u from vault.decrypted_secrets where name = 'OS_MAIL_USER'`;
-      const pass = Deno.env.get("GMAIL_APP_PASSWORD");
-      if (!mu || !pass) return json({ error: "Sign-in email isn't set up yet." }, 503);
-      const nodemailer = (await import("npm:nodemailer@6")).default;
-      const t = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: mu.u, pass: pass.replace(/\s+/g, "") } });
-      await t.sendMail({ from: `"Destiny OS" <${mu.u}>`, to: email, subject: `Destiny OS code: ${code}`, text: `Your Destiny OS sign-in code is ${code}\n\nIt works for 15 minutes. If you didn't ask for it, ignore this email.` });
+      try {
+        await platformMail(email, `Destiny OS code: ${code}`, `Your Destiny OS sign-in code is ${code}\n\nIt works for 15 minutes. If you didn't ask for it, ignore this email.`);
+      } catch { return json({ error: "Sign-in email isn't set up yet." }, 503); }
     }
     return json({ ok: true }); // same answer either way
   }
@@ -85,6 +84,74 @@ async function role(uid: string, bid: string) {
   const [m] = await sql`select role from os.business_members where user_id = ${uid} and business_id = ${bid}`;
   return (m?.role as string) ?? null;
 }
+
+/** Add someone to a business (creating their login if needed) and email them where to sign in. */
+async function addMember(bid: string, rawEmail: string, newRole: string, inviterRole: string, inviterEmail: string): Promise<{ error?: string; status?: number }> {
+  const email = rawEmail.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: "That email doesn't look right." };
+  if (!RANK[newRole]) return { error: "Pick a role." };
+  if (RANK[newRole] > RANK[inviterRole]) return { error: "You can't give someone a higher role than your own.", status: 403 };
+  let [u] = await sql`select id from auth.users where lower(email) = ${email}`;
+  if (!u) {
+    const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/admin/users`, {
+      method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`, apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+      body: JSON.stringify({ email, email_confirm: true }),
+    });
+    const j = await res.json();
+    if (!res.ok) return { error: `Couldn't add them: ${j.msg ?? res.status}`, status: 500 };
+    u = { id: j.id };
+  }
+  await sql`insert into os.business_members (business_id, user_id, role) values (${bid}, ${u.id}, ${newRole})
+    on conflict (business_id, user_id) do update set role = excluded.role`;
+  await audit(bid, "user", inviterEmail, "invite", email, { role: newRole });
+  try {
+    const [biz] = await sql`select name from os.businesses where id = ${bid}`;
+    await platformMail(email, `You've been added to ${biz.name} on Destiny OS`,
+      `You now have ${newRole} access to ${biz.name}'s AI team on Destiny OS.\n\nSign in with this email address at ${await appUrl()}. We'll email you a 6-digit code each time; no password needed.\n\nTerms: ${await appUrl()}/terms\nPrivacy: ${await appUrl()}/privacy`);
+  } catch { /* the membership stands even if the email fails */ }
+  return {};
+}
+
+// Integrations a business can connect itself. Secrets go to the vault as "<slug>:<NAME>" and are never sent back.
+const PROVIDERS: Record<string, { label: string; settings: string[]; secrets: string[] }> = {
+  gmail: { label: "Gmail", settings: ["user", "from_name"], secrets: ["GMAIL_APP_PASSWORD"] },
+  resend: { label: "Resend (email from your own domain)", settings: ["from", "reply_to"], secrets: ["RESEND_API_KEY"] },
+  facebook: { label: "Facebook Page", settings: ["page_id"], secrets: ["FACEBOOK_PAGE_TOKEN"] },
+};
+
+async function putSecret(name: string, value: string, note: string) {
+  const [have] = await sql`select id from vault.secrets where name = ${name}`;
+  if (have) await sql`select vault.update_secret(${have.id}, ${value})`;
+  else await sql`select vault.create_secret(${value}, ${name}, ${note})`;
+}
+
+/** Checks a connection works: sends a test email, or reads the Facebook Page's name. */
+async function testIntegration(b: any, provider: string, to: string): Promise<{ ok: boolean; detail: string; settings?: Record<string, unknown> }> {
+  try {
+    if (provider === "facebook") {
+      const [i] = await sql`select settings from os.integrations where business_id = ${b.id} and provider = 'facebook'`;
+      const [t] = await sql`select decrypted_secret as v from vault.decrypted_secrets where name = ${b.slug + ":FACEBOOK_PAGE_TOKEN"}`;
+      if (!i?.settings?.page_id || !t) return { ok: false, detail: "Page ID or token missing." };
+      const r = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(i.settings.page_id)}?fields=name&access_token=${encodeURIComponent(t.v)}`, { signal: AbortSignal.timeout(15_000) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return { ok: false, detail: `Facebook said: ${j.error?.message ?? r.status}` };
+      return { ok: true, detail: `Connected to the Page "${j.name}".`, settings: { page_name: j.name } };
+    }
+    // Email: send through exactly this provider by marking it connected for the test.
+    const saved = await sql`select provider, status from os.integrations where business_id = ${b.id} and provider in ('gmail','resend')`;
+    await sql`update os.integrations set status = case when provider = ${provider} then 'connected' else 'not_connected' end where business_id = ${b.id} and provider in ('gmail','resend')`;
+    try {
+      await sendEmail(b, { to, subject: "Destiny OS: test email", text: `This is a test from your Destiny OS team's ${PROVIDERS[provider].label} connection. If you can read this, it works.` });
+    } finally {
+      for (const s of saved) await sql`update os.integrations set status = ${s.status} where business_id = ${b.id} and provider = ${s.provider}`;
+    }
+    return { ok: true, detail: `Test email sent to ${to}.` };
+  } catch (e) { return { ok: false, detail: (e as Error).message }; }
+}
+
+const slugify = (s: string) => { const x = s.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 36).replace(/-+$/, ""); return x.length >= 2 ? x : `${x || "biz"}-co`; };
+const clip = (v: unknown, n: number) => (v == null ? "" : String(v)).slice(0, n);
+function validTz(tz: string) { try { new Intl.DateTimeFormat("en-US", { timeZone: tz }); return true; } catch { return false; } }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
@@ -167,38 +234,8 @@ Deno.serve(async (req) => {
   }
   if (action === "invite") {
     if (!need("admin")) return json({ error: "Only admins can add people." }, 403);
-    const email = String(body.email ?? "").trim().toLowerCase();
-    const newRole = String(body.role ?? "viewer");
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "That email doesn't look right." }, 400);
-    if (!RANK[newRole]) return json({ error: "Pick a role." }, 400);
-    if (RANK[newRole] > RANK[r]) return json({ error: "You can't give someone a higher role than your own." }, 403);
-    let [u] = await sql`select id from auth.users where lower(email) = ${email}`;
-    if (!u) {
-      const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/admin/users`, {
-        method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`, apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
-        body: JSON.stringify({ email, email_confirm: true }),
-      });
-      const j = await res.json();
-      if (!res.ok) return json({ error: `Couldn't add them: ${j.msg ?? res.status}` }, 500);
-      u = { id: j.id };
-    }
-    await sql`insert into os.business_members (business_id, user_id, role) values (${bid}, ${u.id}, ${newRole})
-      on conflict (business_id, user_id) do update set role = excluded.role`;
-    await audit(bid, "user", user.email, "invite", email, { role: newRole });
-    // Let them know where to sign in.
-    try {
-      const [mu] = await sql`select decrypted_secret as u from vault.decrypted_secrets where name = 'OS_MAIL_USER'`;
-      const [biz] = await sql`select name from os.businesses where id = ${bid}`;
-      const [app] = await sql`select decrypted_secret as u from vault.decrypted_secrets where name = 'OS_APP_URL'`;
-      const pass = Deno.env.get("GMAIL_APP_PASSWORD");
-      if (mu && pass) {
-        const nodemailer = (await import("npm:nodemailer@6")).default;
-        const t = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: mu.u, pass: pass.replace(/\s+/g, "") } });
-        await t.sendMail({ from: `"Destiny OS" <${mu.u}>`, to: email, subject: `You've been added to ${biz.name} on Destiny OS`,
-          text: `You now have ${newRole} access to ${biz.name}'s team on Destiny OS.\n\nSign in with this email address at ${app?.u ?? "the Destiny OS dashboard"}. We'll email you a 6-digit code each time; no password needed.` });
-      }
-    } catch { /* the membership stands even if the email fails */ }
-    return json({ ok: true });
+    const res = await addMember(bid, String(body.email ?? ""), String(body.role ?? "viewer"), r, user.email);
+    return res.error ? json({ error: res.error }, res.status ?? 400) : json({ ok: true });
   }
   if (action === "remove_member") {
     if (!need("admin")) return json({ error: "Only admins can remove people." }, 403);
@@ -227,6 +264,138 @@ Deno.serve(async (req) => {
       await audit(bid, "user", user.email, "billing_link", customer);
       return json({ url: s.url });
     } catch (e) { return json({ error: (e as Error).message }, 502); }
+  }
+
+  // ---- New business (platform owner only) ----
+  if (action === "create_business") {
+    if (!isAdmin) return json({ error: "Only the platform owner can add businesses." }, 403);
+    const name = clip(body.name, 80).trim();
+    const ownerEmail = clip(body.owner_email, 200).trim().toLowerCase();
+    if (!name) return json({ error: "Give the business a name." }, 400);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ownerEmail)) return json({ error: "Add the owner's email." }, 400);
+    const tz = clip(body.timezone || "America/New_York", 60);
+    if (!validTz(tz)) return json({ error: "That time zone isn't recognized." }, 400);
+    const num = (v: unknown, d: number | null) => (v === "" || v == null ? d : Number(v));
+    const fee = num(body.platform_fee_usd, 650), markup = num(body.markup_pct, 30), budget = num(body.monthly_budget_usd, 200);
+    if ([fee, markup, budget].some((v) => v != null && (!isFinite(v) || v < 0))) return json({ error: "Prices must be numbers of 0 or more." }, 400);
+    let slug = slugify(name);
+    for (let i = 2; (await sql`select 1 from os.businesses where slug = ${slug}`).length; i++) slug = `${slugify(name)}-${i}`;
+    const config = {
+      mission: clip(body.mission, 3000), facts: clip(body.facts, 12000), rules: clip(body.rules, 12000),
+      owner: { name: clip(body.owner_name, 120) || "the owner", email: ownerEmail },
+      record_types: { lead: { stages: ["found", "qualified", "contacted", "replied", "won", "lost"], description: "a potential customer or partner" } },
+      approvals: { email: { agent_can_approve_after: 5, daily_limit: 15 }, publish: {} },
+      tool_packs: [],
+    };
+    const bid2 = await sql.begin(async (tx: any) => {
+      const [nb] = await tx`insert into os.businesses (slug, name, status, timezone, platform_fee_usd, markup_pct, monthly_budget_usd, plan)
+        values (${slug}, ${name}, 'setup', ${tz}, ${fee}, ${markup}, ${budget}, 'customer') returning id`;
+      await tx`insert into os.business_config (business_id, version, config, note, created_by, active) values (${nb.id}, 1, ${tx.json(config)}, 'created from the dashboard', ${user.email}, true)`;
+      await tx`insert into os.business_agents (business_id, slot, enabled, role_instructions) select ${nb.id}, slot, true, '' from os.agents`;
+      return nb.id as string;
+    });
+    await audit(bid2, "user", user.email, "create_business", slug, { owner: ownerEmail, fee, markup, budget });
+    await post(bid2, "system", `${name} is set up. The team starts working when the owner clicks Start team.`, { status: "handled" });
+    const inv = await addMember(bid2, ownerEmail, "owner", "owner", user.email);
+    return json({ ok: true, business_id: bid2, slug, invite: inv.error ?? "sent" });
+  }
+
+  // ---- Settings: what the team knows and how it works ----
+  if (action === "settings_get") {
+    const [b] = await sql`select name, slug, status, timezone, shift_start, shift_end, shift_days from os.businesses where id = ${bid}`;
+    const [c] = await sql`select config, version from os.business_config where business_id = ${bid} and active`;
+    const agents = await sql`select a.slot, a.name, a.handle, split_part(a.core_role, ':', 1) as role, ba.enabled, ba.role_instructions
+      from os.agents a join os.business_agents ba on ba.slot = a.slot and ba.business_id = ${bid} order by a.sort`;
+    const versions = await sql`select version, created_at, created_by, note, active from os.business_config where business_id = ${bid} order by version desc limit 15`;
+    return json({ business: b, config: c?.config ?? {}, version: c?.version ?? 0, agents, versions, can_edit: need("admin"), advanced: !!isAdmin });
+  }
+  if (action === "settings_save") {
+    if (!need("admin")) return json({ error: "Only admins can change settings." }, 403);
+    const tz = clip(body.timezone, 60);
+    if (tz && !validTz(tz)) return json({ error: "That time zone isn't recognized." }, 400);
+    const start = Number(body.shift_start), end = Number(body.shift_end);
+    if (!(start >= 0 && end <= 24 && start < end)) return json({ error: "Work hours must start before they end (0 to 24)." }, 400);
+    const days = (Array.isArray(body.shift_days) ? body.shift_days : []).map(Number).filter((d: number) => d >= 1 && d <= 7);
+    if (!days.length) return json({ error: "Pick at least one work day." }, 400);
+    const [cur] = await sql`select config from os.business_config where business_id = ${bid} and active`;
+    let config: Record<string, any> = { ...(cur?.config ?? {}) };
+    if (isAdmin && body.raw_config) {
+      try { config = JSON.parse(body.raw_config); } catch { return json({ error: "Advanced settings must be valid JSON." }, 400); }
+    }
+    config.mission = clip(body.mission, 3000); config.facts = clip(body.facts, 12000); config.rules = clip(body.rules, 12000);
+    config.owner = { ...(config.owner ?? {}), name: clip(body.owner_name, 120) || config.owner?.name, email: clip(body.owner_email, 200).trim().toLowerCase() || config.owner?.email };
+    const agents = Array.isArray(body.agents) ? body.agents : [];
+    await sql.begin(async (tx: any) => {
+      const [{ v }] = await tx`select coalesce(max(version), 0) + 1 as v from os.business_config where business_id = ${bid}`;
+      await tx`update os.business_config set active = false where business_id = ${bid}`;
+      await tx`insert into os.business_config (business_id, version, config, note, created_by, active) values (${bid}, ${v}, ${tx.json(config)}, ${clip(body.note, 200) || "edited in Settings"}, ${user.email}, true)`;
+      await tx`update os.businesses set name = coalesce(nullif(${clip(body.name, 80).trim()}, ''), name), timezone = coalesce(nullif(${tz}, ''), timezone),
+        shift_start = ${start}, shift_end = ${end}, shift_days = ${days} where id = ${bid}`;
+      for (const a of agents) {
+        await tx`update os.business_agents set enabled = ${!!a.enabled}, role_instructions = ${clip(a.role_instructions, 20000)} where business_id = ${bid} and slot = ${String(a.slot)}`;
+      }
+    });
+    await audit(bid, "user", user.email, "settings_save", bid, { agents: agents.length });
+    await post(bid, "system", "The owner updated the team's settings. Everyone: the new mission, facts and rules apply from now on.", { status: "handled" });
+    return json({ ok: true });
+  }
+  if (action === "settings_restore") {
+    if (!need("admin")) return json({ error: "Only admins can change settings." }, 403);
+    const [old] = await sql`select config from os.business_config where business_id = ${bid} and version = ${Number(body.version)}`;
+    if (!old) return json({ error: "That version doesn't exist." }, 404);
+    await sql.begin(async (tx: any) => {
+      const [{ v }] = await tx`select coalesce(max(version), 0) + 1 as v from os.business_config where business_id = ${bid}`;
+      await tx`update os.business_config set active = false where business_id = ${bid}`;
+      await tx`insert into os.business_config (business_id, version, config, note, created_by, active) values (${bid}, ${v}, ${tx.json(old.config)}, ${"restored version " + Number(body.version)}, ${user.email}, true)`;
+    });
+    await audit(bid, "user", user.email, "settings_restore", String(body.version));
+    return json({ ok: true });
+  }
+
+  // ---- Connections: email and Facebook ----
+  if (action === "integrations") {
+    const rows = await sql`select provider, status, settings, secret_names, updated_at from os.integrations where business_id = ${bid}`;
+    const have = new Map(rows.map((r: any) => [r.provider, r]));
+    const list = Object.entries(PROVIDERS).map(([p, d]) => {
+      const r: any = have.get(p);
+      return { provider: p, label: d.label, fields: d.settings, secrets: d.secrets, status: r?.status ?? "not_connected", settings: r?.settings ?? {}, updated_at: r?.updated_at ?? null };
+    });
+    const other = rows.filter((r: any) => !PROVIDERS[r.provider]).map((r: any) => ({ provider: r.provider, label: r.provider.toUpperCase() + " (set up by Destiny OS)", status: r.status, readonly: true }));
+    return json({ integrations: [...list, ...other], can_edit: need("admin") });
+  }
+  if (action === "connect") {
+    if (!need("admin")) return json({ error: "Only admins can connect accounts." }, 403);
+    const p = PROVIDERS[String(body.provider)];
+    if (!p) return json({ error: "Unknown connection." }, 400);
+    const [b] = await sql`select * from os.businesses where id = ${bid}`;
+    const settings: Record<string, string> = {};
+    for (const f of p.settings) settings[f] = clip(body.settings?.[f], 300).trim();
+    if (body.provider === "gmail" && !/^[^@\s]+@[^@\s]+$/.test(settings.user)) return json({ error: "Enter the Gmail address." }, 400);
+    if (body.provider === "resend" && !/@/.test(settings.from)) return json({ error: "Enter the From address, like Your Company <hello@yourdomain.com>." }, 400);
+    if (body.provider === "facebook" && !/^\d{5,}$/.test(settings.page_id)) return json({ error: "Enter the Page ID (numbers only)." }, 400);
+    const [existing] = await sql`select settings from os.integrations where business_id = ${bid} and provider = ${String(body.provider)}`;
+    for (const sname of p.secrets) {
+      const v = clip(body.secrets?.[sname], 2000).trim();
+      if (v) await putSecret(`${b.slug}:${sname}`, v, `Destiny OS ${body.provider} for ${b.name}`);
+      else if (!existing) return json({ error: "Paste the key or password." }, 400);
+    }
+    await sql`insert into os.integrations (business_id, provider, status, secret_names, settings, updated_at)
+      values (${bid}, ${String(body.provider)}, 'testing', ${p.secrets}, ${sql.json(settings)}, now())
+      on conflict (business_id, provider) do update set settings = excluded.settings, secret_names = excluded.secret_names, status = 'testing', updated_at = now()`;
+    const t = await testIntegration(b, String(body.provider), user.email);
+    await sql`update os.integrations set status = ${t.ok ? "connected" : "error"}, settings = settings || ${sql.json(t.settings ?? {})}, updated_at = now() where business_id = ${bid} and provider = ${String(body.provider)}`;
+    await audit(bid, "user", user.email, `connect:${body.provider}`, null, { ok: t.ok });
+    return json({ ok: t.ok, detail: t.detail });
+  }
+  if (action === "disconnect") {
+    if (!need("admin")) return json({ error: "Only admins can disconnect accounts." }, 403);
+    const p = PROVIDERS[String(body.provider)];
+    if (!p) return json({ error: "Unknown connection." }, 400);
+    const [b] = await sql`select slug from os.businesses where id = ${bid}`;
+    await sql`update os.integrations set status = 'not_connected', updated_at = now() where business_id = ${bid} and provider = ${String(body.provider)}`;
+    for (const sname of p.secrets) await sql`delete from vault.secrets where name = ${b.slug + ":" + sname}`;
+    await audit(bid, "user", user.email, `disconnect:${body.provider}`, null);
+    return json({ ok: true });
   }
 
   // ---- Pricing (platform owner only): markup on AI usage, platform fee, budget, other charges ----
@@ -282,6 +451,15 @@ Deno.serve(async (req) => {
       await sql`update os.approvals set status = 'failed', note = ${(e as Error).message} where id = ${ap.id}`;
       return json({ error: `Approved, but it couldn't be carried out: ${(e as Error).message}` }, 502);
     }
+  }
+
+  if (action === "content_done") {
+    if (!need("operator")) return json({ error: "Viewers can't change content." }, 403);
+    const [c] = await sql`update os.content set status = 'published', published_at = now(), note = coalesce(note, '') || ' (posted by hand)'
+      where id = ${body.id} and business_id = ${bid} and status in ('needs_manual','failed','approved','scheduled') returning id`;
+    if (!c) return json({ error: "Not found." }, 404);
+    await audit(bid, "user", user.email, "content:done", String(c.id));
+    return json({ ok: true });
   }
 
   if (action === "decide_content") {
