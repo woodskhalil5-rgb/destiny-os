@@ -165,6 +165,12 @@ function renderTeam(){
   $("team").innerHTML = (data.team || []).filter(t => t.enabled).map(t => `<span class="chip${data.working.includes(t.slot) ? " busy" : ""}" style="--c:var(--c-${t.slot})" title="${data.working.includes(t.slot) ? "working now" : ""}">${esc(t.name)}</span>`).join("");
 }
 
+function billing(){
+  const st = data.business.billing_status, canManage = ["owner","admin"].includes(data.role);
+  const text = {active:"Card on file. Invoices are charged automatically on the 1st.", card_needed:"No card on file yet. Invoices are emailed with a payment link until one is added.", past_due:"A payment didn't go through. The team is on hold until it's paid.", none:"Billing isn't set up for this business."}[st] || "";
+  return `<div class="card"${st === "past_due" ? ' style="border-color:var(--bad)"' : ""}><b>Billing</b><div class="meta"${st === "past_due" ? ' style="color:var(--bad)"' : ""}>${esc(text)} Billed on the 1st for the month before: platform fee, AI team usage and any other charges below.</div>
+    ${canManage ? `<div class="row"><button class="${st === "active" ? "" : "primary"}" data-bact="card">${st === "active" ? "Update card" : "Add a card"}</button></div>` : ""}</div>`;
+}
 const PANES = {
   approvals(){
     const p = data.approvals.filter(a => a.status === "pending" || a.status === "failed");
@@ -211,11 +217,13 @@ const PANES = {
     const T = teamBy(), money = (v) => "$" + Number(v || 0).toFixed(2), bill = data.bill || [], total = bill.reduce((t, l) => t + l.amount_usd, 0);
     const budget = data.business.monthly_budget_usd, ai = bill.find(l => l.kind === "ai_usage")?.amount_usd || 0;
     let h = `<div class="stats"><div class="stat"><b>${money(total)}</b><span>total this month</span></div><div class="stat"><b>${money(ai)}</b><span>AI team</span></div><div class="stat"><b>${budget ? money(budget) : "none"}</b><span>monthly AI budget</span></div></div>
+      ${billing()}
       <table><thead><tr><th>This month</th><th class="n">Amount</th>${data.admin ? `<th class="n">Our cost</th>` : ""}</tr></thead><tbody>
       ${bill.map(l => `<tr><td>${esc(l.line)}</td><td class="n">${money(l.amount_usd)}</td>${data.admin ? `<td class="n">${l.our_cost_usd == null ? "–" : money(l.our_cost_usd)}</td>` : ""}</tr>`).join("")}
       <tr><td><b>Total</b></td><td class="n"><b>${money(total)}</b></td>${data.admin ? `<td class="n"><b>${money(bill.reduce((t, l) => t + (l.our_cost_usd || 0), 0))}</b></td>` : ""}</tr></tbody></table>
       <div class="meta">AI team cost by agent</div>
       <table><thead><tr><th>Agent</th><th class="n">Calls</th><th class="n">Tokens</th><th class="n">Cost</th>${data.admin ? `<th class="n">Ours</th>` : ""}</tr></thead><tbody>${(data.usage_by_agent || []).map(r => `<tr><td>${esc(T[r.slot]?.name || r.slot)}</td><td class="n">${r.calls}</td><td class="n">${Number(r.tokens).toLocaleString()}</td><td class="n">${money(r.usd)}</td>${data.admin ? `<td class="n">${money(r.our_cost)}</td>` : ""}</tr>`).join("") || `<tr><td colspan="5" class="meta">No AI usage yet this month.</td></tr>`}</tbody></table>`;
+    if ((data.invoices || []).length) h += `<div class="meta">Invoices</div><table><tbody>${data.invoices.map(i => `<tr><td>${new Date(String(i.month).slice(0, 10) + "T12:00:00Z").toLocaleString([], {month:"long", year:"numeric", timeZone:"UTC"})}</td><td class="n">${money(i.amount_usd)}</td><td>${i.hosted_url ? `<a href="${esc(i.hosted_url)}" target="_blank" rel="noopener">${esc(i.status)}</a>` : esc(i.status)}</td></tr>`).join("")}</tbody></table>`;
     if (data.admin) {
       const margin = bill.reduce((t, l) => t + l.amount_usd - (l.our_cost_usd || 0), 0);
       h += `<div class="card" id="pricing"><b>Pricing for ${esc(data.business.name)}</b><div class="meta">Only you see this box. Your margin this month: <b>${money(margin)}</b></div>
@@ -260,6 +268,12 @@ $("pane").addEventListener("click", async e => {
     if (act === "remove") await call("remove_member", {user_id: e.target.dataset.uid});
     editing.delete("invite"); people = null; renderPane();
   } catch(err) { e.target.disabled = false; e.target.closest(".card,.item").insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+});
+$("pane").addEventListener("click", async e => {
+  if (e.target.dataset?.bact !== "card") return;
+  e.target.disabled = true;
+  try { const r = await call("billing_link"); location.href = r.url; }
+  catch(err) { e.target.disabled = false; e.target.closest(".card").insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
 });
 $("pane").addEventListener("input", e => { if (e.target.closest("#invite")) editing.add("invite"); });
 $("pane").addEventListener("input", e => { const c = e.target.closest("[data-ap],[data-ct]"); if (c) editing.add(c.dataset.ap || "c" + c.dataset.ct); if (e.target.closest("#pricing")) editing.add("pricing"); });
@@ -351,6 +365,8 @@ $("gateForm").addEventListener("submit", async e => {
     }
   } catch(err) { $("gateErr").textContent = err.message; } finally { $("gateBtn").disabled = false; }
 });
+const back = new URLSearchParams(location.search).get("billing");
+if (back) { tab = "usage"; [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === "usage")); history.replaceState(null, "", location.pathname); }
 if (token) start().catch(() => showGate());
 </script>
 </body>

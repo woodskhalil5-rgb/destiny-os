@@ -2,6 +2,7 @@
 // every action checks the person's role in that business before reading or writing anything.
 import { audit, post, sql } from "../_core/core.ts";
 import { execute } from "../_core/tools.ts";
+import { ensureCustomer, stripe } from "../_core/stripe.ts";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, authorization, apikey, x-os-token", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, "content-type": "application/json" } });
@@ -117,7 +118,7 @@ Deno.serve(async (req) => {
     const msgs = since
       ? await sql`select id, created_at, sender, sender_name, body from os.messages where business_id = ${bid} and id > ${since} order by id limit 200`
       : (await sql`select id, created_at, sender, sender_name, body from os.messages where business_id = ${bid} order by id desc limit 150`).reverse();
-    const [b] = await sql`select id, slug, name, status, timezone, shift_start, shift_end, shift_days, monthly_budget_usd, plan, markup_pct, platform_fee_usd from os.businesses where id = ${bid}`;
+    const [b] = await sql`select id, slug, name, status, timezone, shift_start, shift_end, shift_days, monthly_budget_usd, plan, markup_pct, platform_fee_usd, billing_status from os.businesses where id = ${bid}`;
     if (!isAdmin) { delete (b as any).markup_pct; }
     const team = await sql`select a.slot, a.name, a.handle, ba.enabled from os.agents a join os.business_agents ba on ba.slot = a.slot and ba.business_id = ${bid} order by a.sort`;
     const approvals = await sql`select * from os.approvals where business_id = ${bid} order by id desc limit 60`;
@@ -133,7 +134,8 @@ Deno.serve(async (req) => {
     // This month's bill. Our own cost and margin are only shown to the platform owner.
     const bill = (await sql`select * from os.month_bill(${bid})`).map((l: any) => ({ line: l.line, kind: l.kind, amount_usd: Number(l.amount_usd), ...(isAdmin ? { our_cost_usd: l.our_cost_usd == null ? null : Number(l.our_cost_usd) } : {}) }));
     const charges = await sql`select id, kind, description, amount_usd, recurring, starts_on, ends_on from os.charges where business_id = ${bid} and (ends_on is null or ends_on >= current_date) order by id desc`;
-    return json({ admin: !!isAdmin, bill, charges, role: r, business: b, team, messages: msgs, approvals, content, records, tasks, usage, usage_by_agent: bySlot, activity, working: working.map((w: any) => w.slot) });
+    const invoices = await sql`select month, amount_usd, status, hosted_url from os.invoices where business_id = ${bid} and status <> 'draft' order by month desc limit 12`;
+    return json({ admin: !!isAdmin, bill, charges, invoices, role: r, business: b, team, messages: msgs, approvals, content, records, tasks, usage, usage_by_agent: bySlot, activity, working: working.map((w: any) => w.slot) });
   }
 
   if (action === "post") {
@@ -147,6 +149,10 @@ Deno.serve(async (req) => {
 
   if (action === "pause") {
     if (!need("admin")) return json({ error: "Only admins can pause the team." }, 403);
+    if (!body.paused && !isAdmin) {
+      const [bs] = await sql`select billing_status from os.businesses where id = ${bid}`;
+      if (bs?.billing_status === "past_due") return json({ error: "A payment is overdue. Update the card on the Costs tab and the team resumes once it's paid." }, 402);
+    }
     await sql`update os.businesses set status = ${body.paused ? "paused" : "live"} where id = ${bid}`;
     await post(bid, "system", body.paused ? "The team is paused." : "The team is back to work.", { status: "handled" });
     await audit(bid, "user", user.email, body.paused ? "pause" : "resume", bid);
@@ -204,6 +210,23 @@ Deno.serve(async (req) => {
     await sql`delete from os.sessions where user_id = ${body.user_id} and not exists (select 1 from os.business_members where user_id = ${body.user_id})`;
     await audit(bid, "user", user.email, "remove_member", String(body.user_id));
     return json({ ok: true });
+  }
+
+  // ---- Billing: owners and admins save a card through a Stripe-hosted page (card details never touch our servers) ----
+  if (action === "billing_link") {
+    if (!need("admin")) return json({ error: "Only admins can manage billing." }, 403);
+    try {
+      const [app] = await sql`select decrypted_secret as u from vault.decrypted_secrets where name = 'OS_APP_URL'`;
+      const cfg = (await sql`select config from os.business_config where business_id = ${bid} and active`)[0]?.config ?? {};
+      const customer = await ensureCustomer(bid, isAdmin && cfg.owner?.email ? cfg.owner.email : user.email);
+      const s = await stripe("POST", "checkout/sessions", {
+        mode: "setup", currency: "usd", customer, client_reference_id: bid, metadata: { business_id: bid },
+        payment_method_types: ["card"],
+        success_url: `${app?.u ?? ""}?billing=saved`, cancel_url: `${app?.u ?? ""}?billing=cancelled`,
+      });
+      await audit(bid, "user", user.email, "billing_link", customer);
+      return json({ url: s.url });
+    } catch (e) { return json({ error: (e as Error).message }, 502); }
   }
 
   // ---- Pricing (platform owner only): markup on AI usage, platform fee, budget, other charges ----

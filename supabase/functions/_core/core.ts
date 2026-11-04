@@ -7,7 +7,7 @@ export const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { prepare: false, 
 export type Business = {
   id: string; slug: string; name: string; status: string; timezone: string;
   shift_start: number; shift_end: number; shift_days: number[]; model: string; monthly_budget_usd: number | null;
-  markup_pct: number; platform_fee_usd: number;
+  markup_pct: number; platform_fee_usd: number; billing_status: string;
 };
 export type Agent = { slot: string; name: string; handle: string; personality: string; core_role: string; default_tools: string[]; sort: number };
 export type BizAgent = Agent & { enabled: boolean; role_instructions: string; tools: string[] | null; model: string | null };
