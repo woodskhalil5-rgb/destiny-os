@@ -221,6 +221,7 @@ Deno.serve(async (req) => {
       const customer = await ensureCustomer(bid, isAdmin && cfg.owner?.email ? cfg.owner.email : user.email);
       const s = await stripe("POST", "checkout/sessions", {
         mode: "setup", currency: "usd", customer, client_reference_id: bid, metadata: { business_id: bid },
+        managed_payments: { enabled: false }, // saving a card for our own invoices; Managed Payments only covers one-off/subscription checkouts
         success_url: `${app?.u ?? ""}?billing=saved`, cancel_url: `${app?.u ?? ""}?billing=cancelled`,
       });
       await audit(bid, "user", user.email, "billing_link", customer);
