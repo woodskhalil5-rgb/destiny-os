@@ -3,11 +3,73 @@
 import { audit, post, sql } from "../_core/core.ts";
 import { execute } from "../_core/tools.ts";
 
-const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, authorization, apikey", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, authorization, apikey, x-os-token", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, "content-type": "application/json" } });
 const RANK: Record<string, number> = { viewer: 1, operator: 2, admin: 3, owner: 4 };
 
+async function sha256(t: string) {
+  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+  return Array.from(new Uint8Array(b)).map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+/** Sign-in: a 6-digit code emailed only to the platform owner or people who belong to a business. */
+async function login(body: any) {
+  const email = String(body.email ?? "").trim().toLowerCase();
+  const [owner] = await sql`select lower(decrypted_secret) as e from vault.decrypted_secrets where name = 'OS_OWNER_EMAIL'`;
+  const [known] = await sql`select u.id from auth.users u where lower(u.email) = ${email}
+    and (exists (select 1 from os.business_members m where m.user_id = u.id) or exists (select 1 from os.platform_admins a where a.user_id = u.id))`;
+  const allowed = !!email && (email === owner?.e || !!known);
+  if (body.action === "request_code") {
+    if (allowed) {
+      const [{ n }] = await sql`select count(*)::int as n from os.login_codes where email = ${email} and created_at > now() - interval '1 hour'`;
+      if (n >= 8) return json({ error: "Too many codes requested. Try again in an hour." }, 429);
+      const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, "0");
+      await sql`insert into os.login_codes (email, code_hash, expires_at) values (${email}, ${await sha256(code)}, now() + interval '15 minutes')`;
+      const [mu] = await sql`select decrypted_secret as u from vault.decrypted_secrets where name = 'OS_MAIL_USER'`;
+      const pass = Deno.env.get("GMAIL_APP_PASSWORD");
+      if (!mu || !pass) return json({ error: "Sign-in email isn't set up yet." }, 503);
+      const nodemailer = (await import("npm:nodemailer@6")).default;
+      const t = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: mu.u, pass: pass.replace(/\s+/g, "") } });
+      await t.sendMail({ from: `"Destiny OS" <${mu.u}>`, to: email, subject: `Destiny OS code: ${code}`, text: `Your Destiny OS sign-in code is ${code}\n\nIt works for 15 minutes. If you didn't ask for it, ignore this email.` });
+    }
+    return json({ ok: true }); // same answer either way
+  }
+  // verify_code
+  if (!allowed) return json({ error: "That code didn't work." }, 401);
+  const rows = await sql`select * from os.login_codes where email = ${email} and not used and expires_at > now() order by id desc limit 5`;
+  if (!rows.length) return json({ error: "That code expired. Ask for a new one." }, 401);
+  if (rows.reduce((a: number, r: any) => a + r.attempts, 0) >= 10) return json({ error: "Too many wrong tries. Ask for a new code in 15 minutes." }, 429);
+  const h = await sha256(String(body.code ?? "").replace(/\D/g, ""));
+  const hit = rows.find((r: any) => r.code_hash === h);
+  if (!hit) { await sql`update os.login_codes set attempts = attempts + 1 where id = ${rows[0].id}`; return json({ error: "That code didn't work." }, 401); }
+  await sql`update os.login_codes set used = true where id = ${hit.id}`;
+  let uid = known?.id as string | undefined;
+  if (!uid) {
+    const [u] = await sql`select id from auth.users where lower(email) = ${email}`;
+    uid = u?.id;
+  }
+  if (!uid) {
+    const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/admin/users`, {
+      method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`, apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+      body: JSON.stringify({ email, email_confirm: true }),
+    });
+    const j = await r.json();
+    if (!r.ok) return json({ error: `Couldn't create your account: ${j.msg ?? r.status}` }, 500);
+    uid = j.id;
+  }
+  if (email === owner?.e) await sql`insert into os.platform_admins (user_id) values (${uid!}) on conflict do nothing`;
+  const token = Array.from(crypto.getRandomValues(new Uint8Array(32))).map((x) => x.toString(16).padStart(2, "0")).join("");
+  await sql`insert into os.sessions (token_hash, user_id, expires_at) values (${await sha256(token)}, ${uid!}, now() + interval '90 days')`;
+  await audit(null, "user", email, "sign-in", null);
+  return json({ ok: true, token });
+}
+
 async function who(req: Request) {
+  const session = req.headers.get("x-os-token")?.trim();
+  if (session) {
+    const [s] = await sql`select s.user_id, u.email from os.sessions s join auth.users u on u.id = s.user_id where s.token_hash = ${await sha256(session)} and s.expires_at > now()`;
+    if (s) return { id: s.user_id as string, email: s.email as string };
+  }
   const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (!token) return null;
   const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/user`, { headers: { authorization: `Bearer ${token}`, apikey: Deno.env.get("SUPABASE_ANON_KEY")! } });
@@ -25,9 +87,10 @@ async function role(uid: string, bid: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
+  const body = await req.json().catch(() => ({}));
+  if (body.action === "request_code" || body.action === "verify_code") return await login(body);
   const user = await who(req);
   if (!user) return json({ error: "Please sign in." }, 401);
-  const body = await req.json().catch(() => ({}));
   const { action, business_id: bid } = body;
 
   if (action === "me") {
@@ -61,7 +124,10 @@ Deno.serve(async (req) => {
     const tasks = await sql`select t.*, a.name as assignee from os.tasks t left join os.agents a on a.slot = t.assignee_slot where t.business_id = ${bid} and t.status in ('open','in_progress','blocked') order by t.id desc limit 60`;
     const [usage] = await sql`select coalesce(sum(cost_usd),0) as usd, count(*)::int as calls, coalesce(sum(input_tokens+output_tokens),0)::bigint as tokens from os.usage_events where business_id = ${bid} and at >= date_trunc('month', now())`;
     const working = await sql`select slot from os.agent_runs where business_id = ${bid} and status = 'running' and started_at > now() - interval '4 minutes'`;
-    return json({ role: r, business: b, team, messages: msgs, approvals, content, records, tasks, usage, working: working.map((w: any) => w.slot) });
+    const bySlot = await sql`select slot, count(*)::int as calls, coalesce(sum(input_tokens+output_tokens),0)::bigint as tokens, coalesce(sum(cost_usd),0) as usd
+      from os.usage_events where business_id = ${bid} and at >= date_trunc('month', now()) group by slot`;
+    const activity = await sql`select at, actor_type, actor, action, target from os.activity_log where business_id = ${bid} order by id desc limit 40`;
+    return json({ role: r, business: b, team, messages: msgs, approvals, content, records, tasks, usage, usage_by_agent: bySlot, activity, working: working.map((w: any) => w.slot) });
   }
 
   if (action === "post") {

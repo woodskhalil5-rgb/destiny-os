@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Destiny OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f4f4f1; --panel:#fff; --ink:#16181d; --muted:#5f6670; --line:#e1e2dd;
+  --accent:#1f4fd1; --accent-ink:#fff; --warn:#a85a00; --bad:#b3261e; --good:#1f7a3a;
+  --c-research:#2f5fb3; --c-analysis:#7246b8; --c-production:#c0601a; --c-coordination:#0d6b67; --c-media:#b0306a; --c-distribution:#3f7d20; --c-system:#7a8794;
+  --bubble:#efefea; --bubble-you:#16181d; --bubble-you-ink:#f4f4f1;
+  --f-display:"Bricolage Grotesque",system-ui,sans-serif; --f-body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#101215; --panel:#171a1f; --ink:#e8e9ea; --muted:#9aa1a9; --line:#272b31;
+  --accent:#7d9bff; --accent-ink:#0b1430; --warn:#e6a04a; --bad:#ff8a80; --good:#6fcf8a;
+  --c-research:#7aa5f0; --c-analysis:#b597f0; --c-production:#f0a165; --c-coordination:#3fb7ad; --c-media:#f08cb8; --c-distribution:#8fd16a; --c-system:#7f8d97;
+  --bubble:#1e2228; --bubble-you:#e8e9ea; --bubble-you-ink:#101215; color-scheme:dark}}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body)}
+button,select{font:600 13px var(--f-body);border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 12px;cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.danger{color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 400px;grid-template-rows:auto minmax(0,1fr);height:100%}
+header{grid-column:1/-1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px max(16px,env(safe-area-inset-left));border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{font:700 18px/1 var(--f-display);letter-spacing:-.01em}
+.brand span{color:var(--accent)}
+.status{margin-left:auto;display:flex;gap:10px;align-items:center;font-size:13px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--good);display:inline-block}.dot.off{background:var(--warn)}
+.team{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:600 12px var(--f-body);padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--c);display:flex;align-items:center;gap:6px}
+.chip.busy::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c);animation:pulse 1s infinite alternate}
+@keyframes pulse{to{opacity:.2}}
+.room{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
+.feed{flex:1;overflow-y:auto;padding:18px max(16px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:14px}
+.msg{display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;max-width:760px}
+.av{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font:700 13px var(--f-display);color:#fff;background:var(--c)}
+.who{font-weight:600;font-size:13px;color:var(--c)}
+.who time{font:400 11px var(--f-mono);color:var(--muted);margin-left:8px}
+.body{background:var(--bubble);padding:9px 12px;border-radius:4px 12px 12px 12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.you{margin-left:auto;grid-template-columns:minmax(0,1fr)}
+.msg.you .av{display:none}.msg.you .who{text-align:right;color:var(--muted)}
+.msg.you .body{background:var(--bubble-you);color:var(--bubble-you-ink);border-radius:12px 4px 12px 12px}
+.msg.system{grid-template-columns:minmax(0,1fr);max-width:none}
+.msg.system .av,.msg.system .who{display:none}
+.msg.system .body{background:none;color:var(--muted);font-size:13px;text-align:center;padding:2px}
+.compose{display:flex;gap:10px;padding:12px max(16px,env(safe-area-inset-left)) calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--panel)}
+textarea{flex:1;resize:none;font:15px/1.4 var(--f-body);border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);color:var(--ink);min-height:44px;max-height:160px}
+.rail{display:flex;flex-direction:column;min-height:0;min-width:0}
+.tabs{display:flex;gap:2px;padding:8px 12px 0;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;color:var(--muted);padding:8px 10px;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.count{font:500 11px var(--f-mono);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:0 6px;margin-left:4px}
+.pane{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.card textarea,.card input{width:100%;box-sizing:border-box;font:14px var(--f-body);border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--bg);color:var(--ink)}
+.card textarea{min-height:140px;resize:vertical}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.meta{font-size:12px;color:var(--muted)}
+.empty{font-size:13px;color:var(--muted)}
+.item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;cursor:pointer}
+.item .num{font:500 12px var(--f-mono);color:var(--muted)}
+.item .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{font:500 11px var(--f-body);border-radius:999px;padding:2px 8px;border:1px solid var(--line);color:var(--muted)}
+.pill.hot{color:var(--accent);border-color:var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+.stat b{display:block;font:600 20px var(--f-mono);font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
+th{font-weight:600;color:var(--muted);font-size:12px}
+td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.gate{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;padding:16px;z-index:5}
+.gate form{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;width:min(360px,100%);box-sizing:border-box;display:flex;flex-direction:column;gap:10px}
+.gate input{font:16px var(--f-body);padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.err{color:var(--bad);font-size:13px;min-height:1em}
+@media (max-width:900px){
+  .app{grid-template-columns:1fr;grid-template-rows:auto 70vh auto;height:auto;min-height:100%}
+  .room{border-right:0}
+  .rail{min-height:60vh}
+}
+</style>
+</head>
+<body>
+<div class="gate" id="gate">
+  <form id="gateForm">
+    <div class="brand">Destiny <span>OS</span></div>
+    <div id="stepEmail"><label for="email" class="meta">Your email</label>
+      <input id="email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@company.com"></div>
+    <div id="stepCode" hidden><label for="code" class="meta">Enter the 6-digit code we emailed you</label>
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"></div>
+    <div class="err" id="gateErr"></div>
+    <button class="primary" type="submit" id="gateBtn">Email me a code</button>
+    <button type="button" id="backBtn" hidden>Use a different email or resend</button>
+  </form>
+</div>
+
+<div class="app" id="app" hidden>
+  <header>
+    <div class="brand">Destiny <span>OS</span></div>
+    <select id="bizSel" aria-label="Business"></select>
+    <div class="team" id="team"></div>
+    <div class="status"><span class="dot" id="liveDot"></span><span id="liveText">Live</span>
+      <button id="pauseBtn" type="button">Pause team</button><button id="outBtn" type="button">Sign out</button></div>
+  </header>
+  <section class="room">
+    <div class="feed" id="feed" aria-live="polite"></div>
+    <form class="compose" id="compose">
+      <textarea id="draft" rows="1" placeholder="Message the team. Everyone answers you; @name to go direct."></textarea>
+      <button class="primary" type="submit">Send</button>
+    </form>
+  </section>
+  <aside class="rail">
+    <div class="tabs" role="tablist" id="tabs">
+      <button role="tab" data-t="approvals" aria-selected="true">Approvals<span class="count" id="nAp">0</span></button>
+      <button role="tab" data-t="content">Content<span class="count" id="nCt">0</span></button>
+      <button role="tab" data-t="records">Records</button>
+      <button role="tab" data-t="tasks">Tasks</button>
+      <button role="tab" data-t="usage">Usage</button>
+      <button role="tab" data-t="activity">Activity</button>
+    </div>
+    <div class="pane" id="pane"></div>
+  </aside>
+</div>
+
+<script>
+const API = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-api";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let token = ""; try { token = localStorage.getItem("osToken") || ""; } catch {}
+let biz = null, lastId = 0, data = null, tab = "approvals", editing = new Set(), timer;
+
+async function call(action, extra = {}) {
+  const r = await fetch(API, {method:"POST", headers:{"content-type":"application/json","x-os-token":token}, body:JSON.stringify({action, business_id: biz, ...extra})});
+  const j = await r.json().catch(() => ({error:"Bad response"}));
+  if (!r.ok) throw Object.assign(new Error(j.error || r.statusText), {status:r.status});
+  return j;
+}
+
+const teamBy = () => Object.fromEntries((data?.team || []).map(t => [t.slot, t]));
+function fmtBody(t){
+  let h = esc(t);
+  for (const a of data?.team || []) h = h.replace(new RegExp(`@${a.handle}\\b`, "gi"), m => `<b style="color:var(--c-${a.slot})">${m}</b>`);
+  return h;
+}
+function addMsg(m, isNew){
+  const T = teamBy(), a = T[m.sender], you = m.sender === "owner" || String(m.sender).startsWith("user:");
+  const el = document.createElement("div");
+  el.className = `msg ${you ? "you" : a ? "" : "system"}`;
+  el.style.setProperty("--c", `var(--c-${a ? m.sender : "system"})`);
+  const t = new Date(m.created_at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"});
+  el.innerHTML = `<div class="av">${a ? esc(a.name[0]) : ""}</div><div><div class="who">${you ? esc(m.sender_name || "You") : a ? esc(a.name) : "System"}<time>${t}</time></div><div class="body">${fmtBody(m.body)}</div></div>`;
+  $("feed").appendChild(el);
+}
+
+function renderTeam(){
+  $("team").innerHTML = (data.team || []).filter(t => t.enabled).map(t => `<span class="chip${data.working.includes(t.slot) ? " busy" : ""}" style="--c:var(--c-${t.slot})" title="${data.working.includes(t.slot) ? "working now" : ""}">${esc(t.name)}</span>`).join("");
+}
+
+const PANES = {
+  approvals(){
+    const p = data.approvals.filter(a => a.status === "pending" || a.status === "failed");
+    if (!p.length) return `<p class="empty">Nothing waiting. Emails, offers and anything else that leaves the company land here before it happens.</p>` + recent();
+    return p.map(a => {
+      const T = teamBy(), pl = a.payload || {}, isEmail = a.kind === "email";
+      return `<div class="card" data-ap="${a.id}"><div class="meta">#${a.id} · ${esc(a.kind)} · from ${esc(T[a.requested_by]?.name || a.requested_by)}${a.status === "failed" ? ` · <span style="color:var(--bad)">failed: ${esc(a.note)}</span>` : a.note ? ` · ${esc(a.note)}` : ""}</div>
+        <b>${esc(a.summary)}</b>
+        ${isEmail ? `<input data-f="to" value="${esc(pl.to)}" aria-label="To"><input data-f="subject" value="${esc(pl.subject)}" aria-label="Subject"><textarea data-f="body" aria-label="Body">${esc(pl.body)}</textarea>`
+                  : `<textarea data-f="json" aria-label="Details">${esc(JSON.stringify(pl, null, 2))}</textarea>`}
+        <input data-f="note" placeholder="Optional: why (DeMarcus learns from this)">
+        <div class="row"><button class="primary" data-act="approve">Approve</button><button class="danger" data-act="reject">Reject</button></div></div>`;
+    }).join("") + recent();
+    function recent(){
+      const d = data.approvals.filter(a => ["done","approved","rejected"].includes(a.status)).slice(0, 10);
+      return d.length ? `<div class="meta" style="margin-top:8px">Recently decided</div>` + d.map(a => `<div class="item"><span class="num">#${a.id}</span><span class="name">${esc(a.summary)}</span><span class="pill ${a.status === "rejected" ? "" : "hot"}">${esc(a.status)}</span></div>`).join("") : "";
+    }
+  },
+  content(){
+    const p = data.content.filter(c => c.status === "pending");
+    const rest = data.content.filter(c => c.status !== "pending").slice(0, 12);
+    return (p.length ? p.map(c => `<div class="card" data-ct="${c.id}"><div class="meta">#${c.id} · ${esc(c.kind)}${c.channel ? " · " + esc(c.channel) : ""}${c.audience ? " · for " + esc(c.audience) : ""}</div>${c.title ? `<b>${esc(c.title)}</b>` : ""}
+      <textarea data-f="body">${esc(c.body)}</textarea><input data-f="note" placeholder="Optional note for Grayson">
+      <div class="row"><button class="primary" data-act="approve">Approve</button><button class="danger" data-act="reject">Reject</button></div></div>`).join("")
+      : `<p class="empty">No content waiting. Grayson's posts, ads and scripts land here for your OK.</p>`)
+      + rest.map(c => `<details><summary class="item"><span class="num">#${c.id}</span><span class="name">${esc(c.title || c.kind)}</span><span class="pill ${c.status === "rejected" ? "" : "hot"}">${c.scheduled_for ? new Date(c.scheduled_for).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}) : esc(c.status)}</span></summary><div class="meta" style="white-space:pre-wrap;padding:6px 0 10px">${esc(c.body)}</div></details>`).join("");
+  },
+  records(){
+    if (!data.records.length) return `<p class="empty">No records yet. Everything the team finds and works on shows up here with its stage.</p>`;
+    const types = [...new Set(data.records.map(r => r.type))];
+    return types.map(t => {
+      const rs = data.records.filter(r => r.type === t), byStage = {};
+      rs.forEach(r => byStage[r.status] = (byStage[r.status] || 0) + 1);
+      return `<div class="meta" style="text-transform:capitalize">${esc(t)} · ${Object.entries(byStage).map(([k, v]) => `${esc(k)} ${v}`).join(" · ")}</div>` +
+        rs.slice(0, 60).map(r => `<details><summary class="item"><span class="num">#${r.id}</span><span class="name">${esc(r.title)}</span><span class="pill">${esc(r.status)}</span></summary>
+          <div class="meta" style="white-space:pre-wrap;padding:6px 0 10px">${r.next_step ? `Next: ${esc(r.next_step)}${r.next_step_due ? " (" + esc(String(r.next_step_due).slice(0, 10)) + ")" : ""}\n` : ""}${Object.entries(r.data || {}).map(([k, v]) => `${esc(k)}: ${esc(typeof v === "string" ? v : JSON.stringify(v))}`).join("\n")}</div></details>`).join("");
+    }).join("");
+  },
+  tasks(){
+    return data.tasks.length ? data.tasks.map(t => `<div class="item"><span class="num">#${t.id}</span><span class="name">${esc(t.title)} <span class="meta">${esc(t.assignee || "")}</span></span><span class="pill">${esc(t.status)}</span></div>`).join("")
+      : `<p class="empty">No open tasks.</p>`;
+  },
+  usage(){
+    const u = data.usage, T = teamBy(), usd = Number(u.usd), budget = data.business.monthly_budget_usd;
+    return `<div class="stats"><div class="stat"><b>${u.calls}</b><span>AI calls this month</span></div><div class="stat"><b>${(Number(u.tokens) / 1e6).toFixed(2)}M</b><span>tokens</span></div><div class="stat"><b>${usd ? "$" + usd.toFixed(2) : "–"}</b><span>${budget ? "of $" + budget + " budget" : "cost"}</span></div></div>
+      <table><thead><tr><th>Agent</th><th class="n">Calls</th><th class="n">Tokens</th><th class="n">Cost</th></tr></thead><tbody>${(data.usage_by_agent || []).map(r => `<tr><td>${esc(T[r.slot]?.name || r.slot)}</td><td class="n">${r.calls}</td><td class="n">${Number(r.tokens).toLocaleString()}</td><td class="n">${Number(r.usd) ? "$" + Number(r.usd).toFixed(2) : "–"}</td></tr>`).join("")}</tbody></table>
+      <p class="meta">Usage is counted for this business only.</p>`;
+  },
+  activity(){
+    return (data.activity || []).map(a => `<div class="item" style="cursor:default"><span class="num">${new Date(a.at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})}</span><span class="name">${esc(teamBy()[a.actor]?.name || a.actor)} · ${esc(a.action)}${a.target ? " · " + esc(a.target) : ""}</span><span></span></div>`).join("") || `<p class="empty">No activity yet.</p>`;
+  },
+};
+
+function renderPane(){
+  if (!data || editing.size) return;
+  $("pane").innerHTML = PANES[tab]();
+  $("nAp").textContent = data.approvals.filter(a => a.status === "pending" || a.status === "failed").length;
+  $("nCt").textContent = data.content.filter(c => c.status === "pending").length;
+}
+$("tabs").addEventListener("click", e => { const t = e.target.closest("button")?.dataset.t; if (!t) return; tab = t; editing.clear(); [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); renderPane(); });
+$("pane").addEventListener("input", e => { const c = e.target.closest("[data-ap],[data-ct]"); if (c) editing.add(c.dataset.ap || "c" + c.dataset.ct); });
+$("pane").addEventListener("click", async e => {
+  const act = e.target.dataset?.act; if (!act) return;
+  const c = e.target.closest("[data-ap],[data-ct]"), f = (n) => c.querySelector(`[data-f="${n}"]`)?.value;
+  e.target.disabled = true;
+  try {
+    if (c.dataset.ap) {
+      const a = data.approvals.find(x => String(x.id) === c.dataset.ap);
+      let payload = a.payload;
+      if (a.kind === "email") payload = {...a.payload, to: f("to"), subject: f("subject"), body: f("body")};
+      else { try { payload = JSON.parse(f("json")); } catch { throw new Error("Details must stay valid JSON."); } }
+      await call("decide", {id: a.id, decision: act, payload, note: f("note") || undefined});
+      editing.delete(c.dataset.ap);
+    } else {
+      await call("decide_content", {id: Number(c.dataset.ct), decision: act, body: f("body"), note: f("note") || undefined});
+      editing.delete("c" + c.dataset.ct);
+    }
+    c.remove(); tick();
+  } catch(err) { e.target.disabled = false; c.querySelector(".meta").insertAdjacentHTML("beforeend", ` · <span style="color:var(--bad)">${esc(err.message)}</span>`); }
+});
+
+async function tick(){
+  if (!biz) return;
+  try {
+    const d = await call("feed", {since_id: lastId});
+    const first = lastId === 0, atBottom = $("feed").scrollHeight - $("feed").scrollTop - $("feed").clientHeight < 80;
+    data = d;
+    if (first) { $("feed").innerHTML = ""; if (!d.messages.length) $("feed").innerHTML = `<p class="empty" id="feedEmpty" style="margin:auto;text-align:center">The board is quiet. Say hi to the team.</p>`; }
+    if (d.messages.length) $("feedEmpty")?.remove();
+    d.messages.forEach(m => { addMsg(m); lastId = Math.max(lastId, m.id); });
+    if (first || (atBottom && d.messages.length)) $("feed").scrollTop = $("feed").scrollHeight;
+    renderTeam(); renderPane();
+    const paused = d.business.status === "paused";
+    $("pauseBtn").textContent = paused ? "Resume team" : "Pause team";
+    $("pauseBtn").hidden = !["owner","admin"].includes(d.role);
+    $("liveDot").className = "dot" + (d.business.status === "live" ? "" : " off");
+    $("liveText").textContent = {live:"Live", paused:"Paused", setup:"Setup"}[d.business.status] || d.business.status;
+  } catch(e) { if (e.status === 401) return showGate("Please sign in again."); $("liveDot").className = "dot off"; $("liveText").textContent = "Reconnecting…"; }
+}
+
+async function start(){
+  const me = await call("me");
+  if (!me.businesses.length) return showGate("You're signed in, but you haven't been added to a business yet.");
+  $("bizSel").innerHTML = me.businesses.map(b => `<option value="${b.id}">${esc(b.name)}${b.status !== "live" ? " (" + esc(b.status) + ")" : ""}</option>`).join("");
+  let saved = ""; try { saved = localStorage.getItem("osBiz") || ""; } catch {}
+  biz = me.businesses.some(b => b.id === saved) ? saved : me.businesses[0].id;
+  $("bizSel").value = biz;
+  $("gate").hidden = true; $("app").hidden = false;
+  lastId = 0; tick(); clearInterval(timer); timer = setInterval(tick, 3000);
+}
+$("bizSel").addEventListener("change", () => { biz = $("bizSel").value; try { localStorage.setItem("osBiz", biz); } catch {} lastId = 0; data = null; editing.clear(); $("feed").innerHTML = ""; tick(); });
+$("pauseBtn").addEventListener("click", async () => { await call("pause", {paused: data.business.status !== "paused"}); tick(); });
+$("outBtn").addEventListener("click", () => showGate(""));
+$("compose").addEventListener("submit", async e => {
+  e.preventDefault(); const t = $("draft").value.trim(); if (!t) return;
+  $("draft").value = ""; try { await call("post", {body: t}); tick(); } catch(err) { $("draft").value = t; alert(err.message); }
+});
+$("draft").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("compose").requestSubmit(); } });
+
+function showGate(msg){ clearInterval(timer); $("app").hidden = true; $("gate").hidden = false; $("gateErr").textContent = msg || ""; token = ""; try { localStorage.removeItem("osToken"); } catch {} setStep("email"); }
+let step = "email";
+function setStep(s){ step = s; $("stepEmail").hidden = s !== "email"; $("stepCode").hidden = s !== "code"; $("backBtn").hidden = s !== "code"; $("gateBtn").textContent = s === "email" ? "Email me a code" : "Sign in"; if (s === "code") $("code").focus(); }
+$("backBtn").addEventListener("click", () => { $("gateErr").textContent = ""; $("code").value = ""; setStep("email"); });
+$("gateForm").addEventListener("submit", async e => {
+  e.preventDefault(); $("gateErr").textContent = ""; $("gateBtn").disabled = true;
+  try {
+    const email = $("email").value.trim();
+    if (step === "email") {
+      if (!email) { $("gateErr").textContent = "Type your email."; return; }
+      await call("request_code", {email}); setStep("code");
+      $("gateErr").textContent = "If that email has access, a code is on its way. Check spam if it's not there in a minute.";
+    } else {
+      const r = await call("verify_code", {email, code: $("code").value});
+      token = r.token; try { localStorage.setItem("osToken", token); } catch {}
+      await start();
+    }
+  } catch(err) { $("gateErr").textContent = err.message; } finally { $("gateBtn").disabled = false; }
+});
+if (token) start().catch(() => showGate());
+</script>
+</body>
+</html>
