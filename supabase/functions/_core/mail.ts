@@ -1,10 +1,12 @@
 // Platform email (sign-in codes, invites, alerts) — not a business's own outreach.
-// Uses Resend when the vault has OS_RESEND_API_KEY and OS_MAIL_FROM (e.g. "Destiny OS <no-reply@destinymarketinggroup.com>");
+// Uses Resend when OS_RESEND_API_KEY is set (Edge Function secret or vault) and OS_MAIL_FROM is in the vault
+// (e.g. "Destiny OS <no-reply@destinymarketinggroup.com>");
 // otherwise falls back to the Gmail account in OS_MAIL_USER with the GMAIL_APP_PASSWORD function secret.
 import { secret } from "./core.ts";
 
 export async function platformMail(to: string, subject: string, text: string, replyTo?: string) {
-  const [key, from] = await Promise.all([secret("OS_RESEND_API_KEY"), secret("OS_MAIL_FROM")]);
+  const [vk, from] = await Promise.all([secret("OS_RESEND_API_KEY"), secret("OS_MAIL_FROM")]);
+  const key = vk ?? Deno.env.get("OS_RESEND_API_KEY")?.trim();
   if (key && from) {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -18,7 +20,7 @@ export async function platformMail(to: string, subject: string, text: string, re
   }
   const user = await secret("OS_MAIL_USER");
   const pass = Deno.env.get("GMAIL_APP_PASSWORD");
-  if (!user || !pass) throw new Error("Platform email isn't set up (add OS_RESEND_API_KEY + OS_MAIL_FROM to the vault).");
+  if (!user || !pass) throw new Error("Platform email isn't set up (add OS_RESEND_API_KEY to the Edge Function secrets).");
   const nodemailer = (await import("npm:nodemailer@6")).default;
   const t = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user, pass: pass.replace(/\s+/g, "") } });
   await t.sendMail({ from: `"Destiny OS" <${user}>`, to, subject, text, replyTo });

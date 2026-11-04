@@ -146,27 +146,9 @@ async function watchInboxes() {
   return result;
 }
 
-// One-time move of the original JHP team's Edge Function secrets into the vault (values never leave the server).
-const ADOPT: Record<string, string> = { "jhp:RESEND_API_KEY": "RESEND_API_KEY", "jhp:GMAIL_APP_PASSWORD": "GMAIL_APP_PASSWORD" };
-async function adoptEnv() {
-  const done: string[] = [];
-  for (const [vaultName, envName] of Object.entries(ADOPT)) {
-    const v = Deno.env.get(envName)?.trim();
-    if (!v) continue;
-    const [have] = await sql`select id from vault.secrets where name = ${vaultName}`;
-    if (have) continue;
-    await sql`select vault.create_secret(${v}, ${vaultName}, ${"copied from the " + envName + " function secret"})`;
-    done.push(vaultName);
-  }
-  await audit(null, "system", "jobs", "adopt_env", null, { copied: done });
-  return done;
-}
-
 Deno.serve(async (req) => {
   const key = await secret("OS_INVOKE_KEY");
   if (!key || (req.headers.get("authorization") ?? "") !== `Bearer ${key}`) return new Response("forbidden", { status: 403 });
-  const body = await req.json().catch(() => ({}));
-  if (body.action === "adopt_env") return new Response(JSON.stringify({ copied: await adoptEnv() }), { headers: { "content-type": "application/json" } });
   const out: Record<string, unknown> = {};
   try { out.inbox = await watchInboxes(); } catch (e) { out.inbox_error = (e as Error).message; }
   try { out.alerts = await sendAlerts(); } catch (e) { out.alerts_error = (e as Error).message; }

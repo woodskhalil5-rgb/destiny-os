@@ -40,5 +40,5 @@ jobs:
       - name: Deploy dashboard
         run: |
           if [ -z "$VERCEL_TOKEN" ]; then echo "VERCEL_TOKEN not set; skipping."; exit 0; fi
-          cd apps/dashboard
+          # The Vercel project's root directory is apps/dashboard, so deploy from the repo root.
           npx --yes vercel@39.3.0 deploy --prod --yes --token "$VERCEL_TOKEN"
