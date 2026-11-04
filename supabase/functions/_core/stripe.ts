@@ -65,6 +65,8 @@ async function checkSig(raw: string, header: string | null, secret: string) {
 export async function stripeAccount() {
   const key = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
   const a = await stripe("GET", "account");
+  const bal = await stripe("GET", "balance"); // Stripe says itself whether this key is live
   return { id: a.id as string, name: (a.settings?.dashboard?.display_name ?? a.business_profile?.name ?? "") as string,
-    mode: key.startsWith("sk_live") || key.startsWith("rk_live") ? "live" : "test" };
+    mode: bal.livemode ? "live" : "test", key_type: key.slice(0, key.indexOf("_", 3) + 1) || "?",
+    charges_enabled: !!a.charges_enabled };
 }
