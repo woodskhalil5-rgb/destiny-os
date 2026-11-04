@@ -109,6 +109,7 @@ Deno.serve(async (req) => {
   const r = bid ? await role(user.id, bid) : null;
   if (!r) return json({ error: "You don't have access to that business." }, 403);
   const need = (min: string) => RANK[r] >= RANK[min];
+  const [isAdmin] = await sql`select 1 from os.platform_admins where user_id = ${user.id}`;
   const me = r === "owner" ? "owner" : `user:${user.id}`;
 
   if (action === "feed") {
@@ -116,18 +117,23 @@ Deno.serve(async (req) => {
     const msgs = since
       ? await sql`select id, created_at, sender, sender_name, body from os.messages where business_id = ${bid} and id > ${since} order by id limit 200`
       : (await sql`select id, created_at, sender, sender_name, body from os.messages where business_id = ${bid} order by id desc limit 150`).reverse();
-    const [b] = await sql`select id, slug, name, status, timezone, shift_start, shift_end, shift_days, monthly_budget_usd, plan from os.businesses where id = ${bid}`;
+    const [b] = await sql`select id, slug, name, status, timezone, shift_start, shift_end, shift_days, monthly_budget_usd, plan, markup_pct, platform_fee_usd from os.businesses where id = ${bid}`;
+    if (!isAdmin) { delete (b as any).markup_pct; }
     const team = await sql`select a.slot, a.name, a.handle, ba.enabled from os.agents a join os.business_agents ba on ba.slot = a.slot and ba.business_id = ${bid} order by a.sort`;
     const approvals = await sql`select * from os.approvals where business_id = ${bid} order by id desc limit 60`;
     const content = await sql`select * from os.content where business_id = ${bid} order by id desc limit 60`;
     const records = await sql`select id, type, status, title, data, next_step, next_step_due, updated_at from os.records where business_id = ${bid} order by updated_at desc limit 200`;
     const tasks = await sql`select t.*, a.name as assignee from os.tasks t left join os.agents a on a.slot = t.assignee_slot where t.business_id = ${bid} and t.status in ('open','in_progress','blocked') order by t.id desc limit 60`;
-    const [usage] = await sql`select coalesce(sum(cost_usd),0) as usd, count(*)::int as calls, coalesce(sum(input_tokens+output_tokens),0)::bigint as tokens from os.usage_events where business_id = ${bid} and at >= date_trunc('month', now())`;
+    const [usage] = await sql`select coalesce(sum(billed_usd),0) as usd, count(*)::int as calls, coalesce(sum(input_tokens+output_tokens),0)::bigint as tokens from os.usage_events where business_id = ${bid} and at >= date_trunc('month', now())`;
     const working = await sql`select slot from os.agent_runs where business_id = ${bid} and status = 'running' and started_at > now() - interval '4 minutes'`;
-    const bySlot = await sql`select slot, count(*)::int as calls, coalesce(sum(input_tokens+output_tokens),0)::bigint as tokens, coalesce(sum(cost_usd),0) as usd
+    const bySlot = await sql`select slot, count(*)::int as calls, coalesce(sum(input_tokens+output_tokens),0)::bigint as tokens, coalesce(sum(billed_usd),0) as usd
+      ${isAdmin ? sql`, coalesce(sum(cost_usd),0) as our_cost` : sql``}
       from os.usage_events where business_id = ${bid} and at >= date_trunc('month', now()) group by slot`;
     const activity = await sql`select at, actor_type, actor, action, target from os.activity_log where business_id = ${bid} order by id desc limit 40`;
-    return json({ role: r, business: b, team, messages: msgs, approvals, content, records, tasks, usage, usage_by_agent: bySlot, activity, working: working.map((w: any) => w.slot) });
+    // This month's bill. Our own cost and margin are only shown to the platform owner.
+    const bill = (await sql`select * from os.month_bill(${bid})`).map((l: any) => ({ line: l.line, kind: l.kind, amount_usd: Number(l.amount_usd), ...(isAdmin ? { our_cost_usd: l.our_cost_usd == null ? null : Number(l.our_cost_usd) } : {}) }));
+    const charges = await sql`select id, kind, description, amount_usd, recurring, starts_on, ends_on from os.charges where business_id = ${bid} and (ends_on is null or ends_on >= current_date) order by id desc`;
+    return json({ admin: !!isAdmin, bill, charges, role: r, business: b, team, messages: msgs, approvals, content, records, tasks, usage, usage_by_agent: bySlot, activity, working: working.map((w: any) => w.slot) });
   }
 
   if (action === "post") {
@@ -144,6 +150,35 @@ Deno.serve(async (req) => {
     await sql`update os.businesses set status = ${body.paused ? "paused" : "live"} where id = ${bid}`;
     await post(bid, "system", body.paused ? "The team is paused." : "The team is back to work.", { status: "handled" });
     await audit(bid, "user", user.email, body.paused ? "pause" : "resume", bid);
+    return json({ ok: true });
+  }
+
+  // ---- Pricing (platform owner only): markup on AI usage, platform fee, budget, other charges ----
+  if (action === "set_pricing") {
+    if (!isAdmin) return json({ error: "Only the platform owner can change pricing." }, 403);
+    const n = (v: unknown) => (v === "" || v == null ? null : Number(v));
+    const markup = n(body.markup_pct), fee = n(body.platform_fee_usd), budget = n(body.monthly_budget_usd);
+    if ([markup, fee, budget].some((v) => v != null && (!isFinite(v) || v < 0))) return json({ error: "Use numbers of 0 or more." }, 400);
+    await sql`update os.businesses set markup_pct = coalesce(${markup}, markup_pct), platform_fee_usd = coalesce(${fee}, platform_fee_usd),
+      monthly_budget_usd = ${budget} where id = ${bid}`;
+    await audit(bid, "user", user.email, "set_pricing", bid, { markup_pct: markup, platform_fee_usd: fee, monthly_budget_usd: budget });
+    return json({ ok: true });
+  }
+  if (action === "add_charge") {
+    if (!isAdmin) return json({ error: "Only the platform owner can add charges." }, 403);
+    const amount = Number(body.amount_usd);
+    if (!body.description || !isFinite(amount) || amount < 0) return json({ error: "Add a description and an amount." }, 400);
+    const kind = ["integration", "service", "setup", "other"].includes(body.kind) ? body.kind : "other";
+    const [c] = await sql`insert into os.charges (business_id, kind, description, amount_usd, recurring, created_by)
+      values (${bid}, ${kind}, ${String(body.description).slice(0, 200)}, ${amount}, ${!!body.recurring}, ${user.email}) returning id`;
+    await audit(bid, "user", user.email, "add_charge", String(c.id), { kind, amount, recurring: !!body.recurring });
+    return json({ ok: true });
+  }
+  if (action === "end_charge") {
+    if (!isAdmin) return json({ error: "Only the platform owner can remove charges." }, 403);
+    await sql`update os.charges set ends_on = current_date - 1 where id = ${body.id} and business_id = ${bid} and recurring`;
+    await sql`delete from os.charges where id = ${body.id} and business_id = ${bid} and not recurring and starts_on >= date_trunc('month', now())`;
+    await audit(bid, "user", user.email, "end_charge", String(body.id));
     return json({ ok: true });
   }
 

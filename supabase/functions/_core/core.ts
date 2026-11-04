@@ -7,6 +7,7 @@ export const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { prepare: false, 
 export type Business = {
   id: string; slug: string; name: string; status: string; timezone: string;
   shift_start: number; shift_end: number; shift_days: number[]; model: string; monthly_budget_usd: number | null;
+  markup_pct: number; platform_fee_usd: number;
 };
 export type Agent = { slot: string; name: string; handle: string; personality: string; core_role: string; default_tools: string[]; sort: number };
 export type BizAgent = Agent & { enabled: boolean; role_instructions: string; tools: string[] | null; model: string | null };
@@ -51,7 +52,8 @@ export async function bizSecret(b: Business, name: string) {
 }
 
 export async function monthSpend(bid: string) {
-  const [r] = await sql`select coalesce(sum(cost_usd), 0) as usd from os.usage_events
+  // What the customer has been billed for AI usage this month (our cost plus markup).
+  const [r] = await sql`select coalesce(sum(billed_usd), 0) as usd from os.usage_events
     where business_id = ${bid} and at >= date_trunc('month', now())`;
   return Number(r.usd);
 }
@@ -73,8 +75,10 @@ export async function claude(b: Business, slot: string, body: Record<string, any
   const inTok = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
   const [p] = await sql`select * from os.model_prices where model = ${body.model}`;
   const cost = p ? (inTok * Number(p.input_per_mtok ?? 0) + (u.output_tokens ?? 0) * Number(p.output_per_mtok ?? 0)) / 1e6 + searches * Number(p.web_search_per_k ?? 0) / 1000 : null;
-  await sql`insert into os.usage_events (business_id, slot, model, input_tokens, output_tokens, web_searches, cost_usd)
-            values (${b.id}, ${slot}, ${body.model}, ${inTok}, ${u.output_tokens ?? 0}, ${searches}, ${cost})`;
+  // billed = our cost plus this business's markup, fixed at the time of the call
+  const billed = cost == null ? null : Math.round(cost * (1 + Number(b.markup_pct ?? 0) / 100) * 1e6) / 1e6;
+  await sql`insert into os.usage_events (business_id, slot, model, input_tokens, output_tokens, web_searches, cost_usd, billed_usd)
+            values (${b.id}, ${slot}, ${body.model}, ${inTok}, ${u.output_tokens ?? 0}, ${searches}, ${cost}, ${billed})`;
   return j;
 }
 

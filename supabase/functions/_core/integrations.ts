@@ -66,7 +66,7 @@ export const PACKS: Record<string, Pack> = {
         },
       },
       {
-        agents: ["coordination"],
+        agents: ["coordination", "media"],
         def: { name: "jhp_stats", description: "Live JHP counts: homeowner requests, sign-ups, members, applied, pre-listed.", input_schema: { type: "object", properties: {} } },
         run: async (b) => JSON.stringify(await jhpGet(b, "stats", "JHP_STATS_KEY")),
       },

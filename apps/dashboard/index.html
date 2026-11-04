@@ -123,7 +123,7 @@ td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-num
       <button role="tab" data-t="content">Content<span class="count" id="nCt">0</span></button>
       <button role="tab" data-t="records">Records</button>
       <button role="tab" data-t="tasks">Tasks</button>
-      <button role="tab" data-t="usage">Usage</button>
+      <button role="tab" data-t="usage">Costs</button>
       <button role="tab" data-t="activity">Activity</button>
     </div>
     <div class="pane" id="pane"></div>
@@ -207,10 +207,29 @@ const PANES = {
       : `<p class="empty">No open tasks.</p>`;
   },
   usage(){
-    const u = data.usage, T = teamBy(), usd = Number(u.usd), budget = data.business.monthly_budget_usd;
-    return `<div class="stats"><div class="stat"><b>${u.calls}</b><span>AI calls this month</span></div><div class="stat"><b>${(Number(u.tokens) / 1e6).toFixed(2)}M</b><span>tokens</span></div><div class="stat"><b>${usd ? "$" + usd.toFixed(2) : "–"}</b><span>${budget ? "of $" + budget + " budget" : "cost"}</span></div></div>
-      <table><thead><tr><th>Agent</th><th class="n">Calls</th><th class="n">Tokens</th><th class="n">Cost</th></tr></thead><tbody>${(data.usage_by_agent || []).map(r => `<tr><td>${esc(T[r.slot]?.name || r.slot)}</td><td class="n">${r.calls}</td><td class="n">${Number(r.tokens).toLocaleString()}</td><td class="n">${Number(r.usd) ? "$" + Number(r.usd).toFixed(2) : "–"}</td></tr>`).join("")}</tbody></table>
-      <p class="meta">Usage is counted for this business only.</p>`;
+    const T = teamBy(), money = (v) => "$" + Number(v || 0).toFixed(2), bill = data.bill || [], total = bill.reduce((t, l) => t + l.amount_usd, 0);
+    const budget = data.business.monthly_budget_usd, ai = bill.find(l => l.kind === "ai_usage")?.amount_usd || 0;
+    let h = `<div class="stats"><div class="stat"><b>${money(total)}</b><span>total this month</span></div><div class="stat"><b>${money(ai)}</b><span>AI team</span></div><div class="stat"><b>${budget ? money(budget) : "none"}</b><span>monthly AI budget</span></div></div>
+      <table><thead><tr><th>This month</th><th class="n">Amount</th>${data.admin ? `<th class="n">Our cost</th>` : ""}</tr></thead><tbody>
+      ${bill.map(l => `<tr><td>${esc(l.line)}</td><td class="n">${money(l.amount_usd)}</td>${data.admin ? `<td class="n">${l.our_cost_usd == null ? "–" : money(l.our_cost_usd)}</td>` : ""}</tr>`).join("")}
+      <tr><td><b>Total</b></td><td class="n"><b>${money(total)}</b></td>${data.admin ? `<td class="n"><b>${money(bill.reduce((t, l) => t + (l.our_cost_usd || 0), 0))}</b></td>` : ""}</tr></tbody></table>
+      <div class="meta">AI team cost by agent</div>
+      <table><thead><tr><th>Agent</th><th class="n">Calls</th><th class="n">Tokens</th><th class="n">Cost</th>${data.admin ? `<th class="n">Ours</th>` : ""}</tr></thead><tbody>${(data.usage_by_agent || []).map(r => `<tr><td>${esc(T[r.slot]?.name || r.slot)}</td><td class="n">${r.calls}</td><td class="n">${Number(r.tokens).toLocaleString()}</td><td class="n">${money(r.usd)}</td>${data.admin ? `<td class="n">${money(r.our_cost)}</td>` : ""}</tr>`).join("") || `<tr><td colspan="5" class="meta">No AI usage yet this month.</td></tr>`}</tbody></table>`;
+    if (data.admin) {
+      const margin = bill.reduce((t, l) => t + l.amount_usd - (l.our_cost_usd || 0), 0);
+      h += `<div class="card" id="pricing"><b>Pricing for ${esc(data.business.name)}</b><div class="meta">Only you see this box. Your margin this month: <b>${money(margin)}</b></div>
+        <label class="meta">Markup on AI usage (%)<input data-p="markup_pct" type="number" min="0" step="1" value="${esc(data.business.markup_pct)}"></label>
+        <label class="meta">Monthly platform fee ($)<input data-p="platform_fee_usd" type="number" min="0" step="1" value="${esc(data.business.platform_fee_usd)}"></label>
+        <label class="meta">Monthly AI budget ($, blank = none; the team pauses when reached)<input data-p="monthly_budget_usd" type="number" min="0" step="1" value="${esc(data.business.monthly_budget_usd ?? "")}"></label>
+        <div class="row"><button class="primary" data-pact="save">Save pricing</button></div>
+        <b>Other charges</b>
+        ${(data.charges || []).map(c => `<div class="item" style="cursor:default"><span class="num">${esc(c.kind)}</span><span class="name">${esc(c.description)} · ${money(c.amount_usd)}${c.recurring ? "/mo" : ""}</span><button class="danger" data-pact="end" data-id="${c.id}">Remove</button></div>`).join("") || `<p class="empty">None.</p>`}
+        <input data-c="description" placeholder="Description, e.g. Gmail setup or Facebook publishing">
+        <div class="row"><select data-c="kind"><option value="integration">integration</option><option value="service">service</option><option value="setup">setup</option><option value="other">other</option></select>
+          <input data-c="amount_usd" type="number" min="0" step="1" placeholder="Amount $" style="width:110px"><label class="meta"><input data-c="recurring" type="checkbox" style="width:auto"> monthly</label></div>
+        <div class="row"><button data-pact="add">Add charge</button></div></div>`;
+    }
+    return h;
   },
   activity(){
     return (data.activity || []).map(a => `<div class="item" style="cursor:default"><span class="num">${new Date(a.at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})}</span><span class="name">${esc(teamBy()[a.actor]?.name || a.actor)} · ${esc(a.action)}${a.target ? " · " + esc(a.target) : ""}</span><span></span></div>`).join("") || `<p class="empty">No activity yet.</p>`;
@@ -224,7 +243,18 @@ function renderPane(){
   $("nCt").textContent = data.content.filter(c => c.status === "pending").length;
 }
 $("tabs").addEventListener("click", e => { const t = e.target.closest("button")?.dataset.t; if (!t) return; tab = t; editing.clear(); [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); renderPane(); });
-$("pane").addEventListener("input", e => { const c = e.target.closest("[data-ap],[data-ct]"); if (c) editing.add(c.dataset.ap || "c" + c.dataset.ct); });
+$("pane").addEventListener("input", e => { const c = e.target.closest("[data-ap],[data-ct]"); if (c) editing.add(c.dataset.ap || "c" + c.dataset.ct); if (e.target.closest("#pricing")) editing.add("pricing"); });
+$("pane").addEventListener("click", async e => {
+  const act = e.target.dataset?.pact; if (!act) return;
+  const box = $("pricing"), v = (sel) => box.querySelector(sel);
+  e.target.disabled = true;
+  try {
+    if (act === "save") await call("set_pricing", {markup_pct: v('[data-p="markup_pct"]').value, platform_fee_usd: v('[data-p="platform_fee_usd"]').value, monthly_budget_usd: v('[data-p="monthly_budget_usd"]').value});
+    if (act === "add") await call("add_charge", {description: v('[data-c="description"]').value.trim(), kind: v('[data-c="kind"]').value, amount_usd: v('[data-c="amount_usd"]').value, recurring: v('[data-c="recurring"]').checked});
+    if (act === "end") await call("end_charge", {id: Number(e.target.dataset.id)});
+    editing.delete("pricing"); tick();
+  } catch(err) { e.target.disabled = false; box.insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+});
 $("pane").addEventListener("click", async e => {
   const act = e.target.dataset?.act; if (!act) return;
   const c = e.target.closest("[data-ap],[data-ct]"), f = (n) => c.querySelector(`[data-f="${n}"]`)?.value;

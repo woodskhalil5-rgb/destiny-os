@@ -2,30 +2,95 @@
   "slug": "jhp",
   "name": "Jersey Home Pros",
   "timezone": "America/New_York",
-  "shift": { "start": 9, "end": 18, "days": [1, 2, 3, 4, 5] },
+  "shift": {
+    "start": 9,
+    "end": 18,
+    "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
   "config": {
     "mission": "Jersey Home Pros (JHP) is Destiny Marketing Group's New Jersey home-services directory. Right now the job is to recruit local contractors to join JHP and to bring homeowners to JHP. JHP first; don't pitch DMG marketing.",
-    "owner": { "name": "the boss", "email": "admin@destinymarketinggroup.com" },
-    "facts": "- Joining and the directory listing are free: no sign-up fee, no monthly fee.\n- Contractors get homeowner requests in their trade and area. Each request goes to 3 companies at most; verified companies are offered first.\n- Pay per lead: the first 3 leads are free. Then a flat price per lead: roofing $45, heating & cooling $40, windows & doors $35, hardscaping $35, pest control $20, landscaping $20, moving $15, cleaning $12. Bad leads are credited.\n- Partner option: no per-lead charges; 10% of jobs they sign, only after the homeowner has paid them. Partners also get JHP estimate jobs, which go to one company only.\n- No paid featured spots.\n- Pre-listed companies already have a free public profile; the pitch is \"claim your profile\" with their profile link.\n- Join link: jerseyhomepros.com/join (partner: jerseyhomepros.com/join#partner).\n- Trades: roofing, heating & cooling, windows & doors, hardscaping, pest control, landscaping, moving, cleaning.\n- For homeowners JHP is free: they request help and up to 3 vetted local pros reach out.",
+    "owner": {
+      "name": "the boss",
+      "email": "admin@destinymarketinggroup.com"
+    },
+    "facts": "- Joining and the directory listing are free: no sign-up fee, no monthly fee.\n- Contractors get homeowner requests in their trade and area. Each request goes to 3 companies at most; verified companies are offered first.\n- Pay per lead: the first 3 leads are free. Then a flat price per lead: roofing $45, heating & cooling $40, windows & doors $35, hardscaping $35, pest control $20, landscaping $20, moving $15, cleaning $12. Bad leads are credited.\n- Partner option: no per-lead charges; 10% of jobs they sign, only after the homeowner has paid them. Partners also get JHP estimate jobs, which go to one company only.\n- No paid featured spots.\n- Pre-listed companies already have a free public profile; the pitch is \"claim your profile\" with their profile link.\n- Join link: jerseyhomepros.com/join (partner: jerseyhomepros.com/join#partner).\n- Trades: roofing, heating & cooling, windows & doors, hardscaping, pest control, landscaping, moving, cleaning.\n- For homeowners JHP is free: they request help and up to 3 participating local contractors reach out.",
     "rules": "- NJ businesses only; skip national chains and franchises.\n- Run check_jhp before saving, verifying or pitching any contractor. Member or applied: skip. Pre-listed: claim-your-profile pitch with the link.\n- Never promise a number of leads or jobs, and never claim how many homeowners are asking in an area.\n- Every contractor email ends with the signature and: Not interested? Just reply \"no thanks\" and we won't email again.\n- Signature: Jersey Home Pros / by Destiny Marketing Group / 511 N Boardwalk, Rehoboth Beach, DE 19971",
     "record_types": {
-      "contractor": { "stages": ["found", "verified", "drafted", "contacted", "replied", "signed", "rejected", "lost"], "description": "an NJ contractor who could join JHP" },
-      "partner": { "stages": ["found", "drafted", "contacted", "replied", "partnered", "lost"], "description": "an HOA, property manager, realtor or group that can bring homeowners" }
+      "contractor": {
+        "stages": [
+          "found",
+          "verified",
+          "drafted",
+          "contacted",
+          "replied",
+          "signed",
+          "rejected",
+          "lost"
+        ],
+        "description": "an NJ contractor who could join JHP"
+      },
+      "partner": {
+        "stages": [
+          "found",
+          "drafted",
+          "contacted",
+          "replied",
+          "partnered",
+          "lost"
+        ],
+        "description": "an HOA, property manager, realtor or group that can bring homeowners"
+      }
     },
-    "approvals": { "email": { "agent_can_approve_after": 5, "daily_limit": 15 }, "publish": {} },
-    "tool_packs": ["jhp"]
+    "approvals": {
+      "email": {
+        "agent_can_approve_after": 5,
+        "daily_limit": 15
+      },
+      "publish": {}
+    },
+    "tool_packs": [
+      "jhp"
+    ]
   },
   "agents": {
     "research": "Find NJ contractors in JHP's trades, in the trade and county DeMarcus assigns. Save 2 or 3 per turn as contractor records with phone, email and website only if seen on a real source, then hand to @emily.",
     "analysis": "Verify each contractor is real, local and operating; pick the pitch (pay-per-lead for most, partner for established busy companies, claim-profile for pre-listed). Find a business email on their own site; if none, set next_step \"call lead\" and tell @demarcus. Then hand fits to @kole with one personal detail each.",
     "production": "Write one recruiting email per verified contractor: under 120 words, one real detail about their business, the pitch exactly as given, the signature and opt-out line. Queue it with request_approval (kind email, payload to/subject/body, record_id).",
     "coordination": "Assign 3 to 5 new contractors a day by trade and county, rotating trades. Chase anything stuck (contacted 4+ days with no reply: ask Kole for a short follow-up). Learn the owner's email taste into your 'email' guide. Pull jhp_stats for the morning and the end-of-day report; the report lists every email sent (who and what about) and any call leads with phone numbers.",
-    "media": "Make JHP content for homeowners (request help free on jerseyhomepros.com) and contractors (join free): Facebook, Instagram and Nextdoor posts, ad concepts, video scripts, local \"best [trade] in [town]\" page drafts. Real JHP facts only; no invented reviews or stories.",
+    "media": "See businesses/jhp/grayson-playbook.md (loaded as Grayson's JHP instructions).",
     "distribution": "Bring homeowners to JHP: find HOAs, property managers, realtors, home inspectors, town groups and events in the assigned county. Save them as partner records and queue a short partnership email for approval, or give @grayson an angle for community content."
   },
   "integrations": {
-    "gmail": { "settings": { "user": "mrdemarcusgreen@gmail.com", "from_name": "DeMarcus Green" }, "secrets": ["GMAIL_APP_PASSWORD"] },
-    "resend": { "settings": { "from": "Jersey Home Pros <team@jerseyhomepros.com>", "reply_to": "mrdemarcusgreen@gmail.com" }, "secrets": ["RESEND_API_KEY"] },
-    "jhp": { "settings": {}, "secrets": ["JHP_LOOKUP_KEY", "JHP_STATS_KEY"] }
+    "gmail": {
+      "settings": {
+        "user": "mrdemarcusgreen@gmail.com",
+        "from_name": "DeMarcus Green"
+      },
+      "secrets": [
+        "GMAIL_APP_PASSWORD"
+      ]
+    },
+    "resend": {
+      "settings": {
+        "from": "Jersey Home Pros <team@jerseyhomepros.com>",
+        "reply_to": "mrdemarcusgreen@gmail.com"
+      },
+      "secrets": [
+        "RESEND_API_KEY"
+      ]
+    },
+    "jhp": {
+      "settings": {},
+      "secrets": [
+        "JHP_LOOKUP_KEY",
+        "JHP_STATS_KEY"
+      ]
+    }
   }
 }
