@@ -222,7 +222,11 @@ details.agent .inner{padding:0 18px 18px}
   .headline{margin-bottom:20px}
   .grid2{grid-template-columns:1fr}
   .feed{padding:16px}
-  .chat{height:calc(100vh - 62px - 68px)}
+  .chat{position:fixed;left:0;right:0;top:var(--top-h,62px);bottom:var(--tab-h,64px);height:auto;background:var(--bg);z-index:2}
+  body.typing .tabbar{display:none}
+  body.typing .chat{bottom:auto;height:var(--vv-h,50vh)}
+  .hint{display:none}
+  input:not([type=checkbox]),select,textarea{font-size:16px}
   .compose{padding:10px 16px}
   .hint{padding:8px 16px 0}
   .facts{padding-left:18px}
@@ -622,7 +626,7 @@ function render(force){
   el.innerHTML = html; lastHtml = html;
   open.forEach(k => el.querySelector(`details[data-k="${k}"]`)?.setAttribute("open", ""));
   rendered = key;
-  if (view === "chat") { drawFeed(); $("draft")?.focus({preventScroll: true}); }
+  if (view === "chat") { drawFeed(); fit(); if (innerWidth > 860) $("draft")?.focus({preventScroll: true}); }
 }
 function counts(){
   const n = waiting().n;
@@ -665,6 +669,21 @@ function go(v, opts = {}){
   editing.clear(); people = null; conns = null; settingsData = null; rendered = "";
   render(true); window.scrollTo(0, 0);
 }
+
+// ---------- phone chat sizing: keep the message box above the bottom bar and the keyboard ----------
+function fit(){
+  const r = document.documentElement.style, top = document.querySelector(".top"), tb = $("tabbar"), vv = window.visualViewport;
+  if (!top) return;
+  r.setProperty("--top-h", top.offsetHeight + "px");
+  if (tb.offsetHeight) r.setProperty("--tab-h", tb.offsetHeight + "px");
+  r.setProperty("--vv-h", ((vv ? vv.height + vv.offsetTop : innerHeight) - top.offsetHeight) + "px");
+  const f = $("feed"); if (f && document.body.classList.contains("typing")) f.scrollTop = f.scrollHeight;
+}
+window.visualViewport?.addEventListener("resize", fit);
+window.visualViewport?.addEventListener("scroll", fit);
+addEventListener("resize", fit);
+document.addEventListener("focusin", e => { if (e.target.id === "draft") { document.body.classList.add("typing"); fit(); setTimeout(fit, 300); } });
+document.addEventListener("focusout", e => { if (e.target.id === "draft") { document.body.classList.remove("typing"); setTimeout(fit, 50); } });
 
 // ---------- events ----------
 document.addEventListener("click", e => {
