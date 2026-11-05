@@ -41,7 +41,7 @@ async function systemPrompt(b: Business, cfg: Record<string, any>, me: BizAgent,
 
 YOUR TEAM:
 ${roster}
-- The owner${cfg.owner?.name ? ` (${cfg.owner.name})` : ""}: the boss. Their messages come first, and when the owner posts, everyone answers.
+- The owner${cfg.owner?.name ? ` (${cfg.owner.name})` : ""}: the boss. Their messages come first. When the owner posts, everyone answers, unless the owner names someone; then only they answer.
 Work hours: a ${b.shift_end - b.shift_start}-hour shift with hourly check-ins; use each one to move your own work forward.
 
 ${TALK}
@@ -120,7 +120,10 @@ function cachePoint(messages: any[]) {
 async function agentTurn(b: Business, me: BizAgent, crew: BizAgent[], cfg: Record<string, any>, trigger: any) {
   const fromOwner = isOwner(trigger.sender);
   const system = [{ type: "text", text: await systemPrompt(b, cfg, me, crew), cache_control: { type: "ephemeral" } }];
-  const ask = fromOwner
+  const direct = fromOwner && named(trigger.body, crew).length > 0;
+  const ask = direct
+    ? "The message above (the last on the board) is from the owner and names you. Answer it yourself in your own voice, and if it gives you work, do it with your tools first. Only the teammates the owner named will answer."
+    : fromOwner
     ? "The message above (the last on the board) is from the owner to the whole team. Everyone answers: reply in your own voice (1 to 3 sentences) about the part that concerns your job, and if it gives you work, do it with your tools first."
     : `Message #${trigger.id} (the last on the board) is for you. Do the work it needs with your tools, then write your reply for the board. If no reply is needed, answer with exactly: (no reply)`;
   const messages: any[] = [{ role: "user", content: [{ type: "text", text: `${await contextBlock(b, crew, me, trigger)}\n\nIt is now ${bubbleDate(b)} (${b.timezone}).\n\n${ask}` }] }];
@@ -161,10 +164,15 @@ async function agentTurn(b: Business, me: BizAgent, crew: BizAgent[], cfg: Recor
   if (final && !/^\(no reply\)$/i.test(final)) await post(b.id, me.slot, final, { depth: ctx.depth + 1, recordId: ctx.recordId });
 }
 
+/** Teammates the message names, by first name or @handle ("Grayson what are you making", "@james ..."). */
+function named(body: string, crew: BizAgent[]) {
+  return crew.filter((c) => c.enabled && [c.name, c.handle].some((n) => new RegExp(`(^|[^\\w])@?${n}\\b`, "i").test(body)));
+}
+
 function responders(m: any, crew: BizAgent[]) {
   const on = crew.filter((c) => c.enabled);
   const fromOwner = m.sender === "owner" || String(m.sender).startsWith("user:");
-  if (fromOwner) return on;
+  if (fromOwner) { const n = named(m.body, crew); return n.length ? n : on; } // name someone and only they answer
   const mentioned = on.filter((c) => new RegExp(`@${c.handle}\\b`, "i").test(m.body));
   if (mentioned.length) return mentioned.filter((c) => c.slot !== m.sender);
   return m.sender === "system" ? on.filter((c) => c.slot === "coordination") : [];

@@ -409,7 +409,7 @@ const VIEWS = {
         <p class="said">${last ? esc(last.body) : "Hasn't said anything yet."}</p>
         <div class="when">${busy ? `<span class="busy">Working now</span>` : last ? esc(ago(last.created_at)) : ""}</div></div>`;
     }).join("")}</div>
-      <form class="ask" id="askForm"><input id="askInput" placeholder="Ask the team something…" aria-label="Message the team"><button class="btn go" type="submit">Send</button></form></div>`;
+      <form class="ask" id="askForm"><input id="askInput" placeholder="Ask the team, or name one person…" aria-label="Message the team"><button class="btn go" type="submit">Send</button></form></div>`;
 
     const bill = data.bill || [], total = bill.reduce((t, l) => t + l.amount_usd, 0), ai = bill.find(l => l.kind === "ai_usage")?.amount_usd || 0;
     const budget = Number(b.monthly_budget_usd || 0), pct = budget ? Math.min(100, ai / budget * 100) : 0;
@@ -423,7 +423,7 @@ const VIEWS = {
 
   chat(){
     return `<div class="chat"><div class="feed" id="feed" aria-live="polite"></div>
-      <div class="hint">Everyone answers when you post. Type @ and a name (like @demarcus) to talk to one person.</div>
+      <div class="hint">Everyone answers when you post. Name someone (like "DeMarcus, ...") and only they answer.</div>
       <form class="compose" id="compose"><textarea id="draft" rows="1" placeholder="Message the team"></textarea><button class="btn go" type="submit">Send</button></form></div>`;
   },
 
