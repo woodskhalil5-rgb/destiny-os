@@ -1,6 +1,7 @@
 // The shared tool set. Every tool runs inside one business; ids from another business are never found.
 import { audit, Business, BizAgent, post, sql } from "./core.ts";
 import { PACKS, sendEmail } from "./integrations.ts";
+import { e164 } from "./twilio.ts";
 
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required });
 const S = { type: "string" }, I = { type: "integer" };
@@ -28,6 +29,8 @@ export const TOOL_DEFS: Record<string, Record<string, unknown>> = {
   report_to_owner: { name: "report_to_owner", description: "Send the owner a report or a decision only they can make. Use sparingly: end-of-day report, a reply from a prospect, urgent decisions.", input_schema: obj({ subject: S, body: S }, ["subject", "body"]) },
   save_content: { name: "save_content", description: "Save a piece of content (post, ad, video script, graphic brief, page) for approval.",
     input_schema: obj({ kind: { type: "string", enum: ["post", "ad", "video_script", "graphic_brief", "page", "email", "other"] }, channel: S, audience: S, title: S, body: S }, ["kind", "body"]) },
+  queue_call: { name: "queue_call", description: "Put someone on the call list for the business's caller (a person makes the calls). Give the record id (its data.phone is used) or a phone number, and say why to call and what to cover. Only for people the business rules allow calling.",
+    input_schema: obj({ record_id: I, phone: S, reason: S }, ["reason"]) },
   schedule_content: { name: "schedule_content", description: "Schedule APPROVED content for publishing (ISO date-time).", input_schema: obj({ id: I, when: S }, ["id", "when"]) },
 };
 
@@ -180,6 +183,19 @@ export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent
       await sql`insert into os.notebook (business_id, day, body, created_by) values (${b.id}, ${day}, ${String(input.body).slice(0, 2500)}, ${a.slot})
         on conflict (business_id, day) do update set body = excluded.body, created_by = excluded.created_by, updated_at = now()`;
       return `notebook for ${day} saved`;
+    }
+    case "queue_call": {
+      const [ph] = await sql`select 1 from os.integrations where business_id = ${b.id} and provider = 'phone' and status = 'connected'`;
+      if (!ph) return "This business doesn't have a phone line yet, so there's no call list. Say so to the owner if calls would help.";
+      const [rec] = input.record_id ? await sql`select id, title, data->>'phone' as phone from os.records where id = ${input.record_id} and business_id = ${b.id}` : [];
+      if (input.record_id && !rec) return "record not found";
+      const phone = e164(input.phone ?? rec?.phone);
+      if (!phone) return "error: no valid phone number on that record. Find one from a real source first (save_record), or skip.";
+      const [nc] = await sql`select 1 from os.never_call where business_id = ${b.id} and phone = ${phone}`;
+      if (nc) return "That number is on the do-not-call list. Don't call them.";
+      const [q] = await sql`insert into os.call_queue (business_id, record_id, phone, name, reason, queued_by)
+        values (${b.id}, ${rec?.id ?? null}, ${phone}, ${rec?.title ?? null}, ${String(input.reason ?? "").slice(0, 500)}, ${a.slot}) on conflict do nothing returning id`;
+      return q ? `added to the call list (#${q.id})` : "already on the call list";
     }
     case "schedule_content": {
       const [c] = await sql`select status from os.content where id = ${input.id} and business_id = ${b.id}`;

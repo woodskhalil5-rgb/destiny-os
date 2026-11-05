@@ -204,6 +204,20 @@ details.agent .inner{padding:0 18px 18px}
 .howto li{margin:3px 0}
 .form{display:flex;flex-direction:column;gap:16px}
 
+/* ---------- calls ---------- */
+.callbar{position:sticky;top:71px;z-index:3;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 32px;background:var(--go);color:var(--go-ink)}
+.callbar b{font-size:16px}
+.callbar .btn{background:rgba(255,255,255,.16);border-color:transparent;color:inherit}
+.callbar .btn.end{background:#c4321f;color:#fff}
+.callbar .grow{flex:1;min-width:0}
+.callbar.ringing{background:var(--need)}
+.dial{display:flex;gap:10px;flex-wrap:wrap}
+.dial input{flex:1 1 180px}
+.outs{display:flex;gap:8px;flex-wrap:wrap}
+.outs button{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:8px 14px;font-weight:600;font-size:14px}
+.outs button[aria-pressed="true"]{background:var(--go);border-color:var(--go);color:var(--go-ink)}
+.phone-big{font-size:26px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+
 /* ---------- mobile ---------- */
 .tabbar{display:none}
 @media (max-width:860px){
@@ -231,7 +245,8 @@ details.agent .inner{padding:0 18px 18px}
   .hint{padding:8px 16px 0}
   .facts{padding-left:18px}
   td,th{padding:10px 12px}
-  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:4}
+  .callbar{top:62px;padding:10px 16px}
+  .tabbar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:4}
   .tabbar button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--muted);padding:6px 0;position:relative}
   .tabbar button[aria-current="page"]{color:var(--go)}
   .tabbar svg{width:22px;height:22px}
@@ -248,6 +263,7 @@ details.agent .inner{padding:0 18px 18px}
   <symbol id="i-work" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></symbol>
   <symbol id="i-money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h3l2 5-2.5 1.5a11 11 0 0 0 7 7L16 14l5 2v3a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/></symbol>
   <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6 8.5 7 8.5-7"/></symbol>
@@ -279,6 +295,7 @@ details.agent .inner{padding:0 18px 18px}
       <button data-v="chat"><svg><use href="#i-chat"/></svg>Team chat</button>
       <button data-v="approve"><svg><use href="#i-check"/></svg>To approve<span class="badge" data-count hidden></span></button>
       <button data-v="work"><svg><use href="#i-work"/></svg>Work</button>
+      <button data-v="calls" hidden><svg><use href="#i-phone"/></svg>Calls<span class="badge" data-calls hidden></span></button>
       <button data-v="money"><svg><use href="#i-money"/></svg>Money</button>
     </nav>
     <div class="foot nav">
@@ -297,6 +314,7 @@ details.agent .inner{padding:0 18px 18px}
         <button class="btn quiet small mobile-only" data-v="settings" aria-label="Settings"><svg width="20" height="20"><use href="#i-gear"/></svg></button>
       </div>
     </div>
+    <div class="callbar" id="callbar" hidden></div>
     <div id="view"></div>
   </div>
   <nav class="tabbar" id="tabbar">
@@ -304,6 +322,7 @@ details.agent .inner{padding:0 18px 18px}
     <button data-v="chat"><svg><use href="#i-chat"/></svg>Chat</button>
     <button data-v="approve"><svg><use href="#i-check"/></svg>Approve<span class="badge" data-count hidden></span></button>
     <button data-v="work"><svg><use href="#i-work"/></svg>Work</button>
+    <button data-v="calls" hidden><svg><use href="#i-phone"/></svg>Calls<span class="badge" data-calls hidden></span></button>
     <button data-v="money"><svg><use href="#i-money"/></svg>Money</button>
   </nav>
 </div>
@@ -317,7 +336,11 @@ let biz = null, lastId = 0, data = null, msgs = [], view = "home", workTab = "pi
 let editing = new Set(), people = null, settingsData = null, conns = null, rendered = "", lastHtml = "";
 const SLOW = new Set(["settings", "new"]);
 const ROLE = {research: "Research", analysis: "Analysis", production: "Writing", coordination: "Manager", media: "Media", distribution: "Outreach"};
-const TITLES = {home: "Home", chat: "Team chat", approve: "To approve", work: "Work", money: "Money", settings: "Settings", new: "Add a business"};
+const TITLES = {home: "Home", chat: "Team chat", approve: "To approve", work: "Work", calls: "Calls", money: "Money", settings: "Settings", new: "Add a business"};
+const CALLER_VIEWS = new Set(["calls", "chat"]);
+const OUTCOMES = [["talked", "Talked"], ["interested", "Interested"], ["callback", "Call back later"], ["no_answer", "No answer"], ["voicemail", "Left a voicemail"], ["not_interested", "Not interested"], ["wrong_number", "Wrong number"], ["do_not_call", "Do not call again"]];
+let callsData = null, callsAt = 0, device = null, deviceBiz = null, active = null, incoming = null, callStart = 0, callWho = "", pending = null, barTimer = null;
+const fmtPhone = (p) => { const d = String(p || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : String(p || ""); };
 
 async function call(action, extra = {}) {
   const r = await fetch(API, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
@@ -495,6 +518,8 @@ const VIEWS = {
       h += `<div class="section"><div class="box" id="pricing"><h4>Pricing for ${esc(b.name)}</h4><p>Only you see this. Your margin this month: <b>${money(margin)}</b></p>
         <div class="grid2"><label class="field">Markup on AI usage (%)<input data-p="markup_pct" type="number" min="0" step="1" value="${esc(b.markup_pct)}"></label>
         <label class="field">Monthly platform fee ($)<input data-p="platform_fee_usd" type="number" min="0" step="1" value="${esc(b.platform_fee_usd)}"></label></div>
+        <div class="grid2"><label class="field">Calls: fee per minute on top of cost ($)<input data-p="call_fee_per_min" type="number" min="0" step="0.01" value="${esc(b.call_fee_per_min ?? 0.5)}"></label>
+        <label class="field">Phone number ($ a month)<input data-p="phone_fee_usd" type="number" min="0" step="1" value="${esc(b.phone_fee_usd ?? 5)}"></label></div>
         <label class="field">Monthly AI limit ($)<input data-p="monthly_budget_usd" type="number" min="0" step="1" value="${esc(b.monthly_budget_usd ?? "")}"><small>Leave blank for no limit. The team pauses when it's reached.</small></label>
         <div><button class="btn go" data-pact="save">Save pricing</button></div>
         <h4 style="margin-top:8px">Other charges</h4>
@@ -505,6 +530,47 @@ const VIEWS = {
         <label class="check"><input data-c="recurring" type="checkbox"> Charge it every month</label>
         <div><button class="btn" data-pact="add">Add charge</button></div></div></div>`;
     }
+    return h;
+  },
+
+  calls(){
+    if (!callsData) { loadCalls(true); return `<p class="s">Loading…</p>`; }
+    const c = callsData;
+    if (!c.platform_ready) return c.can_buy ? twilioSetup() : `<div class="empty"><b>Calling isn't turned on yet.</b>Ask Destiny OS to turn on calling for this business.</div>`;
+    if (!c.number) return c.can_buy ? `<div class="box form" id="buyBox"><h4 style="font-size:20px">Get a phone number for ${esc(data.business.name)}</h4>
+        <p>Calls from the dashboard show this number, and people who call it back reach your team (or voicemail). It's billed at ${money(data.business.phone_fee_usd ?? 5)} a month, plus ${money(data.business.call_fee_per_min ?? .5)} a minute on top of the call cost.</p>
+        <label class="field">Area code<input id="areaCode" inputmode="numeric" maxlength="3" placeholder="973" style="max-width:160px"></label>
+        <div><button class="btn go" data-kact="buy">Get a number</button></div></div>`
+      : `<div class="empty"><b>No phone line yet.</b>Ask Destiny OS to add a phone number for this business.</div>`;
+    let h = "";
+    if (pending) h += `<div class="box" id="outcomeBox" style="border-color:var(--go);margin-bottom:20px"><h4>How did the call with ${esc(pending.who)} go?</h4>
+      <div class="outs">${OUTCOMES.map(([k, n]) => `<button data-out="${k}" aria-pressed="${pending.outcome === k}">${n}</button>`).join("")}</div>
+      ${pending.outcome === "callback" ? `<label class="field">Call back on<input type="date" id="cbDate" value="${esc(pending.cb || "")}"></label>` : ""}
+      <label class="field">Notes<textarea id="outNote" rows="3" placeholder="What did they say? What happens next?">${esc(pending.note || "")}</textarea></label>
+      <div class="acts"><button class="btn go" data-kact="save">Save</button><button class="btn quiet" data-kact="discard">Skip</button></div></div>`;
+    h += `<div class="month"><div class="fig"><span>Your business line</span><b class="phone-big">${esc(fmtPhone(c.number))}</b><span id="devState">${device ? "Ready to call" : "Connecting…"}</span></div>
+      <div class="fig"><b>${c.queue.length}</b><span>${c.queue.length === 1 ? "person" : "people"} to call</span></div>
+      <div class="fig"><b>${c.month.minutes}</b><span>minutes this month${c.month.billed != null ? ` · ${money(c.month.billed)}` : ""}</span></div></div>`;
+    h += `<div class="section"><h3>Call list</h3>${c.queue.length ? `<div class="list">${c.queue.map(q => `<div class="row"><div class="grow"><div class="t">${esc(q.name || fmtPhone(q.phone))}</div><div class="s">${esc(fmtPhone(q.phone))}${q.reason ? " · " + esc(q.reason) : ""}</div><div class="s">Added by ${esc(q.queued_by_name || q.queued_by)}</div></div>
+        <button class="btn small go" data-kact="call" data-phone="${esc(q.phone)}" data-qid="${q.id}" data-rid="${q.record_id || ""}" data-name="${esc(q.name || "")}">Call</button><button class="btn small quiet" data-kact="skip" data-qid="${q.id}">Skip</button></div>`).join("")}</div>`
+      : `<div class="empty"><b>The call list is empty.</b>Your team adds people here when a call would help. You can also call any number below.</div>`}</div>`;
+    h += `<div class="section"><h3>Call a number</h3><div class="dial"><input id="dialNum" inputmode="tel" placeholder="Phone number"><input id="dialName" placeholder="Name (optional)">
+      <button class="btn go" data-kact="dial">Call</button><button class="btn" data-kact="add">Add to list</button></div>
+      <p style="color:var(--muted);font-size:14px;margin:10px 2px 0">Calls go out between 8am and 9pm. Anyone marked "Do not call again" is blocked from then on.</p></div>`;
+    h += `<div class="section"><h3>Recent calls</h3>${c.recent.length ? `<div class="list">${c.recent.map(k => {
+      const other = k.direction === "outbound" ? k.to_number : k.from_number, out = OUTCOMES.find(o => o[0] === k.outcome);
+      const label2 = k.voicemail ? "Voicemail" : out ? out[1] : k.direction === "inbound" ? (k.duration_sec ? "Answered" : "Missed") : k.duration_sec ? "Needs a result" : label(k.status || "");
+      return `<div class="row"><span class="kind" style="background:var(--sunk);color:var(--soft)"><svg><use href="#i-phone"/></svg></span><div class="grow"><div class="t">${esc(k.title || fmtPhone(other))}</div>
+        <div class="s">${k.direction === "inbound" ? "Called in" : "Called out"} · ${esc(when(k.started_at))}${k.duration_sec ? ` · ${Math.floor(k.duration_sec / 60)}:${String(k.duration_sec % 60).padStart(2, "0")}` : ""}${k.billed_usd != null && Number(k.billed_usd) > 0 ? " · " + money(k.billed_usd) : ""}</div>
+        ${k.note ? `<div class="s" style="white-space:normal">${esc(k.note)}</div>` : ""}<div data-audio="${k.id}"></div></div>
+        ${k.has_recording ? `<button class="btn small" data-kact="play" data-cid="${k.id}">Play</button>` : ""}
+        ${!k.outcome && k.direction === "outbound" && k.duration_sec ? `<button class="btn small" data-kact="result" data-cid="${k.id}" data-name="${esc(k.title || fmtPhone(other))}">Add result</button>` : ""}
+        <span class="pill ${k.outcome === "interested" || k.outcome === "talked" ? "go" : k.voicemail || (!k.outcome && k.direction === "inbound" && !k.duration_sec) ? "need" : ""}">${esc(label2)}</span></div>`;
+    }).join("")}</div>` : `<div class="empty"><b>No calls yet.</b></div>`}</div>`;
+    if (c.can_manage && c.settings) h += `<div class="section"><div class="box form" id="phoneSet"><h4>Phone settings</h4>
+      <label class="field">When someone calls your number, also ring<input id="fwdTo" inputmode="tel" value="${esc(fmtPhone(c.settings.forward_to))}" placeholder="Your cell (optional)"><small>This number and your team's open dashboards ring together. If nobody answers in 20 seconds, the caller gets voicemail.</small></label>
+      <label class="check"><input type="checkbox" id="recOn"${c.settings.record ? " checked" : ""}> Record calls (the other person hears "This call may be recorded")</label>
+      <div><button class="btn" data-kact="psave">Save phone settings</button></div></div></div>`;
     return h;
   },
 
@@ -526,6 +592,81 @@ const VIEWS = {
   },
 };
 const firstLine = (s) => String(s || "").split("\n").find(x => x.trim()) || "";
+
+function twilioSetup(){
+  return `<div class="box form" id="twBox"><h4 style="font-size:20px">Turn on calling (one time, for every business)</h4>
+    <p>Calls run through your Twilio account. Each business then gets its own number, billed to them every month.</p>
+    <div class="howto"><ol><li>Sign up or log in at <a href="https://console.twilio.com" target="_blank">console.twilio.com</a> and upgrade the account (add a card) so it can call any number.</li>
+      <li>On the console home page, copy the <b>Account SID</b> and <b>Auth Token</b>.</li>
+      <li>Go to Account, API keys and tokens, and create a <b>Standard</b> API key named "Destiny OS". Copy its <b>SID</b> and <b>Secret</b> (the secret only shows once).</li>
+      <li>Optional but recommended: in Trust Hub, fill in your business profile so calls don't show as "Spam Likely".</li></ol></div>
+    <div class="grid2"><label class="field">Account SID<input id="twAcc" autocomplete="off" placeholder="AC…"></label><label class="field">Auth Token<input id="twTok" type="password" autocomplete="off"></label>
+      <label class="field">API key SID<input id="twKey" autocomplete="off" placeholder="SK…"></label><label class="field">API key secret<input id="twSec" type="password" autocomplete="off"></label></div>
+    <div><button class="btn go" data-kact="twsave">Save and turn on calling</button></div></div>`;
+}
+async function loadCalls(redraw){
+  try { callsData = await call("calls"); callsAt = Date.now(); if (callsData.number && callsData.platform_ready) ensureDevice(); if (redraw) render(true); } catch (e) { if (redraw) showErr(e); }
+}
+function loadSdk(){
+  if (window.Twilio?.Device) return Promise.resolve();
+  return new Promise((ok, bad) => { const sc = document.createElement("script"); sc.src = "https://unpkg.com/@twilio/voice-sdk@2.18.5/dist/twilio.min.js"; sc.onload = ok; sc.onerror = () => bad(new Error("Couldn't load the phone. Check your connection.")); document.head.appendChild(sc); });
+}
+async function ensureDevice(){
+  if (device && deviceBiz === biz) return;
+  if (device) { try { device.destroy(); } catch {} device = null; }
+  const myBiz = biz;
+  try {
+    await loadSdk();
+    const t = await call("voice_token");
+    if (myBiz !== biz) return;
+    device = new Twilio.Device(t.token, {closeProtection: "You're on a call. Leave anyway?", codecPreferences: ["opus", "pcmu"]});
+    deviceBiz = myBiz;
+    device.on("tokenWillExpire", async () => { try { device.updateToken((await call("voice_token")).token); } catch {} });
+    device.on("incoming", c => { incoming = c; callWho = fmtPhone(c.parameters.From); c.on("cancel", () => { incoming = null; bar(); }); c.on("disconnect", () => { incoming = null; bar(); }); bar(); });
+    device.on("error", e => { const el = $("devState"); if (el) el.textContent = "Phone problem: " + (e.message || e); });
+    await device.register();
+    const el = $("devState"); if (el) el.textContent = "Ready to call";
+  } catch (e) { const el = $("devState"); if (el) el.textContent = e.message; }
+}
+async function startCall(phone, name, qid, rid){
+  if (active) return;
+  if (!device) await ensureDevice();
+  if (!device) return showErr(new Error("The phone isn't ready yet. Wait a moment and try again."));
+  try {
+    callWho = name || fmtPhone(phone);
+    active = await device.connect({params: {To: phone, bid: biz, qid: qid || "", rid: rid || ""}});
+    callStart = 0; wire(active, {name: callWho, qid, rid}); bar();
+  } catch (e) { active = null; bar(); showErr(e); }
+}
+function wire(c, info){
+  c.on("accept", () => { callStart = Date.now(); bar(); });
+  c.on("disconnect", () => { const sid = c.parameters?.CallSid, talked = callStart; active = null; callStart = 0; bar();
+    if (sid && c.direction !== "INCOMING") { pending = {sid, who: info.name, outcome: talked ? "" : "no_answer"}; if (view !== "calls") go("calls"); else { rendered = ""; render(true); } }
+    setTimeout(() => loadCalls(view === "calls"), 3000); });
+  c.on("cancel", () => { active = null; bar(); });
+  c.on("error", e => { active = null; bar(); showErr(e); });
+}
+function bar(){
+  const el = $("callbar");
+  clearInterval(barTimer);
+  if (incoming && !active) {
+    el.hidden = false; el.className = "callbar ringing";
+    el.innerHTML = `<div class="grow"><b>Incoming call</b> · ${esc(callWho)}</div><button class="btn" data-bar="answer">Answer</button><button class="btn end" data-bar="decline">Decline</button>`;
+    return;
+  }
+  if (!active) { el.hidden = true; el.innerHTML = ""; return; }
+  el.hidden = false; el.className = "callbar";
+  const tick2 = () => { const s = callStart ? Math.floor((Date.now() - callStart) / 1000) : 0; const t = el.querySelector("[data-time]"); if (t) t.textContent = callStart ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "Ringing…"; };
+  el.innerHTML = `<div class="grow"><b>${esc(callWho)}</b> · <span data-time></span></div><button class="btn" data-bar="mute">${active.isMuted?.() ? "Unmute" : "Mute"}</button><button class="btn end" data-bar="hang">Hang up</button>`;
+  tick2(); barTimer = setInterval(tick2, 1000);
+}
+$("callbar").addEventListener("click", e => {
+  const a = e.target.closest("[data-bar]")?.dataset.bar; if (!a) return;
+  if (a === "hang") active?.disconnect();
+  if (a === "mute" && active) { active.mute(!active.isMuted()); bar(); }
+  if (a === "answer" && incoming) { incoming.accept(); active = incoming; incoming = null; callStart = Date.now(); wire(active, {name: callWho}); bar(); }
+  if (a === "decline" && incoming) { incoming.reject(); incoming = null; bar(); }
+});
 
 function setupSteps(){
   if (!settingsData) call("settings_get").then(r => { settingsData = r; render(true); }).catch(() => {});
@@ -599,8 +740,8 @@ function setConnections(){
 function setPeople(){
   if (!["owner", "admin"].includes(data.role)) return `<div class="empty"><b>Only owners and admins can manage people.</b></div>`;
   if (!people) { call("members").then(r => { people = r.members; render(true); }).catch(e => showErr(e)); return `<p class="s">Loading…</p>`; }
-  const R = {viewer: 1, operator: 2, admin: 3, owner: 4}, roles = Object.keys(R).filter(x => R[x] <= R[data.role]);
-  const RL = {viewer: "Can watch", operator: "Can post and approve", admin: "Can also pause the team and add people", owner: "Full control"};
+  const R = {viewer: 1, caller: 2, operator: 3, admin: 4, owner: 5}, roles = Object.keys(R).filter(x => R[x] <= R[data.role]);
+  const RL = {viewer: "Can watch", caller: "Makes calls and uses Team chat (for a VA)", operator: "Can post, approve and call", admin: "Can also pause the team and add people", owner: "Full control"};
   return (people.length ? `<div class="list">${people.map(p => `<div class="row"><div class="grow"><div class="t">${esc(p.email)}</div><div class="s">${esc(label(p.role))} · ${esc(RL[p.role] || "")}</div></div><button class="btn small bad" data-mact="remove" data-uid="${p.id}">Remove</button></div>`).join("")}</div>` : `<div class="empty"><b>Nobody else has access yet.</b>Add a partner, an assistant or the business owner below.</div>`) +
     `<div class="box form" id="invite" style="margin-top:16px"><h4>Add a person</h4><p>They sign in with a code sent to their email.</p>
       <label class="field">Email<input data-i="email" type="email" placeholder="their@email.com"></label>
@@ -612,6 +753,7 @@ function showErr(e){ $("view").insertAdjacentHTML("beforeend", `<p class="err">$
 // ---------- rendering ----------
 function render(force){
   if (!data) return;
+  if (data.role === "caller" && !CALLER_VIEWS.has(view)) view = "calls";
   counts(); topbar();
   if (editing.size && !force) return;
   const key = view + "|" + biz + "|" + workTab + "|" + setTab;
@@ -641,7 +783,16 @@ function topbar(){
   $("pauseBtn").hidden = !can;
   $("pauseBtn").textContent = b.status === "live" ? "Pause team" : "Start team";
   $("pauseBtn").classList.toggle("go", b.status !== "live");
-  document.querySelectorAll("[data-v]").forEach(x => x.setAttribute("aria-current", x.dataset.v === view ? "page" : "false"));
+  const caller = data.role === "caller", showCalls = caller || !!data.calling?.number || data.admin;
+  document.querySelectorAll("[data-v]").forEach(x => {
+    x.setAttribute("aria-current", x.dataset.v === view ? "page" : "false");
+    const v = x.dataset.v;
+    if (["home", "approve", "work", "money"].includes(v)) x.hidden = caller;
+    if (v === "calls") x.hidden = !showCalls;
+    if (v === "settings") x.hidden = caller;
+  });
+  $("pauseBtn").hidden = !can || caller;
+  document.querySelectorAll("[data-calls]").forEach(b2 => { const n = data.calling?.open || 0; b2.textContent = n; b2.hidden = !n; });
 }
 let feedDrawn = 0;
 function msgHtml(m, prev){
@@ -667,6 +818,7 @@ function appendNew(){
 function go(v, opts = {}){
   view = v; if (opts.st) setTab = opts.st;
   editing.clear(); people = null; conns = null; settingsData = null; rendered = "";
+  if (v === "calls") { callsData = null; }
   render(true); window.scrollTo(0, 0);
 }
 
@@ -712,6 +864,10 @@ V.addEventListener("input", e => {
   if (e.target.id === "askInput") { editing.add("ask"); return; }
   const c = e.target.closest("[data-ap],[data-ct]"); if (c) editing.add(c.dataset.ap || "c" + c.dataset.ct);
   if (e.target.closest("#pricing")) editing.add("pricing");
+  if (e.target.closest(".dial")) editing.add("dial");
+  if (e.target.closest("#outcomeBox")) editing.add("outcome");
+  if (e.target.closest("#phoneSet")) editing.add("phone");
+  if (e.target.closest("#twBox,#buyBox")) editing.add("tw");
   if (e.target.closest("[data-conn]")) editing.add("conn");
   if (e.target.closest("#invite")) editing.add("invite");
   if (e.target.closest("#settingsForm")) editing.add("settings");
@@ -724,6 +880,7 @@ V.addEventListener("click", async e => {
   const t = e.target.closest("button"); if (!t) return;
   const d = t.dataset;
 
+  if (d.out && pending) { pending.outcome = d.out; pending.note = $("outNote")?.value; pending.cb = $("cbDate")?.value; editing.add("outcome"); rendered = ""; render(true); return; }
   if (d.act) { // approvals and posts
     const c = t.closest("[data-ap],[data-ct]"), f = (n) => c.querySelector(`[data-f="${n}"]`)?.value;
     t.disabled = true; c.querySelectorAll(".err").forEach(x => x.remove());
@@ -748,6 +905,34 @@ V.addEventListener("click", async e => {
     t.disabled = true;
     try { await call("content_done", {id: item.id}); c.remove(); tick(); } catch (err) { fail(t, c, err); }
   }
+  if (d.kact) { // calls
+    const k = d.kact;
+    if (k === "call") return startCall(d.phone, d.name, d.qid, d.rid);
+    if (k === "dial") { const n = $("dialNum").value.trim(); if (!n) return; editing.delete("dial"); return startCall(n, $("dialName").value.trim() || null); }
+    if (k === "discard") { pending = null; rendered = ""; render(true); return; }
+    if (k === "result") { pending = {callId: Number(d.cid), who: d.name, outcome: ""}; rendered = ""; render(true); window.scrollTo(0, 0); return; }
+    if (k === "play") {
+      t.disabled = true;
+      try { const r = await call("recording", {call_id: Number(d.cid)}); const box = V.querySelector(`[data-audio="${d.cid}"]`); box.innerHTML = `<audio controls autoplay src="${r.audio}" style="width:100%;margin-top:8px"></audio>`; editing.add("audio" + d.cid); t.remove(); }
+      catch (err) { fail(t, t.closest(".row"), err); }
+      return;
+    }
+    t.disabled = true;
+    try {
+      if (k === "skip") await call("queue_skip", {id: Number(d.qid)});
+      if (k === "add") { await call("queue_add", {phone: $("dialNum").value.trim(), name: $("dialName").value.trim()}); editing.delete("dial"); }
+      if (k === "save") {
+        if (!pending.outcome) throw new Error("Pick how the call went.");
+        await call("call_outcome", {call_sid: pending.sid, call_id: pending.callId, outcome: pending.outcome, note: $("outNote").value, callback_on: $("cbDate")?.value});
+        pending = null; editing.delete("outcome");
+      }
+      if (k === "psave") { await call("phone_settings", {forward_to: $("fwdTo").value.trim(), record: $("recOn").checked}); editing.delete("phone"); }
+      if (k === "buy") { await call("phone_buy", {area_code: $("areaCode").value}); tick(); }
+      if (k === "twsave") { await call("twilio_setup", {account_sid: $("twAcc").value, auth_token: $("twTok").value, api_key_sid: $("twKey").value, api_key_secret: $("twSec").value}); editing.delete("tw"); }
+      await loadCalls(false); rendered = ""; render(true);
+    } catch (err) { fail(t, t.closest(".box,.row,.section") || V, err); }
+    return;
+  }
   if (d.bact === "card") {
     t.disabled = true;
     try { const r = await call("billing_link"); location.href = r.url; } catch (err) { fail(t, t.closest(".box"), err); }
@@ -755,7 +940,7 @@ V.addEventListener("click", async e => {
   if (d.pact) { // pricing
     const box = $("pricing"), v = (sel) => box.querySelector(sel); t.disabled = true;
     try {
-      if (d.pact === "save") await call("set_pricing", {markup_pct: v('[data-p="markup_pct"]').value, platform_fee_usd: v('[data-p="platform_fee_usd"]').value, monthly_budget_usd: v('[data-p="monthly_budget_usd"]').value});
+      if (d.pact === "save") await call("set_pricing", {markup_pct: v('[data-p="markup_pct"]').value, platform_fee_usd: v('[data-p="platform_fee_usd"]').value, monthly_budget_usd: v('[data-p="monthly_budget_usd"]').value, call_fee_per_min: v('[data-p="call_fee_per_min"]').value, phone_fee_usd: v('[data-p="phone_fee_usd"]').value});
       if (d.pact === "add") await call("add_charge", {description: v('[data-c="description"]').value.trim(), kind: v('[data-c="kind"]').value, amount_usd: v('[data-c="amount_usd"]').value, recurring: v('[data-c="recurring"]').checked});
       if (d.pact === "end") await call("end_charge", {id: Number(d.id)});
       editing.delete("pricing"); rendered = ""; await tick();
@@ -819,7 +1004,9 @@ async function tick(){
     if (lastId === 0) msgs = [];
     d.messages.forEach(m => { if (m.id > lastId) { msgs.push(m); lastId = m.id; } });
     if (msgs.length > 400) { msgs = msgs.slice(-300); feedDrawn = 0; if (view === "chat") rendered = ""; }
-    data = d; render();
+    data = d;
+    if (view === "calls" && Date.now() - callsAt > 8000 && !editing.size) await loadCalls(false);
+    render();
   } catch (e) {
     if (e.status === 401) return showGate("Please sign in again.");
     const st = $("state"); st.className = "state paused"; st.textContent = "Reconnecting…";
@@ -841,7 +1028,9 @@ async function start(){
 }
 function switchBiz(id){
   biz = id; $("bizSel").value = id; $("bizSelM").value = id; try { localStorage.setItem("osBiz", biz); } catch {}
-  people = null; conns = null; settingsData = null; editing.clear(); lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null; tick();
+  people = null; conns = null; settingsData = null; callsData = null; pending = null; editing.clear(); lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
+  if (device && !active) { try { device.destroy(); } catch {} device = null; deviceBiz = null; }
+  tick();
 }
 $("bizSel").addEventListener("change", e => switchBiz(e.target.value));
 $("bizSelM").addEventListener("change", e => switchBiz(e.target.value));

@@ -1,14 +1,15 @@
 // os-api: the dashboard's backend for every business. People sign in with Supabase Auth (email code);
 // every action checks the person's role in that business before reading or writing anything.
-import { audit, post, sql } from "../_core/core.ts";
+import { audit, post, secret, sql } from "../_core/core.ts";
 import { execute } from "../_core/tools.ts";
 import { ensureCustomer, stripe } from "../_core/stripe.ts";
 import { appUrl, platformMail } from "../_core/mail.ts";
 import { sendEmail } from "../_core/integrations.ts";
+import { e164, identityFor, recordForPhone, twilio, twilioCreds, voiceToken } from "../_core/twilio.ts";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, authorization, apikey, x-os-token", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, "content-type": "application/json" } });
-const RANK: Record<string, number> = { viewer: 1, operator: 2, admin: 3, owner: 4 };
+const RANK: Record<string, number> = { viewer: 1, caller: 2, operator: 3, admin: 4, owner: 5 };
 
 async function sha256(t: string) {
   const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
@@ -185,7 +186,7 @@ Deno.serve(async (req) => {
     const msgs = since
       ? await sql`select id, created_at, sender, sender_name, body from os.messages where business_id = ${bid} and id > ${since} order by id limit 200`
       : (await sql`select id, created_at, sender, sender_name, body from os.messages where business_id = ${bid} order by id desc limit 150`).reverse();
-    const [b] = await sql`select id, slug, name, status, timezone, shift_start, shift_end, shift_days, monthly_budget_usd, plan, markup_pct, platform_fee_usd, billing_status from os.businesses where id = ${bid}`;
+    const [b] = await sql`select id, slug, name, status, timezone, shift_start, shift_end, shift_days, monthly_budget_usd, plan, markup_pct, platform_fee_usd, billing_status, call_fee_per_min, phone_fee_usd from os.businesses where id = ${bid}`;
     if (!isAdmin) { delete (b as any).markup_pct; }
     const team = await sql`select a.slot, a.name, a.handle, ba.enabled from os.agents a join os.business_agents ba on ba.slot = a.slot and ba.business_id = ${bid} order by a.sort`;
     const approvals = await sql`select * from os.approvals where business_id = ${bid} order by id desc limit 60`;
@@ -203,12 +204,15 @@ Deno.serve(async (req) => {
     const charges = await sql`select id, kind, description, amount_usd, recurring, starts_on, ends_on from os.charges where business_id = ${bid} and (ends_on is null or ends_on >= current_date) order by id desc`;
     const invoices = await sql`select month, amount_usd, status, hosted_url from os.invoices where business_id = ${bid} and status <> 'draft' order by month desc limit 12`;
     const results = await sql`select * from os.agent_results(${bid})`;
+    const [phone] = await sql`select settings from os.integrations where business_id = ${bid} and provider = 'phone' and status = 'connected'`;
+    const calling = { number: phone?.settings?.number ?? null, open: phone ? Number((await sql`select count(*)::int as n from os.call_queue where business_id = ${bid} and status = 'open'`)[0].n) : 0 };
+    if (r === "caller") return json({ admin: false, role: r, business: { id: b.id, name: b.name, status: b.status, timezone: b.timezone, billing_status: b.billing_status }, team, messages: msgs, approvals: [], content: [], records: [], tasks: [], activity: [], working: working.map((w: any) => w.slot), calling });
     const [cache] = await sql`select coalesce(sum(cache_read_tokens),0)::bigint as read, coalesce(sum(input_tokens),0)::bigint as input from os.usage_events where business_id = ${bid} and at >= date_trunc('month', now())`;
-    return json({ admin: !!isAdmin, bill, charges, invoices, results, cache, role: r, business: b, team, messages: msgs, approvals, content, records, tasks, usage, usage_by_agent: bySlot, activity, working: working.map((w: any) => w.slot) });
+    return json({ admin: !!isAdmin, bill, charges, invoices, results, cache, calling, role: r, business: b, team, messages: msgs, approvals, content, records, tasks, usage, usage_by_agent: bySlot, activity, working: working.map((w: any) => w.slot) });
   }
 
   if (action === "post") {
-    if (!need("operator")) return json({ error: "Viewers can't post." }, 403);
+    if (!need("caller")) return json({ error: "Viewers can't post." }, 403);
     const text = String(body.body ?? "").trim().slice(0, 4000);
     if (!text) return json({ error: "Message is empty." }, 400);
     const id = await post(bid, me, text, { senderName: r === "owner" ? "Owner" : user.email });
@@ -406,10 +410,10 @@ Deno.serve(async (req) => {
   if (action === "set_pricing") {
     if (!isAdmin) return json({ error: "Only the platform owner can change pricing." }, 403);
     const n = (v: unknown) => (v === "" || v == null ? null : Number(v));
-    const markup = n(body.markup_pct), fee = n(body.platform_fee_usd), budget = n(body.monthly_budget_usd);
-    if ([markup, fee, budget].some((v) => v != null && (!isFinite(v) || v < 0))) return json({ error: "Use numbers of 0 or more." }, 400);
+    const markup = n(body.markup_pct), fee = n(body.platform_fee_usd), budget = n(body.monthly_budget_usd), callFee = n(body.call_fee_per_min), phoneFee = n(body.phone_fee_usd);
+    if ([markup, fee, budget, callFee, phoneFee].some((v) => v != null && (!isFinite(v) || v < 0))) return json({ error: "Use numbers of 0 or more." }, 400);
     await sql`update os.businesses set markup_pct = coalesce(${markup}, markup_pct), platform_fee_usd = coalesce(${fee}, platform_fee_usd),
-      monthly_budget_usd = ${budget} where id = ${bid}`;
+      monthly_budget_usd = ${budget}, call_fee_per_min = coalesce(${callFee}, call_fee_per_min), phone_fee_usd = coalesce(${phoneFee}, phone_fee_usd) where id = ${bid}`;
     await audit(bid, "user", user.email, "set_pricing", bid, { markup_pct: markup, platform_fee_usd: fee, monthly_budget_usd: budget });
     return json({ ok: true });
   }
@@ -478,6 +482,134 @@ Deno.serve(async (req) => {
     await post(bid, "system", approve ? `The owner approved content #${c.id}${text !== c.body ? " with edits" : ""}.${note ? " " + note : ""} @grayson schedule it.`
       : `The owner rejected content #${c.id}.${note ? " Why: " + note : ""} @grayson redo it if it's worth saving.`);
     return json({ ok: true });
+  }
+
+  // ---- Calls: the dialer ----
+  if (action === "calls") {
+    const c = await twilioCreds();
+    const [ph] = await sql`select settings from os.integrations where business_id = ${bid} and provider = 'phone' and status = 'connected'`;
+    const queue = await sql`select q.id, q.record_id, q.phone, q.name, q.reason, q.queued_by, q.created_at, a.name as queued_by_name
+      from os.call_queue q left join os.agents a on a.slot = q.queued_by where q.business_id = ${bid} and q.status = 'open' order by q.id limit 100`;
+    const recent = await sql`select c.id, c.direction, c.to_number, c.from_number, c.record_id, r.title, c.status, c.started_at, c.duration_sec, c.minutes,
+      c.voicemail, c.recording_sid is not null as has_recording, c.outcome, c.note, ${need("admin") ? sql`c.billed_usd` : sql`null::numeric`} as billed_usd
+      from os.calls c left join os.records r on r.id = c.record_id where c.business_id = ${bid} order by c.id desc limit 40`;
+    const [m] = await sql`select coalesce(sum(minutes), 0)::int as minutes, coalesce(sum(billed_usd), 0) as billed from os.calls where business_id = ${bid} and started_at >= date_trunc('month', now())`;
+    return json({ platform_ready: !!c?.APP_SID, number: ph?.settings?.number ?? null, settings: ph ? { forward_to: ph.settings.forward_to ?? "", record: ph.settings.record === "true" } : null,
+      queue, recent, month: { minutes: m.minutes, billed: need("admin") ? Number(m.billed) : null }, can_manage: need("admin"), can_buy: !!isAdmin });
+  }
+  if (action === "voice_token") {
+    if (!need("caller")) return json({ error: "You don't have calling access." }, 403);
+    const c = await twilioCreds();
+    if (!c?.APP_SID) return json({ error: "Calling isn't set up yet." }, 409);
+    return json({ token: await voiceToken(c, identityFor(user.id, bid)) });
+  }
+  if (action === "queue_add") {
+    if (!need("caller")) return json({ error: "You don't have calling access." }, 403);
+    const phone = e164(body.phone);
+    if (!phone) return json({ error: "That phone number doesn't look right." }, 400);
+    const [nc] = await sql`select 1 from os.never_call where business_id = ${bid} and phone = ${phone}`;
+    if (nc) return json({ error: "That number is on the do-not-call list." }, 409);
+    const rec = body.record_id ? { id: Number(body.record_id) } : await recordForPhone(bid, phone);
+    await sql`insert into os.call_queue (business_id, record_id, phone, name, reason, queued_by)
+      values (${bid}, ${rec?.id ?? null}, ${phone}, ${clip(body.name, 120) || null}, ${clip(body.reason, 500) || null}, ${user.email}) on conflict do nothing`;
+    return json({ ok: true });
+  }
+  if (action === "queue_skip") {
+    if (!need("caller")) return json({ error: "You don't have calling access." }, 403);
+    await sql`update os.call_queue set status = 'skipped', done_at = now() where id = ${Number(body.id)} and business_id = ${bid}`;
+    return json({ ok: true });
+  }
+  if (action === "call_outcome") {
+    if (!need("caller")) return json({ error: "You don't have calling access." }, 403);
+    const OUT: Record<string, string> = { no_answer: "No answer", voicemail: "Left a voicemail", talked: "Talked", interested: "Interested", callback: "Call back later",
+      not_interested: "Not interested", wrong_number: "Wrong number", do_not_call: "Asked not to be called" };
+    if (!OUT[body.outcome]) return json({ error: "Pick how the call went." }, 400);
+    const note = clip(body.note, 2000).trim();
+    const [call] = body.call_sid
+      ? await sql`update os.calls set outcome = ${body.outcome}, note = ${note || null} where business_id = ${bid} and twilio_sid = ${String(body.call_sid)} returning *`
+      : await sql`update os.calls set outcome = ${body.outcome}, note = ${note || null} where business_id = ${bid} and id = ${Number(body.call_id)} returning *`;
+    if (!call) return json({ error: "That call wasn't found. It may still be finishing; try again in a few seconds." }, 404);
+    const phone = call.direction === "outbound" ? call.to_number : call.from_number;
+    if (call.queue_id) await sql`update os.call_queue set status = 'done', done_at = now() where id = ${call.queue_id} and business_id = ${bid}`;
+    else await sql`update os.call_queue set status = 'done', done_at = now() where business_id = ${bid} and phone = ${phone} and status = 'open'`;
+    if (body.outcome === "do_not_call") await sql`insert into os.never_call (business_id, phone, reason, added_by) values (${bid}, ${phone}, 'asked on a call', ${user.email}) on conflict do nothing`;
+    const callback = body.outcome === "callback" && /^\d{4}-\d{2}-\d{2}$/.test(String(body.callback_on ?? "")) ? String(body.callback_on) : null;
+    if (call.record_id) {
+      const next = { no_answer: "call again", voicemail: "call again or email", talked: "follow up on the call", interested: "follow up now: interested on the call", callback: "call back",
+        not_interested: "not interested (said on a call)", wrong_number: "find the right number", do_not_call: "do not call again" }[String(body.outcome)];
+      await sql`update os.records set data = data || ${sql.json({ last_call: { on: new Date().toISOString().slice(0, 10), outcome: OUT[body.outcome], note: note || undefined } })},
+        next_step = ${next}, next_step_due = coalesce(${callback}::date, case when ${["no_answer", "voicemail"].includes(body.outcome)} then (now() + interval '2 days')::date else next_step_due end), updated_at = now()
+        where id = ${call.record_id} and business_id = ${bid}`;
+    }
+    const [r] = call.record_id ? await sql`select title from os.records where id = ${call.record_id}` : [];
+    const who = r ? `#${call.record_id} ${r.title}` : phone;
+    const act = ["talked", "interested", "callback"].includes(body.outcome);
+    await post(bid, "system", `${user.email} called ${who}: ${OUT[body.outcome]}${callback ? ` (call back ${callback})` : ""}.${note ? ` Notes: ${note}` : ""}${act ? " @demarcus decide the next step." : ""}`, { status: act ? "queued" : "handled", recordId: call.record_id ?? undefined });
+    await audit(bid, "user", user.email, "call_outcome", String(call.id), { outcome: body.outcome });
+    return json({ ok: true });
+  }
+  if (action === "recording") {
+    if (!need("caller")) return json({ error: "You don't have calling access." }, 403);
+    const [call] = await sql`select recording_sid from os.calls where id = ${Number(body.call_id)} and business_id = ${bid}`;
+    const c = await twilioCreds();
+    if (!call?.recording_sid || !c) return json({ error: "No recording for that call." }, 404);
+    const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${c.ACCOUNT_SID}/Recordings/${call.recording_sid}.mp3`, { headers: { Authorization: "Basic " + btoa(`${c.ACCOUNT_SID}:${c.AUTH_TOKEN}`) } });
+    if (!r.ok) return json({ error: `Couldn't load the recording (${r.status}).` }, 502);
+    const buf = new Uint8Array(await r.arrayBuffer());
+    let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+    return json({ audio: "data:audio/mpeg;base64," + btoa(bin) });
+  }
+  if (action === "phone_settings") {
+    if (!need("admin")) return json({ error: "Only admins can change phone settings." }, 403);
+    const fwd = String(body.forward_to ?? "").trim();
+    if (fwd && !e164(fwd)) return json({ error: "The forwarding number doesn't look right." }, 400);
+    await sql`update os.integrations set settings = settings || ${sql.json({ forward_to: fwd ? e164(fwd) : "", record: body.record ? "true" : "false" })}, updated_at = now()
+      where business_id = ${bid} and provider = 'phone'`;
+    await audit(bid, "user", user.email, "phone_settings", null, { record: !!body.record, forward: !!fwd });
+    return json({ ok: true });
+  }
+  if (action === "phone_buy") {
+    if (!isAdmin) return json({ error: "Only the platform owner can add phone numbers." }, 403);
+    const c = await twilioCreds();
+    if (!c?.APP_SID) return json({ error: "Set up calling first." }, 409);
+    const [have] = await sql`select settings from os.integrations where business_id = ${bid} and provider = 'phone' and status = 'connected'`;
+    if (have?.settings?.number) return json({ error: "This business already has a number." }, 409);
+    const area = String(body.area_code ?? "").replace(/\D/g, "");
+    if (!/^\d{3}$/.test(area)) return json({ error: "Enter a 3-digit area code, like 973." }, 400);
+    try {
+      const avail = await twilio(c, "GET", "AvailablePhoneNumbers/US/Local.json", { AreaCode: area, VoiceEnabled: "true", PageSize: "1" });
+      const pick = avail.available_phone_numbers?.[0]?.phone_number;
+      if (!pick) return json({ error: `No numbers available in ${area} right now. Try a nearby area code.` }, 404);
+      const fn = await secret("OS_FUNCTIONS_URL");
+      const [biz] = await sql`select name from os.businesses where id = ${bid}`;
+      const num = await twilio(c, "POST", "IncomingPhoneNumbers.json", { PhoneNumber: pick, FriendlyName: `Destiny OS: ${biz.name}`.slice(0, 64),
+        VoiceUrl: `${fn}/os-voice?ev=in&bid=${bid}`, VoiceMethod: "POST", StatusCallback: `${fn}/os-voice?ev=instatus&bid=${bid}`, StatusCallbackMethod: "POST" });
+      await sql`insert into os.integrations (business_id, provider, status, secret_names, settings, updated_at)
+        values (${bid}, 'phone', 'connected', '{}', ${sql.json({ number: num.phone_number, sid: num.sid, forward_to: "", record: "false" })}, now())
+        on conflict (business_id, provider) do update set status = 'connected', settings = excluded.settings, updated_at = now()`;
+      await audit(bid, "user", user.email, "phone_buy", num.phone_number);
+      await post(bid, "system", `This business now has a phone line: ${num.phone_number}. Teammates can add people to the call list with queue_call.`, { status: "handled" });
+      return json({ ok: true, number: num.phone_number });
+    } catch (e) { return json({ error: (e as Error).message }, 502); }
+  }
+  if (action === "twilio_setup") {
+    if (!isAdmin) return json({ error: "Only the platform owner can set up calling." }, 403);
+    const f = { ACCOUNT_SID: clip(body.account_sid, 64).trim(), AUTH_TOKEN: clip(body.auth_token, 64).trim(), API_KEY_SID: clip(body.api_key_sid, 64).trim(), API_KEY_SECRET: clip(body.api_key_secret, 128).trim() };
+    if (!/^AC[0-9a-f]{32}$/i.test(f.ACCOUNT_SID)) return json({ error: "The Account SID starts with AC and has 34 characters." }, 400);
+    if (!/^SK[0-9a-f]{32}$/i.test(f.API_KEY_SID)) return json({ error: "The API key SID starts with SK and has 34 characters." }, 400);
+    if (!f.AUTH_TOKEN || !f.API_KEY_SECRET) return json({ error: "Paste the Auth Token and the API key secret." }, 400);
+    try {
+      await twilio(f as any, "GET", `/2010-04-01/Accounts/${f.ACCOUNT_SID}.json`);
+      const fn = await secret("OS_FUNCTIONS_URL");
+      const old = await twilioCreds();
+      let appSid = old?.ACCOUNT_SID === f.ACCOUNT_SID ? old?.APP_SID : undefined;
+      const appParams = { FriendlyName: "Destiny OS dialer", VoiceUrl: `${fn}/os-voice?ev=out`, VoiceMethod: "POST" };
+      if (appSid) await twilio(f as any, "POST", `Applications/${appSid}.json`, appParams);
+      else appSid = (await twilio(f as any, "POST", "Applications.json", appParams)).sid;
+      for (const [k, v] of Object.entries({ ...f, APP_SID: appSid! })) await putSecret(`OS_TWILIO_${k}`, v, "Destiny OS calling (Twilio)");
+      await audit(null, "user", user.email, "twilio_setup", f.ACCOUNT_SID.slice(0, 6) + "…");
+      return json({ ok: true });
+    } catch (e) { return json({ error: `Twilio didn't accept those: ${(e as Error).message}` }, 400); }
   }
 
   return json({ error: "Unknown action." }, 400);
