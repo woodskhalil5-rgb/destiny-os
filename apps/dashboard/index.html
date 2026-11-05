@@ -167,7 +167,8 @@ footer a{color:var(--muted)}
   h2{font-size:31px}
   section.band{padding:56px 0}
   .steps,.team,.trust,.two{grid-template-columns:1fr}
-  .bar .end .signin{display:none}
+  .bar .end .signin{padding:8px 6px;font-size:15px}
+  .bar{gap:10px}
   .bar .end .btn.go{padding:10px 14px;font-size:15px}
   .ctas .btn{flex:1}
 }
@@ -350,8 +351,8 @@ footer a{color:var(--muted)}
 <script>
 const $ = (id) => document.getElementById(id);
 $("yr").textContent = new Date().getFullYear();
-const top = $("top");
-const onScroll = () => top.classList.toggle("scrolled", scrollY > 8);
+const bar = $("top");
+const onScroll = () => bar.classList.toggle("scrolled", scrollY > 8);
 addEventListener("scroll", onScroll, {passive: true}); onScroll();
 
 $("talkForm").addEventListener("submit", async (e) => {
