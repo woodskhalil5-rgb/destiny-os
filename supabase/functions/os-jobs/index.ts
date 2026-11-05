@@ -6,6 +6,7 @@
 import { audit, post, secret, sql } from "../_core/core.ts";
 import { platformMail } from "../_core/mail.ts";
 import { download, mediaFor } from "../_core/storage.ts";
+import { describePending } from "../_core/vision.ts";
 import { ImapFlow } from "npm:imapflow@1";
 import { simpleParser } from "npm:mailparser@3";
 
@@ -218,5 +219,6 @@ Deno.serve(async (req) => {
   try { out.inbox = await watchInboxes(); } catch (e) { out.inbox_error = (e as Error).message; }
   try { out.alerts = await sendAlerts(); } catch (e) { out.alerts_error = (e as Error).message; }
   try { out.published = await publishDue(); } catch (e) { out.publish_error = (e as Error).message; }
+  try { out.described = await describePending(); } catch (e) { out.describe_error = (e as Error).message; }
   return new Response(JSON.stringify(out), { headers: { "content-type": "application/json" } });
 });
