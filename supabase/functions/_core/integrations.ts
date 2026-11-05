@@ -8,7 +8,7 @@ export async function integration(bid: string, provider: string) {
 }
 
 // ---------- Email: Gmail (SMTP) or Resend ----------
-export async function sendEmail(b: Business, msg: { to: string; subject: string; text: string; fromName?: string; replyTo?: string }) {
+export async function sendEmail(b: Business, msg: { to: string; subject: string; text: string; fromName?: string; replyTo?: string; from?: string }) {
   const resend = await integration(b.id, "resend");
   if (resend && msg.fromName !== "__owner__") {
     const key = await bizSecret(b, "RESEND_API_KEY");
@@ -16,7 +16,7 @@ export async function sendEmail(b: Business, msg: { to: string; subject: string;
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
-      body: JSON.stringify({ from: resend.settings.from, to: [msg.to], subject: msg.subject, text: msg.text, reply_to: msg.replyTo ?? resend.settings.reply_to }),
+      body: JSON.stringify({ from: msg.from || resend.settings.from, to: [msg.to], subject: msg.subject, text: msg.text, reply_to: msg.replyTo ?? resend.settings.reply_to }),
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(`Resend ${r.status}: ${JSON.stringify(j).slice(0, 200)}`);

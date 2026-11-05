@@ -1,5 +1,5 @@
 // The shared tool set. Every tool runs inside one business; ids from another business are never found.
-import { audit, Business, BizAgent, post, sql } from "./core.ts";
+import { audit, Business, BizAgent, config, post, sql } from "./core.ts";
 import { PACKS, sendEmail } from "./integrations.ts";
 import { e164 } from "./twilio.ts";
 
@@ -52,7 +52,11 @@ export async function execute(b: Business, ap: any): Promise<string> {
   if (ap.kind === "email") {
     const p = ap.payload ?? {};
     if (!p.to || !p.subject || !p.body) throw new Error("email approval is missing to, subject or body");
-    await sendEmail(b, { to: p.to, subject: p.subject, text: p.body });
+    // The sender can depend on who it's to: config.email_from maps a record type to a From address
+    // (e.g. JHP: homeowners see hello@, everyone else team@).
+    const [rec] = ap.record_id ? await sql`select type from os.records where id = ${ap.record_id} and business_id = ${b.id}` : [];
+    const from = rec ? (await config(b.id)).email_from?.[rec.type] : undefined;
+    await sendEmail(b, { to: p.to, subject: p.subject, text: p.body, from });
     await sql`update os.approvals set status = 'done' where id = ${ap.id}`;
     if (ap.record_id) await sql`update os.records set status = 'contacted', next_step = 'wait for reply, follow up if none', next_step_due = (now() + interval '4 days')::date, updated_at = now() where id = ${ap.record_id} and business_id = ${b.id}`;
     return `email sent to ${p.to}`;
