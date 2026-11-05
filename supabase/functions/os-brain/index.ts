@@ -16,10 +16,21 @@ const TALK = `How to talk on the board:
 - Never @mention yourself. Thanks and small talk stay short; the work comes first.
 - Refer to records as #id and tasks as task #id.`;
 
+const WORK = `How to work efficiently:
+- Work in batches. When you have several similar items (records to research, emails to draft, posts to write), do 5 to 8 in one go, then post one short summary instead of one message per item.
+- Before searching the web, use recall to check what the team already learned. After useful research, save_note the finding with its sources so nobody pays to look it up again.
+- Your context shows only your part of the work. Use find_records, get_record and list_tasks for anything else you need.`;
+
 function bubbleDate(b: Business) {
   return new Date().toLocaleString("en-US", { timeZone: b.timezone, dateStyle: "full", timeStyle: "short" });
 }
+function today(b: Business) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: b.timezone }).format(new Date());
+}
+const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) + "…" : s);
+const isOwner = (sender: string) => sender === "owner" || String(sender).startsWith("user:");
 
+/** The stable part of an agent's instructions (no clock, no board), so it can be cached between calls. */
 async function systemPrompt(b: Business, cfg: Record<string, any>, me: BizAgent, crew: BizAgent[]) {
   const roster = crew.filter((x) => x.enabled).map((x) => `- ${x.name} (@${x.handle}): ${x.core_role.split(":")[0]}. ${x.role_instructions ? x.role_instructions.split("\n")[0] : ""}`).join("\n");
   const guides = await sql`select kind, body from os.agent_guides where business_id = ${b.id} and slot = ${me.slot} and body <> ''`;
@@ -35,40 +46,84 @@ Work hours: a ${b.shift_end - b.shift_start}-hour shift with hourly check-ins; u
 
 ${TALK}
 
+${WORK}
+
 ${PLATFORM_RULES}
 
 YOU ARE ${me.name.toUpperCase()} (@${me.handle}).
 Who you are: ${me.personality}
 Your job on every team: ${me.core_role}
-Your job here: ${me.role_instructions || "(follow the mission and your core job)"}${guides.length ? `\n\nWHAT YOU'VE LEARNED:\n${guides.map((g: any) => `[${g.kind}] ${g.body}`).join("\n")}` : ""}
-
-It is now ${bubbleDate(b)} (${b.timezone}).`;
+Your job here: ${me.role_instructions || "(follow the mission and your core job)"}${guides.length ? `\n\nWHAT YOU'VE LEARNED:\n${guides.map((g: any) => `[${g.kind}] ${g.body}`).join("\n")}` : ""}`;
 }
 
-async function contextBlock(b: Business, crew: BizAgent[]) {
+/** What this agent needs to see right now: its own work in full, the rest of the team as counts. */
+async function contextBlock(b: Business, crew: BizAgent[], me: BizAgent, trigger: any) {
   const name = (s: string, n?: string) => n ?? crew.find((c) => c.slot === s)?.name ?? (s === "owner" ? "Owner" : s === "system" ? "System" : s);
-  const msgs = await sql`select id, created_at, sender, sender_name, body from os.messages where business_id = ${b.id} order by id desc limit 30`;
-  const tasks = await sql`select t.id, t.title, a.name as who, t.status from os.tasks t left join os.agents a on a.slot = t.assignee_slot
-    where t.business_id = ${b.id} and t.status in ('open','in_progress','blocked') order by t.id limit 30`;
-  const recs = await sql`select id, type, status, title, next_step, next_step_due from os.records where business_id = ${b.id}
-    order by updated_at desc limit 40`;
-  const aps = await sql`select id, kind, summary, status, note from os.approvals where business_id = ${b.id} and status in ('pending','failed') order by id limit 15`;
-  return `OPEN TASKS:\n${tasks.map((t: any) => `task #${t.id} ${t.title} | ${t.who ?? "unassigned"} | ${t.status}`).join("\n") || "(none)"}
+  const lead = me.slot === "coordination";
+  const day = today(b);
+  const [msgs, tasks, pipeline, aps, notes] = await Promise.all([
+    sql`select id, created_at, sender, sender_name, body from os.messages where business_id = ${b.id} and id <= ${trigger.id} order by id desc limit 20`,
+    sql`select t.id, t.title, t.assignee_slot, a.name as who, t.status, t.due_at from os.tasks t left join os.agents a on a.slot = t.assignee_slot
+      where t.business_id = ${b.id} and t.status in ('open','in_progress','blocked') order by t.id limit 60`,
+    sql`select type, status, count(*)::int as n from os.records where business_id = ${b.id} group by 1, 2 order by 1, 3 desc`,
+    sql`select id, kind, summary, status, note, requested_by from os.approvals where business_id = ${b.id}
+      and (status in ('pending','failed') or (status = 'rejected' and decided_at > now() - interval '3 days')) order by id limit 30`,
+    sql`select day, body from os.notebook where business_id = ${b.id} order by day desc limit 1`,
+  ]);
+  // Records: DeMarcus sees everything due plus the latest activity; everyone else sees what they own.
+  const recs = lead
+    ? await sql`(select id, type, status, title, next_step, next_step_due, owner_slot from os.records where business_id = ${b.id} and next_step_due <= ${day} order by next_step_due limit 25)
+        union (select id, type, status, title, next_step, next_step_due, owner_slot from os.records where business_id = ${b.id} order by updated_at desc limit 15)`
+    : await sql`select id, type, status, title, next_step, next_step_due, owner_slot from os.records where business_id = ${b.id} and owner_slot = ${me.slot}
+        order by (next_step_due is null), next_step_due, updated_at desc limit 25`;
+  if (trigger.record_id && !recs.some((r: any) => String(r.id) === String(trigger.record_id))) {
+    const [r] = await sql`select id, type, status, title, next_step, next_step_due, owner_slot from os.records where id = ${trigger.record_id} and business_id = ${b.id}`;
+    if (r) recs.unshift(r);
+  }
+  const mine = tasks.filter((t: any) => t.assignee_slot === me.slot);
+  const others = tasks.filter((t: any) => t.assignee_slot !== me.slot);
+  const myAps = lead ? aps : aps.filter((a: any) => a.requested_by === me.slot);
+  const content = ["media", "distribution", "coordination"].includes(me.slot)
+    ? await sql`select id, kind, channel, title, status, scheduled_for, note from os.content where business_id = ${b.id}
+        and status not in ('published','rejected') order by id desc limit 15`
+    : [];
+  const recLine = (r: any) => `#${r.id} [${r.type}] ${r.title} | ${r.status}${r.next_step ? ` | next: ${r.next_step}` : ""}${r.next_step_due ? ` due ${String(r.next_step_due).slice(0, 10)}` : ""}${lead && r.owner_slot ? ` | ${name(r.owner_slot)}` : ""}`;
+  const taskLine = (t: any) => `task #${t.id} ${t.title} | ${t.who ?? "unassigned"} | ${t.status}${t.due_at ? ` | due ${String(t.due_at).slice(0, 10)}` : ""}`;
+  const counts = Object.entries(others.reduce((m: Record<string, number>, t: any) => ((m[t.who ?? "unassigned"] = (m[t.who ?? "unassigned"] ?? 0) + 1), m), {}))
+    .map(([k, v]) => `${k} ${v}`).join(", ");
+  const parts = [
+    notes[0] ? `TEAM NOTEBOOK (${String(notes[0].day).slice(0, 10)}):\n${clip(notes[0].body, 1500)}` : "",
+    `PIPELINE (records by type and status):\n${pipeline.map((p: any) => `${p.type}/${p.status}: ${p.n}`).join(", ") || "(empty)"}`,
+    lead
+      ? `OPEN TASKS:\n${tasks.map(taskLine).join("\n") || "(none)"}`
+      : `YOUR OPEN TASKS:\n${mine.map(taskLine).join("\n") || "(none)"}${counts ? `\nTeammates' open tasks: ${counts}` : ""}`,
+    `${lead ? "RECORDS DUE AND RECENT" : "YOUR RECORDS"}:\n${recs.map(recLine).join("\n") || "(none)"}`,
+    `${lead ? "APPROVALS WAITING" : "YOUR APPROVALS"}:\n${myAps.map((a: any) => `#${a.id} ${a.kind}: ${a.summary} [${a.status}${a.note ? `: ${clip(a.note, 200)}` : ""}]`).join("\n") || "(none)"}${!lead && aps.length > myAps.length ? `\n(${aps.length - myAps.length} more waiting for others)` : ""}`,
+    content.length ? `CONTENT IN PROGRESS:\n${content.map((c: any) => `content #${c.id} ${c.kind}${c.channel ? `/${c.channel}` : ""}: ${c.title ?? "(untitled)"} | ${c.status}${c.scheduled_for ? ` for ${new Date(c.scheduled_for).toLocaleString("en-US", { timeZone: b.timezone })}` : ""}${c.note ? ` | ${clip(c.note, 120)}` : ""}`).join("\n")}` : "",
+    `TEAM BOARD (latest at bottom):\n${msgs.reverse().map((m: any) => `[${new Date(m.created_at).toLocaleString("en-US", { timeZone: b.timezone })}] ${name(m.sender, m.sender_name)}: ${clip(m.body, String(m.id) === String(trigger.id) || isOwner(m.sender) ? 3000 : 600)}`).join("\n")}`,
+  ];
+  return parts.filter(Boolean).join("\n\n");
+}
 
-RECENT RECORDS:\n${recs.map((r: any) => `#${r.id} [${r.type}] ${r.title} | ${r.status}${r.next_step ? ` | next: ${r.next_step}` : ""}${r.next_step_due ? ` due ${String(r.next_step_due).slice(0, 10)}` : ""}`).join("\n") || "(none)"}
-
-APPROVALS WAITING:\n${aps.map((a: any) => `#${a.id} ${a.kind}: ${a.summary} [${a.status}${a.note ? `: ${a.note}` : ""}]`).join("\n") || "(none)"}
-
-TEAM BOARD (latest at bottom):\n${msgs.reverse().map((m: any) => `[${new Date(m.created_at).toLocaleString("en-US", { timeZone: b.timezone })}] ${name(m.sender, m.sender_name)}: ${m.body}`).join("\n")}`;
+/** Mark the newest user turn as a cache point (and clear older ones) so each loop step re-reads the conversation at a tenth of the price. */
+function cachePoint(messages: any[]) {
+  for (const m of messages) if (Array.isArray(m.content)) for (const blk of m.content) if (blk && typeof blk === "object") delete blk.cache_control;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== "user" || !Array.isArray(m.content) || !m.content.length) continue;
+    const last = m.content[m.content.length - 1];
+    if (last.type === "text" || last.type === "tool_result") last.cache_control = { type: "ephemeral" };
+    return;
+  }
 }
 
 async function agentTurn(b: Business, me: BizAgent, crew: BizAgent[], cfg: Record<string, any>, trigger: any) {
-  const fromOwner = trigger.sender === "owner" || String(trigger.sender).startsWith("user:");
-  const system = await systemPrompt(b, cfg, me, crew);
+  const fromOwner = isOwner(trigger.sender);
+  const system = [{ type: "text", text: await systemPrompt(b, cfg, me, crew), cache_control: { type: "ephemeral" } }];
   const ask = fromOwner
-    ? "The newest message is from the owner to the whole team. Everyone answers: reply in your own voice (1 to 3 sentences) about the part that concerns your job, and if it gives you work, do it with your tools first."
-    : `The newest message is for you. Do the work it needs with your tools, then write your reply for the board. If no reply is needed, answer with exactly: (no reply)`;
-  const messages: any[] = [{ role: "user", content: `${await contextBlock(b, crew)}\n\n${ask}` }];
+    ? "The message above (the last on the board) is from the owner to the whole team. Everyone answers: reply in your own voice (1 to 3 sentences) about the part that concerns your job, and if it gives you work, do it with your tools first."
+    : `Message #${trigger.id} (the last on the board) is for you. Do the work it needs with your tools, then write your reply for the board. If no reply is needed, answer with exactly: (no reply)`;
+  const messages: any[] = [{ role: "user", content: [{ type: "text", text: `${await contextBlock(b, crew, me, trigger)}\n\nIt is now ${bubbleDate(b)} (${b.timezone}).\n\n${ask}` }] }];
   const tools = toolsFor(me, cfg);
   const ctx = { recordId: trigger.record_id ?? undefined, saved: 0, depth: trigger.depth ?? 0 };
   const started = Date.now(), BUDGET = 100_000;
@@ -80,6 +135,7 @@ async function agentTurn(b: Business, me: BizAgent, crew: BizAgent[], cfg: Recor
       return;
     }
     let res;
+    cachePoint(messages);
     try {
       res = await claude(b, me.slot, { model: me.model ?? b.model, max_tokens: 2000, system, tools, messages }, left);
     } catch (e) {

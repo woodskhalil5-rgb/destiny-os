@@ -244,6 +244,16 @@ const PANES = {
       <tr><td><b>Total</b></td><td class="n"><b>${money(total)}</b></td>${data.admin ? `<td class="n"><b>${money(bill.reduce((t, l) => t + (l.our_cost_usd || 0), 0))}</b></td>` : ""}</tr></tbody></table>
       <div class="meta">AI team cost by agent</div>
       <table><thead><tr><th>Agent</th><th class="n">Calls</th><th class="n">Tokens</th><th class="n">Cost</th>${data.admin ? `<th class="n">Ours</th>` : ""}</tr></thead><tbody>${(data.usage_by_agent || []).map(r => `<tr><td>${esc(T[r.slot]?.name || r.slot)}</td><td class="n">${r.calls}</td><td class="n">${Number(r.tokens).toLocaleString()}</td><td class="n">${money(r.usd)}</td>${data.admin ? `<td class="n">${money(r.our_cost)}</td>` : ""}</tr>`).join("") || `<tr><td colspan="5" class="meta">No AI usage yet this month.</td></tr>`}</tbody></table>`;
+    const res = (data.results || []).filter(r => Number(r.billed_usd) > 0 || r.records_created + r.records_updated + r.drafts + r.content + r.reviews > 0);
+    if (res.length) {
+      const did = r => [[r.records_created, "new records"], [r.records_updated, "updates"], [r.drafts, "drafts"], [r.sent, "sent"], [r.content, "content pieces"], [r.published, "published"], [r.reviews, "reviews"]]
+        .filter(([n]) => n > 0).map(([n, w]) => `${n} ${w}`).join(", ") || "nothing saved yet";
+      const count = r => r.records_created + r.records_updated + r.drafts + r.content + r.reviews;
+      h += `<div class="meta">Results per dollar this month</div>
+      <table><thead><tr><th>Agent</th><th>What they did</th><th class="n">Cost</th><th class="n">Per result</th></tr></thead><tbody>${res.map(r => `<tr><td>${esc(T[r.slot]?.name || r.slot)}</td><td class="meta">${esc(did(r))}</td><td class="n">${money(r.billed_usd)}</td><td class="n">${count(r) ? money(Number(r.billed_usd) / count(r)) : "–"}</td></tr>`).join("")}</tbody></table>`;
+    }
+    const ci = Number(data.cache?.input || 0), cr = Number(data.cache?.read || 0);
+    if (ci > 0 && cr > 0) h += `<div class="meta">${Math.round(cr / ci * 100)}% of what the team read this month came from memory at a tenth of the price.</div>`;
     if ((data.invoices || []).length) h += `<div class="meta">Invoices</div><table><tbody>${data.invoices.map(i => `<tr><td>${new Date(String(i.month).slice(0, 10) + "T12:00:00Z").toLocaleString([], {month:"long", year:"numeric", timeZone:"UTC"})}</td><td class="n">${money(i.amount_usd)}</td><td>${i.hosted_url ? `<a href="${esc(i.hosted_url)}" target="_blank" rel="noopener">${esc(i.status)}</a>` : esc(i.status)}</td></tr>`).join("")}</tbody></table>`;
     if (data.admin) {
       const margin = bill.reduce((t, l) => t + l.amount_usd - (l.our_cost_usd || 0), 0);

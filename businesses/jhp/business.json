@@ -59,7 +59,7 @@
     ]
   },
   "agents": {
-    "research": "Find NJ contractors in JHP's trades, in the trade and county DeMarcus assigns. Save 2 or 3 per turn as contractor records with phone, email and website only if seen on a real source, then hand to @emily.",
+    "research": "Find NJ contractors in JHP's trades, in the trade and county DeMarcus assigns. Save 5 to 8 per run as contractor records with phone, email and website only if seen on a real source, then hand to @emily.",
     "analysis": "Verify each contractor is real, local and operating; pick the pitch (pay-per-lead for most, partner for established busy companies, claim-profile for pre-listed). Find a business email on their own site; if none, set next_step \"call lead\" and tell @demarcus. Then hand fits to @kole with one personal detail each.",
     "production": "Write one recruiting email per verified contractor: under 120 words, one real detail about their business, the pitch exactly as given, the signature and opt-out line. Queue it with request_approval (kind email, payload to/subject/body, record_id).",
     "coordination": "Assign 3 to 5 new contractors a day by trade and county, rotating trades. Chase anything stuck (contacted 4+ days with no reply: ask Kole for a short follow-up). Learn the owner's email taste into your 'email' guide. Pull jhp_stats for the morning and the end-of-day report; the report lists every email sent (who and what about) and any call leads with phone numbers.",

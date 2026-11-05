@@ -6,7 +6,13 @@ const obj = (properties: Record<string, unknown>, required: string[] = []) => ({
 const S = { type: "string" }, I = { type: "integer" };
 
 export const TOOL_DEFS: Record<string, Record<string, unknown>> = {
-  web_search: { type: "web_search_20250305", name: "web_search", max_uses: 3 },
+  web_search: { type: "web_search_20250305", name: "web_search", max_uses: 5 },
+  recall: { name: "recall", description: "Look up what the team already learned (research notes) before searching the web. Search by words in the subject or note; leave query empty for the latest notes.",
+    input_schema: obj({ query: S }) },
+  save_note: { name: "save_note", description: "Save something you learned so nobody pays to look it up again: a short subject (e.g. 'Montclair roofers' or 'NJ HIC license lookup'), the finding in a few lines, and source URLs.",
+    input_schema: obj({ subject: S, note: S, sources: { type: "array", items: S } }, ["subject", "note"]) },
+  write_notebook: { name: "write_notebook", description: "Write today's team notebook entry: what got done, what's in progress, what's blocked, and the plan for tomorrow. Under 200 words. Tomorrow's shift starts by reading it.",
+    input_schema: obj({ body: S }, ["body"]) },
   save_record: { name: "save_record", description: "Create a record (omit id) or update one (give id). type must be one of the business's record types. Only include what you actually know; put details in data.",
     input_schema: obj({ id: I, type: S, status: S, title: S, data: { type: "object" }, next_step: S, next_step_due: { type: "string", description: "YYYY-MM-DD" } }) },
   find_records: { name: "find_records", description: "Search this business's records by type, status and/or words in the title.", input_schema: obj({ type: S, status: S, query: S }) },
@@ -154,6 +160,26 @@ export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent
       const [c] = await sql`insert into os.content (business_id, created_by, kind, channel, audience, title, body)
         values (${b.id}, ${a.slot}, ${input.kind}, ${input.channel ?? null}, ${input.audience ?? null}, ${input.title ?? null}, ${input.body}) returning id`;
       return `saved as content #${c.id}; it waits for approval.`;
+    }
+    case "recall": {
+      const words = String(input?.query ?? "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2).slice(0, 6);
+      const list = (words.length
+        ? await sql`select id, subject, note, sources, created_by, created_at::date as day from os.research_notes where business_id = ${b.id}
+            and (subject || ' ' || note) ilike any(${sql.array(words.map((w) => `%${w}%`))}) order by created_at desc limit 12`
+        : await sql`select id, subject, note, sources, created_by, created_at::date as day from os.research_notes where business_id = ${b.id} order by created_at desc limit 12`);
+      return list.length ? JSON.stringify(list) : "nothing saved on that yet; search, then save_note what you find";
+    }
+    case "save_note": {
+      const sources = Array.isArray(input.sources) ? input.sources.map(String).slice(0, 10) : [];
+      const [n] = await sql`insert into os.research_notes (business_id, subject, note, sources, created_by)
+        values (${b.id}, ${String(input.subject).slice(0, 200)}, ${String(input.note).slice(0, 2000)}, ${sql.array(sources)}::text[], ${a.slot}) returning id`;
+      return `note #${n.id} saved`;
+    }
+    case "write_notebook": {
+      const day = new Intl.DateTimeFormat("en-CA", { timeZone: b.timezone }).format(new Date());
+      await sql`insert into os.notebook (business_id, day, body, created_by) values (${b.id}, ${day}, ${String(input.body).slice(0, 2500)}, ${a.slot})
+        on conflict (business_id, day) do update set body = excluded.body, created_by = excluded.created_by, updated_at = now()`;
+      return `notebook for ${day} saved`;
     }
     case "schedule_content": {
       const [c] = await sql`select status from os.content where id = ${input.id} and business_id = ${b.id}`;

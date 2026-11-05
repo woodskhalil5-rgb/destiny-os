@@ -72,13 +72,16 @@ export async function claude(b: Business, slot: string, body: Record<string, any
   if (!r.ok) throw new Error(`Claude API ${r.status}: ${JSON.stringify(j).slice(0, 400)}`);
   const u = j.usage ?? {};
   const searches = u.server_tool_use?.web_search_requests ?? 0;
-  const inTok = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+  // Prompt caching: writing to the cache costs 1.25x the input price, reading from it 0.1x.
+  const fresh = u.input_tokens ?? 0, cWrite = u.cache_creation_input_tokens ?? 0, cRead = u.cache_read_input_tokens ?? 0;
+  const inTok = fresh + cWrite + cRead;
   const [p] = await sql`select * from os.model_prices where model = ${body.model}`;
-  const cost = p ? (inTok * Number(p.input_per_mtok ?? 0) + (u.output_tokens ?? 0) * Number(p.output_per_mtok ?? 0)) / 1e6 + searches * Number(p.web_search_per_k ?? 0) / 1000 : null;
+  const inPrice = Number(p?.input_per_mtok ?? 0);
+  const cost = p ? ((fresh + cWrite * 1.25 + cRead * 0.1) * inPrice + (u.output_tokens ?? 0) * Number(p.output_per_mtok ?? 0)) / 1e6 + searches * Number(p.web_search_per_k ?? 0) / 1000 : null;
   // billed = our cost plus this business's markup, fixed at the time of the call
   const billed = cost == null ? null : Math.round(cost * (1 + Number(b.markup_pct ?? 0) / 100) * 1e6) / 1e6;
-  await sql`insert into os.usage_events (business_id, slot, model, input_tokens, output_tokens, web_searches, cost_usd, billed_usd)
-            values (${b.id}, ${slot}, ${body.model}, ${inTok}, ${u.output_tokens ?? 0}, ${searches}, ${cost}, ${billed})`;
+  await sql`insert into os.usage_events (business_id, slot, model, input_tokens, output_tokens, web_searches, cost_usd, billed_usd, cache_write_tokens, cache_read_tokens)
+            values (${b.id}, ${slot}, ${body.model}, ${inTok}, ${u.output_tokens ?? 0}, ${searches}, ${cost}, ${billed}, ${cWrite}, ${cRead})`;
   return j;
 }
 

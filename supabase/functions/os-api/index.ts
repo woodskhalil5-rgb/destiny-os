@@ -202,7 +202,9 @@ Deno.serve(async (req) => {
     const bill = (await sql`select * from os.month_bill(${bid})`).map((l: any) => ({ line: l.line, kind: l.kind, amount_usd: Number(l.amount_usd), ...(isAdmin ? { our_cost_usd: l.our_cost_usd == null ? null : Number(l.our_cost_usd) } : {}) }));
     const charges = await sql`select id, kind, description, amount_usd, recurring, starts_on, ends_on from os.charges where business_id = ${bid} and (ends_on is null or ends_on >= current_date) order by id desc`;
     const invoices = await sql`select month, amount_usd, status, hosted_url from os.invoices where business_id = ${bid} and status <> 'draft' order by month desc limit 12`;
-    return json({ admin: !!isAdmin, bill, charges, invoices, role: r, business: b, team, messages: msgs, approvals, content, records, tasks, usage, usage_by_agent: bySlot, activity, working: working.map((w: any) => w.slot) });
+    const results = await sql`select * from os.agent_results(${bid})`;
+    const [cache] = await sql`select coalesce(sum(cache_read_tokens),0)::bigint as read, coalesce(sum(input_tokens),0)::bigint as input from os.usage_events where business_id = ${bid} and at >= date_trunc('month', now())`;
+    return json({ admin: !!isAdmin, bill, charges, invoices, results, cache, role: r, business: b, team, messages: msgs, approvals, content, records, tasks, usage, usage_by_agent: bySlot, activity, working: working.map((w: any) => w.slot) });
   }
 
   if (action === "post") {
