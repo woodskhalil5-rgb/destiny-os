@@ -35,12 +35,15 @@ async function sendAlerts() {
   for (const [to, list] of groups) {
     const subject = list.length === 1 ? list[0].subject : `Destiny OS: ${list.length} updates`;
     const text = list.map((a) => (list.length > 1 ? `• ${a.subject}\n  ${a.body}` : a.body)).join("\n\n") + "\n\n— Destiny OS";
+    // Mark them sent first: if anything below breaks, the worst case is one missed email, never the same email over and over.
+    const ids = sql.array(list.map((a) => String(a.id)));
+    const marked = await sql`update os.alerts set sent_at = now(), error = null where id = any(${ids}::bigint[]) and sent_at is null returning id`;
+    if (!marked.length) continue;
     try {
       await platformMail(to, subject, text);
-      await sql`update os.alerts set sent_at = now(), error = null where id = any(${sql.array(list.map((a) => a.id))})`;
       sent += list.length;
     } catch (e) {
-      await sql`update os.alerts set error = ${(e as Error).message.slice(0, 300)} where id = any(${sql.array(list.map((a) => a.id))})`;
+      await sql`update os.alerts set sent_at = null, error = ${(e as Error).message.slice(0, 300)} where id = any(${ids}::bigint[])`;
     }
   }
   return sent;
