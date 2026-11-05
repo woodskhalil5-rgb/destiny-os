@@ -144,7 +144,7 @@ $("f").addEventListener("submit", async (e) => {
     } else {
       const r = await send("signup_verify", {email: $("email").value.trim(), code: $("code").value});
       try { localStorage.setItem("osToken", r.token); localStorage.setItem("osBiz", r.business_id); } catch {}
-      location.href = "/";
+      location.href = "/app";
     }
   } catch (err) { $("err").textContent = err.message; } finally { $("go").disabled = false; }
 });

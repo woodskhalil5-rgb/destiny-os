@@ -26,5 +26,11 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/login",
+      "destination": "/app"
+    }
   ]
 }

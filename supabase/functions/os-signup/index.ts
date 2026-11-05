@@ -4,7 +4,7 @@
 //  - admin_trial (platform owner): put a business on a 14-day trial.
 // During a trial the platform fee is waived and DMG covers AI usage up to TRIAL_CAP (the monthly limit); os.trial_sweep()
 // moves it to the full plan (card on file) or pauses it (no card) when it ends.
-import { audit, business, claude, post, sql } from "../_core/core.ts";
+import { audit, business, claude, post, secret, sql } from "../_core/core.ts";
 import { appUrl, platformMail } from "../_core/mail.ts";
 
 const TRIAL_DAYS = 14, TRIAL_CAP = 40, PUBLIC_PER_DAY = 10;
@@ -126,7 +126,9 @@ async function createTrialBusiness(d: Record<string, string>, uid: string) {
   });
   await post(bid, "system", `Welcome to Destiny OS. Your ${TRIAL_DAYS}-day free trial has started. Your team is being set up from what you told us; this takes about a minute.`, { status: "handled" });
   await audit(bid, "user", d.email, "trial_signup", slug, { phone: d.phone || undefined });
-  await sql`select os.alert(${bid}, 'platform', 'trial_signup', ${"New free trial: " + d.business}, ${`${d.name} <${d.email}>${d.phone ? `, ${d.phone}` : ""} started a ${TRIAL_DAYS}-day trial for ${d.business}.\n\nWhat they do: ${d.about}${d.website ? `\nWebsite: ${d.website}` : ""}`}, ${"trial:" + bid})`;
+  const heads = [`${d.name} started a ${TRIAL_DAYS}-day free trial for ${d.business}.${d.phone ? ` Give them a call today: ${d.phone}.` : ""}`, "",
+    `Name: ${d.name}`, `Email: ${d.email}`, d.phone ? `Phone: ${d.phone}` : null, "", briefOf(d)].filter((x) => x !== null).join("\n");
+  await sql`select os.alert(${bid}, 'platform', 'trial_signup', ${"New free trial: " + d.business + (d.industry ? ` (${d.industry})` : "")}, ${heads}, ${"trial:" + bid})`;
   return bid;
 }
 
@@ -167,6 +169,32 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   }
 
+  if (action === "contact") {
+    // "Talk to us" on the front page: emails the platform owner, with Reply going straight to the person.
+    if (body.website) return json({ ok: true }); // honeypot
+    const c = { name: clip(body.name, 80), business: clip(body.business, 120), email: clip(body.email, 200).toLowerCase(), phone: clip(body.phone, 40), message: clip(body.message, 3000) };
+    if (c.name.length < 2) return json({ error: "Add your name." }, 400);
+    if (c.business.length < 2) return json({ error: "Add your business name." }, 400);
+    if (!EMAIL.test(c.email)) return json({ error: "That email doesn't look right." }, 400);
+    if (c.message.length < 5) return json({ error: "Tell us what you'd like to know." }, 400);
+    const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || null;
+    const [lim] = await sql`select
+      (select count(*)::int from os.contact_requests where ip = ${ip} and created_at > now() - interval '1 day') as by_ip,
+      (select count(*)::int from os.contact_requests where created_at > now() - interval '1 day') as today`;
+    if ((ip && lim.by_ip >= 5) || lim.today >= 60) return json({ error: "We've had a lot of messages today. Please email us instead." }, 429);
+    const [row] = await sql`insert into os.contact_requests (name, business, email, phone, message, ip) values (${c.name}, ${c.business}, ${c.email}, ${c.phone || null}, ${c.message}, ${ip}) returning id`;
+    const subject = `Destiny OS question from ${c.name} (${c.business})`;
+    const text = `${c.name} from ${c.business} wants to talk.${c.phone ? ` Phone: ${c.phone}.` : ""}\n\nEmail: ${c.email}\n\n${c.message}\n\nReply to this email to answer them.`;
+    const owner = await secret("OS_OWNER_EMAIL");
+    try {
+      if (!owner) throw new Error("no owner email");
+      await platformMail(owner, subject, text, c.email);
+    } catch {
+      await sql`select os.alert(null, 'platform', 'contact', ${subject}, ${text}, ${"contact:" + row.id})`;
+    }
+    return json({ ok: true });
+  }
+
   if (action === "signup_verify") {
     const email = clip(body.email, 200).toLowerCase();
     const [s] = await sql`select * from os.trial_signups where lower(email) = ${email} and not used and expires_at > now() order by id desc limit 1`;
@@ -192,7 +220,7 @@ Deno.serve(async (req) => {
       const token = Array.from(crypto.getRandomValues(new Uint8Array(32))).map((x) => x.toString(16).padStart(2, "0")).join("");
       await sql`insert into os.sessions (token_hash, user_id, expires_at) values (${await sha256(token)}, ${uid}, now() + interval '90 days')`;
       try {
-        await platformMail(email, "Your Destiny OS free trial has started", `Welcome to Destiny OS. Your ${TRIAL_DAYS}-day free trial for ${s.details.business} has started.\n\nSign in any time at ${await appUrl()} with this email; we'll send you a code, no password needed.\n\nFirst steps: tell the team about your business in Settings, then click Start team.\n\nTerms: ${await appUrl()}/terms\nPrivacy: ${await appUrl()}/privacy`);
+        await platformMail(email, "Your Destiny OS free trial has started", `Welcome to Destiny OS. Your ${TRIAL_DAYS}-day free trial for ${s.details.business} has started.\n\nSign in any time at ${await appUrl()}/login with this email; we'll send you a code, no password needed.\n\nFirst steps: tell the team about your business in Settings, then click Start team.\n\nTerms: ${await appUrl()}/terms\nPrivacy: ${await appUrl()}/privacy`);
       } catch { /* the trial stands even if the welcome email fails */ }
       return json({ ok: true, token, business_id: bid });
     } catch (e) {

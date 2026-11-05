@@ -1,0 +1,1273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Destiny OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+:root{
+  --bg:#f3f5f2; --surface:#ffffff; --sunk:#eef1ed; --ink:#18222d; --soft:#3c4854; --muted:#68737e; --line:#dfe4de;
+  --go:#106b55; --go-ink:#ffffff; --go-tint:#e3f1ec; --need:#a85407; --need-tint:#fbefe2; --bad:#b42318; --bad-tint:#fbe9e7;
+  --c-research:#2f5fb3; --c-analysis:#7246b8; --c-production:#bb5a17; --c-coordination:#0d6b67; --c-media:#b0306a; --c-distribution:#3f7d20; --c-system:#7a8794;
+  --r-lg:16px; --r-md:10px; --r-sm:8px;
+  --font:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171c; --surface:#1a2027; --sunk:#151b21; --ink:#e9edf0; --soft:#c3cbd2; --muted:#93a0ab; --line:#2a323a;
+  --go:#4cc7a3; --go-ink:#06231b; --go-tint:#173229; --need:#f0a75a; --need-tint:#33261a; --bad:#ff8a80; --bad-tint:#3a1f1d;
+  --c-research:#7aa5f0; --c-analysis:#b597f0; --c-production:#f0a165; --c-coordination:#3fb7ad; --c-media:#f08cb8; --c-distribution:#8fd16a; --c-system:#7f8d97;
+  color-scheme:dark}}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--font);-webkit-font-smoothing:antialiased}
+a{color:var(--go)}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--go);outline-offset:2px}
+.btn{white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:15px;line-height:1;padding:11px 16px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);min-height:42px}
+.btn:hover{border-color:var(--muted)}
+.btn.go{background:var(--go);border-color:var(--go);color:var(--go-ink)}
+.btn.go:hover{filter:brightness(1.07)}
+.btn.quiet{border-color:transparent;background:none;color:var(--soft)}
+.btn.quiet:hover{background:var(--sunk)}
+.btn.bad{color:var(--bad)}
+.btn.small{font-size:14px;padding:8px 12px;min-height:36px}
+.btn:disabled{opacity:.55;cursor:default}
+input:not([type=checkbox]),select,textarea{width:100%;font-size:15px;border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;background:var(--surface);color:var(--ink)}
+textarea{resize:vertical;line-height:1.5}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--go);box-shadow:0 0 0 3px var(--go-tint)}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--go)}
+
+/* ---------- sign in ---------- */
+.gate{position:fixed;inset:0;display:grid;place-items:center;padding:16px;background:var(--bg);z-index:10}
+.gate form{width:min(400px,100%);display:flex;flex-direction:column;gap:14px}
+.gate h1{font-size:34px;line-height:1.1;font-weight:800;letter-spacing:-.02em;margin:0 0 4px}
+.gate p{margin:0;color:var(--muted)}
+.mark{display:inline-flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.01em}
+.mark i{width:26px;height:26px;border-radius:8px;background:var(--go);display:grid;place-items:center;color:var(--go-ink);font-style:normal;font-size:15px}
+.err{color:var(--bad);font-size:14px}
+.ok{color:var(--go);font-size:14px}
+.legal{font-size:13px;color:var(--muted)}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100%}
+.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:6px;padding:20px 14px;border-right:1px solid var(--line);background:var(--surface)}
+.side .mark{padding:4px 10px 18px}
+.biz{display:flex;flex-direction:column;gap:6px;padding:0 4px 14px}
+.biz label{font-size:13px;color:var(--muted);padding-left:6px}
+.biz select{font-weight:600}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:none;padding:10px 12px;border-radius:var(--r-sm);font-weight:600;font-size:15px;color:var(--soft)}
+.nav button:hover{background:var(--sunk)}
+.nav button[aria-current="page"]{background:var(--go-tint);color:var(--go)}
+.nav svg{width:20px;height:20px;flex:none}
+.badge{margin-left:auto;min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:var(--need);color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center}
+.side .foot{margin-top:auto;display:flex;flex-direction:column;gap:2px}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:12px;padding:16px 32px;border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:3}
+.top h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.state{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--soft)}
+.state::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.state.live::before{background:var(--go);box-shadow:0 0 0 4px var(--go-tint)}
+.state.paused::before{background:var(--need)}
+.mobile-only{display:none}
+.view{padding:28px 32px 64px;max-width:960px;width:100%}
+.view.wide{max-width:none}
+
+/* ---------- home ---------- */
+.hello{font-size:15px;color:var(--muted);margin:0 0 6px}
+.headline{font-size:clamp(30px,4.2vw,46px);line-height:1.08;font-weight:800;letter-spacing:-.025em;margin:0 0 28px;max-width:20ch}
+.section{margin-top:36px}
+.section > h3{font-size:17px;font-weight:700;margin:0 0 12px;display:flex;align-items:baseline;gap:10px}
+.section > h3 .btn{margin-left:auto}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.row{display:flex;align-items:center;gap:14px;padding:14px 18px;border-top:1px solid var(--line);min-width:0}
+.row:first-child{border-top:0}
+.row.click{cursor:pointer}
+.row.click:hover{background:var(--sunk)}
+.row .grow{flex:1;min-width:0}
+.row .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .s{font-size:14px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kind{flex:none;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--need-tint);color:var(--need)}
+.kind svg{width:18px;height:18px}
+.crew{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.mate{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.mate .id{display:flex;align-items:center;gap:10px}
+.av{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:15px;color:#fff;background:var(--c)}
+.mate .nm{font-weight:700;line-height:1.2}
+.mate .jb{font-size:13px;color:var(--muted)}
+.mate .said{font-size:14px;color:var(--soft);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:0}
+.mate .when{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.busy{color:var(--go);font-weight:600}
+.busy::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--go);animation:breathe 1.2s ease-in-out infinite alternate}
+@keyframes breathe{to{opacity:.25}}
+.month{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px}
+.fig b{display:block;font-size:26px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.fig span{font-size:14px;color:var(--muted)}
+.meter{height:6px;border-radius:99px;background:var(--sunk);margin-top:10px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--go);border-radius:99px}
+.meter.hot i{background:var(--need)}
+.ask{display:flex;gap:10px;margin-top:14px}
+.ask input{flex:1}
+.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+.steps li{counter-increment:s;display:flex;align-items:center;gap:14px;padding:14px 18px;border-top:1px solid var(--line)}
+.steps li:first-child{border-top:0}
+.steps li::before{content:counter(s);flex:none;width:28px;height:28px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--muted)}
+.steps li.done::before{content:"✓";background:var(--go);border-color:var(--go);color:var(--go-ink)}
+.steps li.done .t{color:var(--muted);text-decoration:line-through}
+
+/* ---------- chat ---------- */
+.chat{display:flex;flex-direction:column;height:calc(100vh - 71px)}
+.feed{flex:1;overflow-y:auto;padding:24px 32px;display:flex;flex-direction:column;gap:18px}
+.msg{display:flex;gap:12px;max-width:720px}
+.msg .av{width:34px;height:34px;font-size:14px}
+.msg .who{font-weight:700;font-size:14px;color:var(--c)}
+.msg .who time{font-weight:400;font-size:12px;color:var(--muted);margin-left:8px}
+.msg .body{margin-top:2px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink)}
+.msg.you{align-self:flex-end;flex-direction:row-reverse}
+.msg.you .who{text-align:right;color:var(--muted)}
+.msg.you .body{background:var(--go);color:var(--go-ink);padding:10px 14px;border-radius:16px 4px 16px 16px}
+.msg.sys{display:block;align-self:center;max-width:560px;font-size:13px;color:var(--muted);text-align:center;white-space:pre-wrap}
+.day{align-self:center;font-size:12px;font-weight:600;color:var(--muted);padding:2px 10px;border-radius:99px;background:var(--sunk)}
+.compose{display:flex;gap:10px;align-items:flex-end;padding:10px 32px calc(14px + env(safe-area-inset-bottom));background:var(--surface)}
+.compose textarea{min-height:46px;max-height:180px;resize:none}
+.hint{font-size:13px;color:var(--muted);padding:10px 32px 0;background:var(--surface);border-top:1px solid var(--line)}
+
+/* ---------- approvals ---------- */
+.ap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.ap.warn{border-color:var(--need);box-shadow:inset 4px 0 0 var(--need)}
+.ap .from{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
+.ap .from .av{width:28px;height:28px;font-size:12px}
+.ap h4{margin:0;font-size:18px;font-weight:700;line-height:1.3}
+.mail{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.mail label{display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--line);font-size:14px;color:var(--muted)}
+.mail label input{border:0;border-radius:0;padding:10px 0;box-shadow:none!important}
+.mail textarea{border:0;border-radius:0;min-height:220px;padding:14px 12px;box-shadow:none!important}
+.post{white-space:pre-wrap;font-size:15px;background:var(--sunk);border-radius:var(--r-md);padding:14px}
+.acts{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.acts .note{flex:1 1 220px}
+.note-err{color:var(--bad);font-size:14px}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r-lg);padding:28px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:4px}
+
+/* ---------- work ---------- */
+.seg{display:inline-flex;gap:4px;padding:4px;background:var(--sunk);border-radius:12px;margin-bottom:22px;flex-wrap:wrap}
+.seg button{border:0;background:none;padding:8px 14px;border-radius:9px;font-weight:600;font-size:14px;color:var(--soft)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(20,30,40,.12)}
+.stages{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.stage{font-size:13px;font-weight:600;padding:5px 11px;border-radius:99px;background:var(--surface);border:1px solid var(--line);color:var(--soft)}
+.stage b{color:var(--ink);margin-left:4px}
+.pill{flex:none;font-size:13px;font-weight:600;padding:3px 10px;border-radius:99px;background:var(--sunk);color:var(--soft);white-space:nowrap}
+.pill.go{background:var(--go-tint);color:var(--go)}
+.pill.need{background:var(--need-tint);color:var(--need)}
+.pill.bad{background:var(--bad-tint);color:var(--bad)}
+details.rec > summary{list-style:none}
+details.rec > summary::-webkit-details-marker{display:none}
+.facts{margin:0;padding:4px 18px 16px 68px;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 16px;font-size:14px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;overflow-wrap:anywhere}
+.tasks-who{display:flex;align-items:center;gap:10px;margin:22px 0 8px;font-weight:700}
+.tasks-who:first-child{margin-top:0}
+.tasks-who .av{width:28px;height:28px;font-size:12px}
+
+/* ---------- money ---------- */
+table{width:100%;border-collapse:collapse;font-size:15px}
+td,th{text-align:left;padding:12px 18px;border-top:1px solid var(--line)}
+tr:first-child td,tr:first-child th{border-top:0}
+th{font-size:13px;font-weight:600;color:var(--muted)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.total td{font-weight:700}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;display:flex;flex-direction:column;gap:12px}
+.box.alert{border-color:var(--bad);background:var(--bad-tint)}
+.box h4{margin:0;font-size:16px}
+.box p{margin:0;color:var(--soft);font-size:15px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;color:var(--soft)}
+.field small{font-weight:400;color:var(--muted);font-size:13px}
+.check{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--ink);font-weight:500}
+.days{display:flex;gap:8px;flex-wrap:wrap}
+.days label{display:flex;align-items:center;gap:6px;padding:7px 11px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:14px;font-weight:600;background:var(--surface)}
+details.agent{border-top:1px solid var(--line)}
+details.agent:first-of-type{border-top:0}
+details.agent summary{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;list-style:none}
+details.agent summary::-webkit-details-marker{display:none}
+details.agent .inner{padding:0 18px 18px}
+.howto{font-size:14px;color:var(--soft)}
+.howto ol{margin:6px 0 0;padding-left:20px}
+.howto li{margin:3px 0}
+.form{display:flex;flex-direction:column;gap:16px}
+
+/* ---------- calls ---------- */
+.callbar{position:sticky;top:71px;z-index:3;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 32px;background:var(--go);color:var(--go-ink)}
+.callbar b{font-size:16px}
+.callbar .btn{background:rgba(255,255,255,.16);border-color:transparent;color:inherit}
+.callbar .btn.end{background:#c4321f;color:#fff}
+.callbar .grow{flex:1;min-width:0}
+.callbar.ringing{background:var(--need)}
+.dial{display:flex;gap:10px;flex-wrap:wrap}
+.dial input{flex:1 1 180px}
+.outs{display:flex;gap:8px;flex-wrap:wrap}
+.outs button{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:8px 14px;font-weight:600;font-size:14px}
+.outs button[aria-pressed="true"]{background:var(--go);border-color:var(--go);color:var(--go-ink)}
+.phone-big{font-size:26px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+
+/* ---------- media ---------- */
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-top:16px}
+.mcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.mcard img,.mcard video{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:var(--sunk)}
+.mcard video.tall{aspect-ratio:9/16}
+.mcard .aud{padding:14px 10px 0}
+.mcard .aud audio{width:100%}
+.mcard .mi{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;font-size:14px;min-width:0}
+.mcard .mi .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcard .mi .s{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcard .tags{display:flex;gap:6px;flex-wrap:wrap}
+.mcard select{font-size:13px;padding:5px 8px;min-height:0}
+.mcard .acts{gap:6px}
+.pmedia{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0}
+.pmedia img{width:132px;height:132px;object-fit:cover;border-radius:var(--r-sm);background:var(--sunk)}
+.pmedia video{width:220px;max-height:400px;border-radius:var(--r-sm);background:#000}
+.upnote{font-size:14px;color:var(--soft)}
+.mcard .seen{font-size:12.5px;line-height:1.4;color:var(--soft);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.mcard .seen b{color:var(--ink);font-weight:600}
+
+/* ---------- mobile ---------- */
+.tabbar{display:none}
+@media (max-width:860px){
+  .shell{grid-template-columns:1fr}
+  .side{display:none}
+  .mobile-only{display:inline-flex}
+  .top{padding:12px 16px;gap:8px}
+  .top select{max-width:52vw;font-weight:700;border:0;background:none;padding:6px 4px;font-size:17px}
+  .top h2{display:none}
+  .view{padding:20px 16px 110px}
+  .month{grid-template-columns:1fr}
+  .crew{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .mate{padding:12px;gap:8px}
+  .mate .said{font-size:13px}
+  .state{font-size:0;gap:0}
+  .headline{margin-bottom:20px}
+  .grid2{grid-template-columns:1fr}
+  .feed{padding:16px}
+  .chat{position:fixed;left:0;right:0;top:var(--top-h,62px);bottom:var(--tab-h,64px);height:auto;background:var(--bg);z-index:2}
+  body.typing .tabbar{display:none}
+  body.typing .chat{bottom:auto;height:var(--vv-h,50vh)}
+  .hint{display:none}
+  input:not([type=checkbox]),select,textarea{font-size:16px}
+  .compose{padding:10px 16px}
+  .hint{padding:8px 16px 0}
+  .facts{padding-left:18px}
+  td,th{padding:10px 12px}
+  .callbar{top:62px;padding:10px 16px}
+  .tabbar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:4}
+  .tabbar button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--muted);padding:6px 0;position:relative}
+  .tabbar button[aria-current="page"]{color:var(--go)}
+  .tabbar svg{width:22px;height:22px}
+  .tabbar .badge{position:absolute;top:0;left:calc(50% + 6px);margin:0;min-width:18px;height:18px;font-size:11px;padding:0 5px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5 11.5 14 16 9"/><rect x="3" y="3" width="18" height="18" rx="4"/></symbol>
+  <symbol id="i-work" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></symbol>
+  <symbol id="i-money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h3l2 5-2.5 1.5a11 11 0 0 0 7 7L16 14l5 2v3a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6 8.5 7 8.5-7"/></symbol>
+  <symbol id="i-post" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10M7 12h10M7 16h6"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+  <symbol id="i-hand"viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+</svg>
+
+<div class="gate" id="gate">
+  <form id="gateForm">
+    <span class="mark"><i>D</i>Destiny OS</span>
+    <div><h1>Sign in to your team</h1><p id="gateSub">We'll email you a 6-digit code. No password needed.</p></div>
+    <div id="stepEmail"><label class="field" for="email">Email
+      <input id="email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@company.com"></label></div>
+    <div id="stepCode" hidden><label class="field" for="code">The 6-digit code from your email
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" style="font-size:22px;letter-spacing:.3em"></label></div>
+    <div class="err" id="gateErr" role="alert"></div>
+    <button class="btn go" type="submit" id="gateBtn">Email me a code</button>
+    <button class="btn quiet" type="button" id="backBtn" hidden>Use a different email or send a new code</button>
+    <p class="legal">By signing in you agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</p>
+    <p class="legal">New to Destiny OS? <a href="/trial">Start a 14-day free trial</a> or <a href="/?home">see what it does</a>.</p>
+  </form>
+</div>
+
+<div class="shell" id="app" hidden>
+  <aside class="side">
+    <span class="mark"><i>D</i>Destiny OS</span>
+    <div class="biz"><label for="bizSel">Business</label><select id="bizSel"></select></div>
+    <nav class="nav" id="nav">
+      <button data-v="home"><svg><use href="#i-home"/></svg>Home</button>
+      <button data-v="chat"><svg><use href="#i-chat"/></svg>Team chat</button>
+      <button data-v="approve"><svg><use href="#i-check"/></svg>To approve<span class="badge" data-count hidden></span></button>
+      <button data-v="work"><svg><use href="#i-work"/></svg>Work</button>
+      <button data-v="media"><svg><use href="#i-image"/></svg>Media</button>
+      <button data-v="calls" hidden><svg><use href="#i-phone"/></svg>Calls<span class="badge" data-calls hidden></span></button>
+      <button data-v="money"><svg><use href="#i-money"/></svg>Money</button>
+    </nav>
+    <div class="foot nav">
+      <button data-v="new" id="newBizBtn" hidden><svg><use href="#i-plus"/></svg>Add a business</button>
+      <button data-v="settings"><svg><use href="#i-gear"/></svg>Settings</button>
+      <button id="outBtn" type="button"><svg><use href="#i-out"/></svg>Sign out</button>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="top">
+      <select id="bizSelM" class="mobile-only" aria-label="Business"></select>
+      <h2 id="title">Home</h2>
+      <div class="right">
+        <span class="state" id="state">Not started</span>
+        <button class="btn small" id="pauseBtn" type="button">Start team</button>
+        <button class="btn quiet small mobile-only" data-v="settings" aria-label="Settings"><svg width="20" height="20"><use href="#i-gear"/></svg></button>
+      </div>
+    </div>
+    <div class="callbar" id="callbar" hidden></div>
+    <div id="view"></div>
+  </div>
+  <nav class="tabbar" id="tabbar">
+    <button data-v="home"><svg><use href="#i-home"/></svg>Home</button>
+    <button data-v="chat"><svg><use href="#i-chat"/></svg>Chat</button>
+    <button data-v="approve"><svg><use href="#i-check"/></svg>Approve<span class="badge" data-count hidden></span></button>
+    <button data-v="work"><svg><use href="#i-work"/></svg>Work</button>
+    <button data-v="media"><svg><use href="#i-image"/></svg>Media</button>
+    <button data-v="calls" hidden><svg><use href="#i-phone"/></svg>Calls<span class="badge" data-calls hidden></span></button>
+    <button data-v="money"><svg><use href="#i-money"/></svg>Money</button>
+  </nav>
+</div>
+
+<script>
+const API = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-api";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let token = ""; try { token = localStorage.getItem("osToken") || ""; } catch {}
+let biz = null, lastId = 0, data = null, msgs = [], view = "home", workTab = "pipeline", setTab = "business", isAdmin = false, timer;
+let editing = new Set(), people = null, settingsData = null, conns = null, rendered = "", lastHtml = "";
+const SLOW = new Set(["settings", "new", "media"]);
+let mediaData = null, mediaFilter = "all", upBusy = false;
+const urlCache = {};
+const TAGS = [["before", "Before"], ["after", "After"], ["job", "Job photo"], ["reel", "Finished reel / video"], ["music", "Music"], ["brand", "Logo / brand"], ["other", "Other"]];
+const TAGL = Object.fromEntries(TAGS);
+// Links to private files change on every refresh; keep the first one (good for hours) so videos don't restart.
+const murl = (m) => { const c = urlCache[m.id]; if (c && Date.now() - c.t < 7200e3) return c.u; urlCache[m.id] = {u: m.url, t: Date.now()}; return m.url; };
+function mediaHtml(c){
+  if (!c.media?.length) return "";
+  return `<div class="pmedia">${c.media.map(m => m.kind === "video" ? `<video src="${esc(murl(m))}" controls preload="metadata" playsinline></video>` : `<a href="${esc(murl(m))}" target="_blank" rel="noopener"><img src="${esc(murl(m))}" alt="${esc(TAGL[m.tag] || "Photo")}" loading="lazy"></a>`).join("")}</div>`;
+}
+const ROLE = {research: "Research", analysis: "Analysis", production: "Writing", coordination: "Manager", media: "Media", distribution: "Outreach"};
+const TITLES = {home: "Home", chat: "Team chat", approve: "To approve", work: "Work", media: "Media", calls: "Calls", money: "Money", settings: "Settings", new: "Add a business"};
+const CALLER_VIEWS = new Set(["calls", "chat"]);
+const OUTCOMES = [["talked", "Talked"], ["interested", "Interested"], ["callback", "Call back later"], ["no_answer", "No answer"], ["voicemail", "Left a voicemail"], ["not_interested", "Not interested"], ["wrong_number", "Wrong number"], ["do_not_call", "Do not call again"]];
+let callsData = null, callsAt = 0, device = null, deviceBiz = null, active = null, incoming = null, callStart = 0, callWho = "", pending = null, barTimer = null;
+const fmtPhone = (p) => { const d = String(p || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : String(p || ""); };
+
+// Free trials live in their own small service.
+const SIGNUP = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-signup";
+let trialInfo = {};
+async function sCall(action, extra = {}) {
+  const r = await fetch(SIGNUP, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
+  const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+async function loadTrial(){
+  const id = biz;
+  try { const r = await sCall("trial_status"); trialInfo[id] = r.trial; } catch { trialInfo[id] = null; }
+  if (id === biz) { rendered = ""; render(true); }
+}
+function trialBanner(){
+  const t = trialInfo[biz];
+  if (!t) return "";
+  const end = new Date(t.ends_at).toLocaleDateString([], {month: "long", day: "numeric"});
+  const left = `${t.days_left} day${t.days_left === 1 ? "" : "s"} left`;
+  const msg = t.card_on_file ? `Free trial: ${left}. Your card is on file, so your team keeps working after ${end}.`
+    : t.ended ? "Your free trial has ended, so the team is paused. Add a card and it picks up where it left off."
+    : `Free trial: ${left} (until ${end}). Add a card to keep your team after that; you're only billed from then on.`;
+  const btn = !t.card_on_file && ["owner", "admin"].includes(data.role) ? `<button class="btn go small" data-bact="card">Add a card</button>` : "";
+  return `<div class="box ${t.ended && !t.card_on_file ? "alert" : ""}" style="margin-bottom:20px;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap"><p style="margin:0;color:var(--ink)">${esc(msg)}</p>${btn}</div>`;
+}
+
+async function call(action, extra = {}) {
+  const r = await fetch(API, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
+  const j = await r.json().catch(() => ({error: "The server sent a bad response. Try again."}));
+  if (!r.ok) throw Object.assign(new Error(j.error || r.statusText), {status: r.status});
+  return j;
+}
+
+// ---------- helpers ----------
+const teamBy = () => Object.fromEntries((data?.team || []).map(t => [t.slot, t]));
+const isYou = (s) => s === "owner" || String(s).startsWith("user:");
+const money = (v) => "$" + Number(v || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const when = (d) => new Date(d).toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"});
+const clock = (d) => new Date(d).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+function ago(d){
+  const s = (Date.now() - new Date(d)) / 1000;
+  if (s < 60) return "just now"; if (s < 3600) return `${Math.floor(s / 60)} min ago`; if (s < 86400) return `${Math.floor(s / 3600)} hr ago`;
+  return when(d);
+}
+const label = (k) => String(k).replace(/_/g, " ").replace(/^./, c => c.toUpperCase());
+const av = (slot, name) => `<span class="av" style="--c:var(--c-${slot})">${esc((name || "?")[0])}</span>`;
+function fmtBody(t){
+  let h = esc(t);
+  for (const a of data?.team || []) h = h.replace(new RegExp(`@${a.handle}\\b`, "gi"), m => `<b style="color:var(--c-${a.slot})">${m}</b>`);
+  return h.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+function waiting(){
+  if (!data) return {aps: [], posts: [], manual: [], n: 0};
+  const aps = data.approvals.filter(a => a.status === "pending" || a.status === "failed");
+  const posts = data.content.filter(c => c.status === "pending");
+  const manual = data.content.filter(c => c.status === "needs_manual" || c.status === "failed");
+  return {aps, posts, manual, n: aps.length + posts.length + manual.length};
+}
+
+// ---------- views ----------
+const VIEWS = {
+  home(){
+    const T = teamBy(), w = waiting(), b = data.business, h = new Date().getHours();
+    const greet = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+    const working = data.working || [];
+    let head;
+    if (b.status === "setup") head = "Your team is ready when you are.";
+    else if (w.n) head = `${w.n} ${w.n === 1 ? "thing needs" : "things need"} you.`;
+    else if (working.length) head = `${working.map(s => T[s]?.name).filter(Boolean).join(" and ").replace(/ and (?=.* and )/g, ", ")} ${working.length === 1 ? "is" : "are"} working right now.`;
+    else if (b.status === "paused") head = "The team is paused.";
+    else head = "Nothing needs you right now.";
+    let out = trialBanner() + `<p class="hello">${greet}</p><h1 class="headline">${esc(head)}</h1>`;
+
+    out += setupSteps();
+
+    if (w.n) {
+      const rows = [
+        ...w.aps.map(a => ({icon: a.kind === "email" ? "mail" : "check", t: a.summary, s: `${a.status === "failed" ? "Didn't go through · " : ""}${label(a.kind)} from ${T[a.requested_by]?.name || a.requested_by}`})),
+        ...w.posts.map(c => ({icon: "post", t: c.title || firstLine(c.body), s: `${label(c.kind)}${c.channel ? " for " + c.channel : ""} from ${T[c.created_by]?.name || "the team"}`})),
+        ...w.manual.map(c => ({icon: "hand", t: c.title || firstLine(c.body), s: c.status === "failed" ? "Didn't publish; post it by hand" : `Ready to post by hand on ${c.channel || "Facebook"}`})),
+      ];
+      out += `<div class="section"><h3>Needs you<button class="btn small go" data-go="approve">Review all</button></h3><div class="list">${rows.slice(0, 5).map(r =>
+        `<div class="row click" data-go="approve"><span class="kind"><svg><use href="#i-${r.icon}"/></svg></span><div class="grow"><div class="t">${esc(r.t)}</div><div class="s">${esc(r.s)}</div></div></div>`).join("")}
+        ${rows.length > 5 ? `<div class="row click" data-go="approve"><div class="grow s">and ${rows.length - 5} more</div></div>` : ""}</div></div>`;
+    }
+
+    const crew = (data.team || []).filter(t => t.enabled);
+    out += `<div class="section"><h3>Your team<button class="btn small quiet" data-go="chat">Open chat</button></h3><div class="crew">${crew.map(t => {
+      const last = [...msgs].reverse().find(m => m.sender === t.slot), busy = working.includes(t.slot);
+      return `<div class="mate"><div class="id">${av(t.slot, t.name)}<div><div class="nm">${esc(t.name)}</div><div class="jb">${ROLE[t.slot] || ""}</div></div></div>
+        <p class="said">${last ? esc(last.body) : "Hasn't said anything yet."}</p>
+        <div class="when">${busy ? `<span class="busy">Working now</span>` : last ? esc(ago(last.created_at)) : ""}</div></div>`;
+    }).join("")}</div>
+      <form class="ask" id="askForm"><input id="askInput" placeholder="Ask the team, or name one person…" aria-label="Message the team"><button class="btn go" type="submit">Send</button></form></div>`;
+
+    const bill = data.bill || [], total = bill.reduce((t, l) => t + l.amount_usd, 0), ai = bill.find(l => l.kind === "ai_usage")?.amount_usd || 0;
+    const budget = Number(b.monthly_budget_usd || 0), pct = budget ? Math.min(100, ai / budget * 100) : 0;
+    const results = (data.results || []).reduce((t, r) => t + r.records_created + r.drafts + r.content, 0);
+    out += `<div class="section"><h3>This month<button class="btn small quiet" data-go="money">See costs</button></h3><div class="month">
+      <div class="fig"><b>${money(ai)}</b><span>AI team so far${budget ? ` of ${money(budget)} limit` : ""}</span>${budget ? `<div class="meter${pct >= 80 ? " hot" : ""}"><i style="width:${pct}%"></i></div>` : ""}</div>
+      <div class="fig"><b>${results}</b><span>new records, drafts and posts</span></div>
+      <div class="fig"><b>${money(total)}</b><span>total bill so far</span></div></div></div>`;
+    return out;
+  },
+
+  chat(){
+    return `<div class="chat"><div class="feed" id="feed" aria-live="polite"></div>
+      <div class="hint">Everyone answers when you post. Name someone (like "DeMarcus, ...") and only they answer.</div>
+      <form class="compose" id="compose"><textarea id="draft" rows="1" placeholder="Message the team"></textarea><button class="btn go" type="submit">Send</button></form></div>`;
+  },
+
+  approve(){
+    const T = teamBy(), w = waiting();
+    if (!w.n) {
+      const done = data.approvals.filter(a => ["done", "approved", "rejected"].includes(a.status)).slice(0, 8);
+      return `<div class="empty"><b>You're all caught up.</b>Emails, posts and anything else that leaves the business wait here for your OK first.</div>`
+        + (done.length ? `<div class="section"><h3>Recently decided</h3><div class="list">${done.map(a => `<div class="row"><div class="grow"><div class="t">${esc(a.summary)}</div><div class="s">${a.decided_at ? esc(when(a.decided_at)) : ""}</div></div><span class="pill ${a.status === "rejected" ? "" : "go"}">${a.status === "rejected" ? "Sent back" : a.status === "done" ? "Sent" : "Approved"}</span></div>`).join("")}</div></div>` : "");
+    }
+    const from = (slot) => `<div class="from">${av(slot, T[slot]?.name || "S")}<span>From ${esc(T[slot]?.name || slot)}</span></div>`;
+    return w.aps.map(a => {
+      const pl = a.payload || {}, isEmail = a.kind === "email";
+      return `<article class="ap${a.status === "failed" ? " warn" : ""}" data-ap="${a.id}">${from(a.requested_by)}
+        <h4>${esc(a.summary)}</h4>
+        ${a.status === "failed" ? `<div class="note-err">This was approved but didn't go through: ${esc(a.note)}. Fix it and approve again.</div>` : a.note ? `<div class="s">${esc(a.note)}</div>` : ""}
+        ${isEmail ? `<div class="mail"><label>To<input data-f="to" value="${esc(pl.to)}"></label><label>Subject<input data-f="subject" value="${esc(pl.subject)}"></label><textarea data-f="body" aria-label="Email">${esc(pl.body)}</textarea></div>`
+                  : `<label class="field">Details<textarea data-f="json" style="font-family:ui-monospace,Menlo,monospace;font-size:13px;min-height:160px">${esc(JSON.stringify(pl, null, 2))}</textarea></label>`}
+        <div class="acts"><button class="btn go" data-act="approve">${isEmail ? "Approve and send" : "Approve"}</button><button class="btn" data-act="reject">Send back</button>
+          <input class="note" data-f="note" placeholder="Why? (optional; the team learns from it)"></div></article>`;
+    }).join("")
+    + w.posts.map(c => `<article class="ap" data-ct="${c.id}">${from(c.created_by)}
+        <h4>${esc(c.title || label(c.kind))}</h4><div class="s">${esc(label(c.kind))}${c.channel ? " for " + esc(c.channel) : ""}${c.audience ? " · " + esc(c.audience) : ""}${c.media?.length ? ` · ${c.kind === "reel" ? "goes up as a Reel" : c.media.length + (c.media[0].kind === "video" ? " video" : c.media.length > 1 ? " photos" : " photo")}` : ""}</div>
+        ${mediaHtml(c)}
+        <textarea data-f="body" rows="${Math.min(16, Math.max(5, String(c.body).split("\n").length + 2))}">${esc(c.body)}</textarea>
+        <div class="acts"><button class="btn go" data-act="approve">Approve</button><button class="btn" data-act="reject">Send back</button>
+          <input class="note" data-f="note" placeholder="Note for the team (optional)"></div></article>`).join("")
+    + w.manual.map(c => `<article class="ap warn" data-cm="${c.id}"><div class="from">Ready to post by hand on ${esc(c.channel || "Facebook")}</div>
+        <h4>${esc(c.title || label(c.kind))}</h4>${c.note ? `<div class="s">${esc(c.note)}</div>` : ""}${mediaHtml(c)}<div class="post">${esc(c.body)}</div>
+        <div class="acts"><button class="btn" data-cact="copy">Copy text</button><button class="btn go" data-cact="done">I posted it</button></div></article>`).join("");
+  },
+
+  work(){
+    const seg = `<div class="seg" role="group">${[["pipeline", "Records"], ["tasks", "Tasks"], ["posts", "Posts"], ["log", "Activity"]].map(([k, n]) => `<button data-wt="${k}" aria-pressed="${workTab === k}">${n}</button>`).join("")}</div>`;
+    return seg + ({pipeline, tasks, posts, log})[workTab]();
+    function pipeline(){
+      if (!data.records.length) return `<div class="empty"><b>Nothing tracked yet.</b>Everything the team finds and works on shows up here, with where it's at.</div>`;
+      return [...new Set(data.records.map(r => r.type))].map(t => {
+        const rs = data.records.filter(r => r.type === t), by = {};
+        rs.forEach(r => by[r.status] = (by[r.status] || 0) + 1);
+        return `<div class="section" style="margin-top:0;margin-bottom:28px"><h3>${esc(label(t))}s <span class="s" style="font-weight:500;color:var(--muted)">${rs.length}</span></h3>
+          <div class="stages">${Object.entries(by).map(([k, v]) => `<span class="stage">${esc(label(k))}<b>${v}</b></span>`).join("")}</div>
+          <div class="list">${rs.slice(0, 80).map(r => `<details class="rec" data-k="r${r.id}"><summary class="row click">${av(t === "brand" ? "coordination" : "research", r.title)}<div class="grow"><div class="t">${esc(r.title)}</div><div class="s">${r.next_step ? "Next: " + esc(r.next_step) + (r.next_step_due ? ` (${esc(String(r.next_step_due).slice(0, 10))})` : "") : "Updated " + esc(ago(r.updated_at))}</div></div><span class="pill">${esc(label(r.status))}</span></summary>
+            <dl class="facts">${Object.entries(r.data || {}).filter(([, v]) => v !== "" && v != null).map(([k, v]) => `<dt>${esc(label(k))}</dt><dd>${typeof v === "string" ? fmtBody(v) : esc(JSON.stringify(v))}</dd>`).join("") || "<dt>No details yet</dt><dd></dd>"}</dl></details>`).join("")}</div></div>`;
+      }).join("");
+    }
+    function tasks(){
+      if (!data.tasks.length) return `<div class="empty"><b>No open tasks.</b>DeMarcus hands out work as tasks; they show up here.</div>`;
+      const T = teamBy(), groups = {};
+      data.tasks.forEach(t => (groups[t.assignee_slot || "x"] ||= []).push(t));
+      return Object.entries(groups).map(([slot, ts]) => `<div class="tasks-who">${av(slot, T[slot]?.name)}${esc(T[slot]?.name || "Unassigned")}</div>
+        <div class="list">${ts.map(t => `<div class="row"><div class="grow"><div class="t">${esc(t.title)}</div>${t.due_at ? `<div class="s">Due ${esc(when(t.due_at))}</div>` : ""}</div><span class="pill ${t.status === "blocked" ? "bad" : t.status === "in_progress" ? "go" : ""}">${esc(label(t.status))}</span></div>`).join("")}</div>`).join("");
+    }
+    function posts(){
+      if (!data.content.length) return `<div class="empty"><b>No posts yet.</b>Posts, ads and scripts the team writes show up here.</div>`;
+      const P = {pending: ["Waiting for you", "need"], approved: ["Approved", "go"], scheduled: ["Scheduled", "go"], publishing: ["Posting now", "go"], published: ["Posted", "go"], rejected: ["Sent back", ""], needs_manual: ["Post by hand", "need"], failed: ["Didn't publish", "bad"]};
+      return `<div class="list">${data.content.map(c => `<details class="rec" data-k="c${c.id}"><summary class="row click"><span class="kind" style="background:var(--sunk);color:var(--soft)"><svg><use href="#i-post"/></svg></span><div class="grow"><div class="t">${esc(c.title || firstLine(c.body))}</div><div class="s">${esc(label(c.kind))}${c.channel ? " · " + esc(c.channel) : ""}${c.scheduled_for ? " · " + esc(when(c.scheduled_for)) : ""}</div></div><span class="pill ${(P[c.status] || [])[1] || ""}">${esc((P[c.status] || [label(c.status)])[0])}</span></summary>
+        <div style="margin:0 18px 16px">${mediaHtml(c)}<div class="post">${esc(c.body)}</div>${c.note && ["failed", "needs_manual", "published"].includes(c.status) ? `<div class="s" style="margin-top:6px">${esc(c.note)}</div>` : ""}</div></details>`).join("")}</div>`;
+    }
+    function log(){
+      const T = teamBy(), A = {"tool:save_record": "saved a record", "tool:create_task": "created a task", "tool:request_approval": "asked for approval", "tool:save_content": "wrote a post", "tool:web_search": "searched the web", "tool:recall": "checked the team's notes", "tool:save_note": "saved a note", "tool:report_to_owner": "reported to you", "tool:review_approval": "reviewed an approval", "tool:write_notebook": "wrote the notebook", "sign-in": "signed in", resume: "started the team", pause: "paused the team"};
+      const rows = (data.activity || []);
+      return rows.length ? `<div class="list">${rows.map(a => `<div class="row"><div class="grow"><div class="t" style="font-weight:500">${esc(T[a.actor]?.name || a.actor)} ${esc(A[a.action] || label(a.action.replace(/^tool:/, "")))}</div></div><span class="s">${esc(ago(a.at))}</span></div>`).join("")}</div>` : `<div class="empty"><b>No activity yet.</b></div>`;
+    }
+  },
+
+  media(){
+    const can = data.role !== "viewer";
+    if (!mediaData) { call("media_list").then(r => { mediaData = r.media; rendered = ""; render(true); }).catch(e => showErr(e)); return `<p class="s">Loading…</p>`; }
+    let h = "";
+    if (can) h += `<div class="box form" id="upBox"><h4>Add photos, videos or music</h4>
+      <p>Contractors' before-and-after photos, finished reels, music for videos. Grayson looks at each one and can only use files you mark as cleared for public use.</p>
+      <label class="field">Files<input type="file" id="upFiles" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,video/mp4,video/quicktime,.mov,audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,.mp3,.m4a,.wav"><small>Up to 50 MB each. Pick several at once if they're from the same job.</small></label>
+      <div class="grid2"><label class="field">What are they<select data-u="tag">${TAGS.map(([k, n]) => `<option value="${k}">${n}</option>`).join("")}</select></label>
+        <label class="field">Trade<input data-u="trade" placeholder="e.g. Roofing"></label></div>
+      <div class="grid2"><label class="field">Contractor or company<input data-u="contractor" placeholder="Who did the work"></label>
+        <label class="field">Job<input data-u="job" placeholder="e.g. Cherry Hill roof, Oct 2026"><small>Use the same job name for a before and its after.</small></label></div>
+      <label class="field">Notes for the team<input data-u="notes" placeholder="What's in the picture; the team can't see it"></label>
+      <label class="check"><input type="checkbox" data-u="permission"> The contractor said we can use these in our posts and ads</label>
+      <div class="acts"><button class="btn go" data-gact="upload">Upload</button><span class="upnote" id="upProg"></span></div></div>`;
+    const F = {all: ["All", () => true], ba: ["Before & after", m => ["before", "after", "job"].includes(m.tag)], video: ["Videos", m => m.kind === "video"], music: ["Music", m => m.kind === "audio"], hold: ["Not cleared", m => !m.permission]};
+    const list = mediaData.filter(F[mediaFilter][1]);
+    h += `<div class="section"><h3>Library <span class="s" style="font-weight:500;color:var(--muted)">${mediaData.length}</span></h3>
+      <div class="seg" role="group">${Object.entries(F).map(([k, [n]]) => `<button data-mf="${k}" aria-pressed="${mediaFilter === k}">${n}</button>`).join("")}</div>`;
+    if (!list.length) h += `<div class="empty"><b>${mediaData.length ? "Nothing in this filter." : "Nothing here yet."}</b>${mediaData.length ? "" : "Upload a contractor's before and after photos to get started."}</div>`;
+    else h += `<div class="mgrid">${list.map(m => `<div class="mcard" data-mid="${m.id}">
+      ${m.kind === "photo" ? `<a href="${esc(murl(m))}" target="_blank" rel="noopener"><img src="${esc(murl(m))}" alt="${esc(m.title || TAGL[m.tag])}" loading="lazy"></a>`
+        : m.kind === "video" ? `<video class="tall" src="${esc(murl(m))}" controls preload="metadata" playsinline></video>`
+        : `<div class="aud"><audio src="${esc(murl(m))}" controls preload="none"></audio></div>`}
+      <div class="mi"><div class="tags">${can ? `<select data-gtag aria-label="What it is">${TAGS.map(([k, n]) => `<option value="${k}"${k === m.tag ? " selected" : ""}>${n}</option>`).join("")}</select>` : `<span class="pill">${esc(TAGL[m.tag])}</span>`}
+        ${m.permission ? "" : `<span class="pill bad">Not cleared</span>`}</div>
+        <div class="t">${esc(m.contractor || m.title || m.job || "Untitled")}</div>
+        <div class="s">${esc([m.trade, m.job && m.contractor ? m.job : null].filter(Boolean).join(" · ") || ago(m.created_at))}</div>
+        ${m.kind !== "audio" ? `<div class="seen">${m.ai_notes ? `<b>What Grayson sees:</b> ${esc(m.ai_notes)}` : m.previews ? "Grayson is looking at it…" : "Grayson can't see this one (save iPhone photos as JPG); he goes by its labels."}</div>` : ""}
+        ${can ? `<div class="acts">${m.permission ? "" : `<button class="btn small go" data-gact="clear">Cleared to use</button>`}<button class="btn small bad" data-gact="del">Delete</button></div>` : ""}</div></div>`).join("")}</div>`;
+    return h + `</div>`;
+  },
+
+  money(){
+    const T = teamBy(), bill = data.bill || [], total = bill.reduce((t, l) => t + l.amount_usd, 0), b = data.business;
+    const budget = Number(b.monthly_budget_usd || 0), ai = bill.find(l => l.kind === "ai_usage")?.amount_usd || 0, pct = budget ? Math.min(100, ai / budget * 100) : 0;
+    let h = trialBanner() + `<div class="month">
+      <div class="fig"><b>${money(total)}</b><span>bill so far this month</span></div>
+      <div class="fig"><b>${money(ai)}</b><span>AI team</span></div>
+      <div class="fig"><b>${budget ? money(budget) : "No limit"}</b><span>${budget ? `monthly AI limit · ${Math.round(pct)}% used` : "monthly AI limit"}</span>${budget ? `<div class="meter${pct >= 80 ? " hot" : ""}"><i style="width:${pct}%"></i></div>` : ""}</div></div>`;
+    h += `<div class="section">${billing()}</div>`;
+    h += `<div class="section"><h3>This month's bill</h3><div class="list"><table><tr><th>Item</th><th class="n">Amount</th>${data.admin ? `<th class="n">Your cost</th>` : ""}</tr>
+      ${bill.map(l => `<tr><td>${esc(l.line)}</td><td class="n">${money(l.amount_usd)}</td>${data.admin ? `<td class="n">${l.our_cost_usd == null ? "–" : money(l.our_cost_usd)}</td>` : ""}</tr>`).join("")}
+      <tr class="total"><td>Total</td><td class="n">${money(total)}</td>${data.admin ? `<td class="n">${money(bill.reduce((t, l) => t + (l.our_cost_usd || 0), 0))}</td>` : ""}</tr></table></div>
+      <p class="s" style="color:var(--muted);font-size:14px;margin:10px 2px 0">Billed on the 1st for the month before.</p></div>`;
+    const res = (data.results || []).filter(r => Number(r.billed_usd) > 0);
+    if (res.length) {
+      const did = r => [[r.records_created, "new records"], [r.records_updated, "updates"], [r.drafts, "drafts"], [r.sent, "sent"], [r.content, "posts"], [r.published, "published"], [r.reviews, "reviews"]]
+        .filter(([n]) => n > 0).map(([n, w]) => `${n} ${w}`).join(", ") || "Nothing saved yet";
+      const count = r => r.records_created + r.records_updated + r.drafts + r.content + r.reviews;
+      h += `<div class="section"><h3>What each teammate did for the money</h3><div class="list"><table><tr><th>Teammate</th><th>Did</th><th class="n">Cost</th><th class="n">Per result</th></tr>
+        ${res.map(r => `<tr><td><span style="display:inline-flex;align-items:center;gap:10px">${av(r.slot, T[r.slot]?.name)}${esc(T[r.slot]?.name || r.slot)}</span></td><td style="color:var(--soft)">${esc(did(r))}</td><td class="n">${money(r.billed_usd)}</td><td class="n">${count(r) ? money(Number(r.billed_usd) / count(r)) : "–"}</td></tr>`).join("")}</table></div>`;
+      const ci = Number(data.cache?.input || 0), cr = Number(data.cache?.read || 0);
+      if (ci > 0 && cr > 0) h += `<p style="color:var(--muted);font-size:14px;margin:10px 2px 0">${Math.round(cr / ci * 100)}% of what the team read this month came from memory, at a tenth of the price.</p>`;
+      h += `</div>`;
+    }
+    if ((data.invoices || []).length) h += `<div class="section"><h3>Invoices</h3><div class="list"><table>${data.invoices.map(i => `<tr><td>${new Date(String(i.month).slice(0, 10) + "T12:00:00Z").toLocaleString([], {month: "long", year: "numeric", timeZone: "UTC"})}</td><td class="n">${money(i.amount_usd)}</td><td class="n">${i.hosted_url ? `<a href="${esc(i.hosted_url)}" target="_blank" rel="noopener">${esc(label(i.status))}</a>` : esc(label(i.status))}</td></tr>`).join("")}</table></div></div>`;
+    if (data.admin) {
+      const margin = bill.reduce((t, l) => t + l.amount_usd - (l.our_cost_usd || 0), 0);
+      h += `<div class="section"><div class="box" id="pricing"><h4>Pricing for ${esc(b.name)}</h4><p>Only you see this. Your margin this month: <b>${money(margin)}</b></p>
+        <div class="grid2"><label class="field">Markup on AI usage (%)<input data-p="markup_pct" type="number" min="0" step="1" value="${esc(b.markup_pct)}"></label>
+        <label class="field">Monthly platform fee ($)<input data-p="platform_fee_usd" type="number" min="0" step="1" value="${esc(b.platform_fee_usd)}"></label></div>
+        <div class="grid2"><label class="field">Calls: fee per minute on top of cost ($)<input data-p="call_fee_per_min" type="number" min="0" step="0.01" value="${esc(b.call_fee_per_min ?? 0.5)}"></label>
+        <label class="field">Phone number ($ a month)<input data-p="phone_fee_usd" type="number" min="0" step="1" value="${esc(b.phone_fee_usd ?? 5)}"></label></div>
+        <label class="field">Monthly AI limit ($)<input data-p="monthly_budget_usd" type="number" min="0" step="1" value="${esc(b.monthly_budget_usd ?? "")}"><small>Leave blank for no limit. The team pauses when it's reached.</small></label>
+        <div><button class="btn go" data-pact="save">Save pricing</button></div>
+        <h4 style="margin-top:8px">Other charges</h4>
+        ${(data.charges || []).length ? `<div class="list">${data.charges.map(c => `<div class="row"><div class="grow"><div class="t">${esc(c.description)}</div><div class="s">${esc(label(c.kind))} · ${money(c.amount_usd)}${c.recurring ? " a month" : " once"}</div></div><button class="btn small bad" data-pact="end" data-id="${c.id}">Remove</button></div>`).join("")}</div>` : `<p>None.</p>`}
+        <label class="field">Add a charge<input data-c="description" placeholder="What it's for, e.g. Facebook publishing setup"></label>
+        <div class="grid2"><select data-c="kind" aria-label="Kind"><option value="integration">Integration</option><option value="service">Service</option><option value="setup">Setup</option><option value="other">Other</option></select>
+          <input data-c="amount_usd" type="number" min="0" step="1" placeholder="Amount ($)" aria-label="Amount"></div>
+        <label class="check"><input data-c="recurring" type="checkbox"> Charge it every month</label>
+        <div><button class="btn" data-pact="add">Add charge</button></div></div></div>`;
+    }
+    return h;
+  },
+
+  calls(){
+    if (!callsData) { loadCalls(true); return `<p class="s">Loading…</p>`; }
+    const c = callsData;
+    if (!c.platform_ready) return c.can_buy ? twilioSetup() : `<div class="empty"><b>Calling isn't turned on yet.</b>Ask Destiny OS to turn on calling for this business.</div>`;
+    if (!c.number) return c.can_buy ? `<div class="box form" id="buyBox"><h4 style="font-size:20px">Get a phone number for ${esc(data.business.name)}</h4>
+        <p>Calls from the dashboard show this number, and people who call it back reach your team (or voicemail). It's billed at ${money(data.business.phone_fee_usd ?? 5)} a month, plus ${money(data.business.call_fee_per_min ?? .5)} a minute on top of the call cost.</p>
+        <label class="field">Area code<input id="areaCode" inputmode="numeric" maxlength="3" placeholder="973" style="max-width:160px"></label>
+        <div><button class="btn go" data-kact="buy">Get a number</button></div></div>`
+      : `<div class="empty"><b>No phone line yet.</b>Ask Destiny OS to add a phone number for this business.</div>`;
+    let h = "";
+    if (pending) h += `<div class="box" id="outcomeBox" style="border-color:var(--go);margin-bottom:20px"><h4>How did the call with ${esc(pending.who)} go?</h4>
+      <div class="outs">${OUTCOMES.map(([k, n]) => `<button data-out="${k}" aria-pressed="${pending.outcome === k}">${n}</button>`).join("")}</div>
+      ${pending.outcome === "callback" ? `<label class="field">Call back on<input type="date" id="cbDate" value="${esc(pending.cb || "")}"></label>` : ""}
+      <label class="field">Notes<textarea id="outNote" rows="3" placeholder="What did they say? What happens next?">${esc(pending.note || "")}</textarea></label>
+      <div class="acts"><button class="btn go" data-kact="save">Save</button><button class="btn quiet" data-kact="discard">Skip</button></div></div>`;
+    h += `<div class="month"><div class="fig"><span>Your business line</span><b class="phone-big">${esc(fmtPhone(c.number))}</b><span id="devState">${device ? "Ready to call" : "Connecting…"}</span></div>
+      <div class="fig"><b>${c.queue.length}</b><span>${c.queue.length === 1 ? "person" : "people"} to call</span></div>
+      <div class="fig"><b>${c.month.minutes}</b><span>minutes this month${c.month.billed != null ? ` · ${money(c.month.billed)}` : ""}</span></div></div>`;
+    h += `<div class="section"><h3>Call list</h3>${c.queue.length ? `<div class="list">${c.queue.map(q => `<div class="row"><div class="grow"><div class="t">${esc(q.name || fmtPhone(q.phone))}</div><div class="s">${esc(fmtPhone(q.phone))}${q.reason ? " · " + esc(q.reason) : ""}</div><div class="s">Added by ${esc(q.queued_by_name || q.queued_by)}</div></div>
+        <button class="btn small go" data-kact="call" data-phone="${esc(q.phone)}" data-qid="${q.id}" data-rid="${q.record_id || ""}" data-name="${esc(q.name || "")}">Call</button><button class="btn small quiet" data-kact="skip" data-qid="${q.id}">Skip</button></div>`).join("")}</div>`
+      : `<div class="empty"><b>The call list is empty.</b>Your team adds people here when a call would help. You can also call any number below.</div>`}</div>`;
+    h += `<div class="section"><h3>Call a number</h3><div class="dial"><input id="dialNum" inputmode="tel" placeholder="Phone number"><input id="dialName" placeholder="Name (optional)">
+      <button class="btn go" data-kact="dial">Call</button><button class="btn" data-kact="add">Add to list</button></div>
+      <p style="color:var(--muted);font-size:14px;margin:10px 2px 0">Calls go out between 8am and 9pm. Anyone marked "Do not call again" is blocked from then on.</p></div>`;
+    h += `<div class="section"><h3>Recent calls</h3>${c.recent.length ? `<div class="list">${c.recent.map(k => {
+      const other = k.direction === "outbound" ? k.to_number : k.from_number, out = OUTCOMES.find(o => o[0] === k.outcome);
+      const label2 = k.voicemail ? "Voicemail" : out ? out[1] : k.direction === "inbound" ? (k.duration_sec ? "Answered" : "Missed") : k.duration_sec ? "Needs a result" : label(k.status || "");
+      return `<div class="row"><span class="kind" style="background:var(--sunk);color:var(--soft)"><svg><use href="#i-phone"/></svg></span><div class="grow"><div class="t">${esc(k.title || fmtPhone(other))}</div>
+        <div class="s">${k.direction === "inbound" ? "Called in" : "Called out"} · ${esc(when(k.started_at))}${k.duration_sec ? ` · ${Math.floor(k.duration_sec / 60)}:${String(k.duration_sec % 60).padStart(2, "0")}` : ""}${k.billed_usd != null && Number(k.billed_usd) > 0 ? " · " + money(k.billed_usd) : ""}</div>
+        ${k.note ? `<div class="s" style="white-space:normal">${esc(k.note)}</div>` : ""}<div data-audio="${k.id}"></div></div>
+        ${k.has_recording ? `<button class="btn small" data-kact="play" data-cid="${k.id}">Play</button>` : ""}
+        ${!k.outcome && k.direction === "outbound" && k.duration_sec ? `<button class="btn small" data-kact="result" data-cid="${k.id}" data-name="${esc(k.title || fmtPhone(other))}">Add result</button>` : ""}
+        <span class="pill ${k.outcome === "interested" || k.outcome === "talked" ? "go" : k.voicemail || (!k.outcome && k.direction === "inbound" && !k.duration_sec) ? "need" : ""}">${esc(label2)}</span></div>`;
+    }).join("")}</div>` : `<div class="empty"><b>No calls yet.</b></div>`}</div>`;
+    if (c.can_manage && c.settings) h += `<div class="section"><div class="box form" id="phoneSet"><h4>Phone settings</h4>
+      <label class="field">When someone calls your number, also ring<input id="fwdTo" inputmode="tel" value="${esc(fmtPhone(c.settings.forward_to))}" placeholder="Your cell (optional)"><small>This number and your team's open dashboards ring together. If nobody answers in 20 seconds, the caller gets voicemail.</small></label>
+      <label class="check"><input type="checkbox" id="recOn"${c.settings.record ? " checked" : ""}> Record calls (the other person hears "This call may be recorded")</label>
+      <div><button class="btn" data-kact="psave">Save phone settings</button></div></div></div>`;
+    return h;
+  },
+
+  settings(){
+    const seg = `<div class="seg" role="group">${[["business", "Business & team"], ["connections", "Connections"], ["people", "People"]].map(([k, n]) => `<button data-st="${k}" aria-pressed="${setTab === k}">${n}</button>`).join("")}</div>`;
+    return seg + ({business: setBusiness, connections: setConnections, people: setPeople})[setTab]();
+  },
+
+  new(){
+    return `<form class="box form" id="newBiz" onsubmit="return false"><h4 style="font-size:20px">Add a business</h4><p>This gives them their own team of six, their own data and billing, and emails the owner a sign-in link. The team stays off until someone clicks Start team.</p>
+      <label class="field">Business name<input data-n="name"></label>
+      <div class="grid2"><label class="field">Owner's name<input data-n="owner_name"></label><label class="field">Owner's email<input data-n="owner_email" type="email"></label></div>
+      <label class="field">What they do and what the team should achieve<textarea data-n="mission" rows="4" placeholder="e.g. Acme Roofing is a South Jersey roofer. Find homeowners who need roof work and book estimates."></textarea></label>
+      <label class="field">Facts the team can use (prices, offers, service area, links)<textarea data-n="facts" rows="4"></textarea></label>
+      <label class="field">Rules the team must follow<textarea data-n="rules" rows="3"></textarea></label>
+      <div class="grid2"><label class="field">Time zone<input data-n="timezone" value="America/New_York"></label><label class="field">Platform fee ($ a month)<input data-n="platform_fee_usd" type="number" min="0" value="650"></label>
+        <label class="field">Markup on AI usage (%)<input data-n="markup_pct" type="number" min="0" value="30"></label><label class="field">AI limit ($ a month)<input data-n="monthly_budget_usd" type="number" min="0" value="200"></label></div>
+      <label class="check"><input type="checkbox" data-n="trial"> Start with a 14-day free trial (no platform fee; you cover their AI use up to $40)</label>
+      <div class="acts"><button class="btn go" data-nact="create">Create business</button><button class="btn quiet" data-nact="cancel">Cancel</button></div></form>`;
+  },
+};
+const firstLine = (s) => String(s || "").split("\n").find(x => x.trim()) || "";
+
+function twilioSetup(){
+  return `<div class="box form" id="twBox"><h4 style="font-size:20px">Turn on calling (one time, for every business)</h4>
+    <p>Calls run through your Twilio account. Each business then gets its own number, billed to them every month.</p>
+    <div class="howto"><ol><li>Sign up or log in at <a href="https://console.twilio.com" target="_blank">console.twilio.com</a> and upgrade the account (add a card) so it can call any number.</li>
+      <li>On the console home page, copy the <b>Account SID</b> and <b>Auth Token</b>.</li>
+      <li>Go to Account, API keys and tokens, and create a <b>Standard</b> API key named "Destiny OS". Copy its <b>SID</b> and <b>Secret</b> (the secret only shows once).</li>
+      <li>Optional but recommended: in Trust Hub, fill in your business profile so calls don't show as "Spam Likely".</li></ol></div>
+    <div class="grid2"><label class="field">Account SID<input id="twAcc" autocomplete="off" placeholder="AC…"></label><label class="field">Auth Token<input id="twTok" type="password" autocomplete="off"></label>
+      <label class="field">API key SID<input id="twKey" autocomplete="off" placeholder="SK…"></label><label class="field">API key secret<input id="twSec" type="password" autocomplete="off"></label></div>
+    <div><button class="btn go" data-kact="twsave">Save and turn on calling</button></div></div>`;
+}
+async function loadCalls(redraw){
+  try { callsData = await call("calls"); callsAt = Date.now(); if (callsData.number && callsData.platform_ready) ensureDevice(); if (redraw) render(true); } catch (e) { if (redraw) showErr(e); }
+}
+function loadSdk(){
+  if (window.Twilio?.Device) return Promise.resolve();
+  return new Promise((ok, bad) => { const sc = document.createElement("script"); sc.src = "https://unpkg.com/@twilio/voice-sdk@2.18.5/dist/twilio.min.js"; sc.onload = ok; sc.onerror = () => bad(new Error("Couldn't load the phone. Check your connection.")); document.head.appendChild(sc); });
+}
+async function ensureDevice(){
+  if (device && deviceBiz === biz) return;
+  if (device) { try { device.destroy(); } catch {} device = null; }
+  const myBiz = biz;
+  try {
+    await loadSdk();
+    const t = await call("voice_token");
+    if (myBiz !== biz) return;
+    device = new Twilio.Device(t.token, {closeProtection: "You're on a call. Leave anyway?", codecPreferences: ["opus", "pcmu"]});
+    deviceBiz = myBiz;
+    device.on("tokenWillExpire", async () => { try { device.updateToken((await call("voice_token")).token); } catch {} });
+    device.on("incoming", c => { incoming = c; callWho = fmtPhone(c.parameters.From); c.on("cancel", () => { incoming = null; bar(); }); c.on("disconnect", () => { incoming = null; bar(); }); bar(); });
+    device.on("error", e => { const el = $("devState"); if (el) el.textContent = "Phone problem: " + (e.message || e); });
+    await device.register();
+    const el = $("devState"); if (el) el.textContent = "Ready to call";
+  } catch (e) { const el = $("devState"); if (el) el.textContent = e.message; }
+}
+async function startCall(phone, name, qid, rid){
+  if (active) return;
+  if (!device) await ensureDevice();
+  if (!device) return showErr(new Error("The phone isn't ready yet. Wait a moment and try again."));
+  try {
+    callWho = name || fmtPhone(phone);
+    active = await device.connect({params: {To: phone, bid: biz, qid: qid || "", rid: rid || ""}});
+    callStart = 0; wire(active, {name: callWho, qid, rid}); bar();
+  } catch (e) { active = null; bar(); showErr(e); }
+}
+function wire(c, info){
+  c.on("accept", () => { callStart = Date.now(); bar(); });
+  c.on("disconnect", () => { const sid = c.parameters?.CallSid, talked = callStart; active = null; callStart = 0; bar();
+    if (sid && c.direction !== "INCOMING") { pending = {sid, who: info.name, outcome: talked ? "" : "no_answer"}; if (view !== "calls") go("calls"); else { rendered = ""; render(true); } }
+    setTimeout(() => loadCalls(view === "calls"), 3000); });
+  c.on("cancel", () => { active = null; bar(); });
+  c.on("error", e => { active = null; bar(); showErr(e); });
+}
+function bar(){
+  const el = $("callbar");
+  clearInterval(barTimer);
+  if (incoming && !active) {
+    el.hidden = false; el.className = "callbar ringing";
+    el.innerHTML = `<div class="grow"><b>Incoming call</b> · ${esc(callWho)}</div><button class="btn" data-bar="answer">Answer</button><button class="btn end" data-bar="decline">Decline</button>`;
+    return;
+  }
+  if (!active) { el.hidden = true; el.innerHTML = ""; return; }
+  el.hidden = false; el.className = "callbar";
+  const tick2 = () => { const s = callStart ? Math.floor((Date.now() - callStart) / 1000) : 0; const t = el.querySelector("[data-time]"); if (t) t.textContent = callStart ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "Ringing…"; };
+  el.innerHTML = `<div class="grow"><b>${esc(callWho)}</b> · <span data-time></span></div><button class="btn" data-bar="mute">${active.isMuted?.() ? "Unmute" : "Mute"}</button><button class="btn end" data-bar="hang">Hang up</button>`;
+  tick2(); barTimer = setInterval(tick2, 1000);
+}
+$("callbar").addEventListener("click", e => {
+  const a = e.target.closest("[data-bar]")?.dataset.bar; if (!a) return;
+  if (a === "hang") active?.disconnect();
+  if (a === "mute" && active) { active.mute(!active.isMuted()); bar(); }
+  if (a === "answer" && incoming) { incoming.accept(); active = incoming; incoming = null; callStart = Date.now(); wire(active, {name: callWho}); bar(); }
+  if (a === "decline" && incoming) { incoming.reject(); incoming = null; bar(); }
+});
+
+// Getting started: what's left before (and just after) the team starts. Hidden once done or dismissed.
+const mediaN = {}, setupBusy = {};
+function setupSteps(){
+  const b = data.business, id = biz, live = b.status !== "setup";
+  let hidden = false; try { hidden = live && localStorage.getItem("osSetupHide:" + id) === "1"; } catch {}
+  if (hidden) return "";
+  if (!settingsData && !setupBusy.s) { setupBusy.s = 1; call("settings_get").then(r => { if (id === biz) { settingsData = r; render(true); } }).catch(() => {}).finally(() => { setupBusy.s = 0; }); }
+  if (!conns && !setupBusy.c) { setupBusy.c = 1; call("integrations").then(r => { if (id === biz) { conns = r; render(true); } }).catch(() => {}).finally(() => { setupBusy.c = 0; }); }
+  if (mediaN[id] === undefined) { mediaN[id] = null; call("media_list").then(r => { mediaN[id] = r.media.length; if (id === biz) render(true); }).catch(() => { mediaN[id] = 0; }); }
+  if (live && (!settingsData || !conns || mediaN[id] == null)) return "";
+  const on = (p) => !!conns?.integrations?.some(i => (Array.isArray(p) ? p : [p]).includes(i.provider) && i.status === "connected");
+  const knows = !!String(settingsData?.config?.facts || "").trim(), mail = on(["gmail", "resend"]), fb = on("facebook"), pics = mediaN[id] > 0;
+  const card = b.billing_status === "active" || data.admin, t = trialInfo[id];
+  const can = ["owner", "admin"].includes(data.role);
+  const steps = [
+    {done: knows, t: "Check what your team knows", s: "Your services, area and rules. Add your prices, offers and phone number.", btn: `<button class="btn small" data-go="settings" data-st="business">Open</button>`},
+    {done: mail, t: "Connect your email", s: "So the team can send what you approve and catch replies", btn: `<button class="btn small" data-go="settings" data-st="connections">Connect</button>`},
+    {done: fb, t: "Connect your Facebook Page", s: "So Grayson can publish the posts you approve", btn: `<button class="btn small" data-go="settings" data-st="connections">Connect</button>`},
+    {done: pics, t: "Add your photos and videos", s: "Job photos, before and afters, videos. Grayson makes posts from them.", btn: `<button class="btn small" data-go="media">Add</button>`},
+    ...(data.admin ? [] : [{done: card, t: "Add a card", s: t && !t.ended ? "Any time before your trial ends, to keep the team working" : "Billed on the 1st for the month before", btn: `<button class="btn small" data-go="money">Add card</button>`}]),
+    {done: live, t: "Start the team", s: "They begin on their next work hour", btn: can ? `<button class="btn small go" data-start>Start team</button>` : ""},
+  ];
+  const left = steps.filter(x => !x.done).length;
+  if (live && !left) return "";
+  const list = `<div class="list"><ol class="steps">${steps.map(x => `<li class="${x.done ? "done" : ""}"><div class="grow"><div class="t">${esc(x.t)}</div><div class="s">${esc(x.s)}</div></div>${x.done ? "" : x.btn}</li>`).join("")}</ol></div>`;
+  return live ? `<div class="section"><h3>Finish setting up<button class="btn small quiet" data-hidesetup>Hide</button></h3>${list}</div>` : list;
+}
+
+function billing(){
+  const st = data.business.billing_status, can = ["owner", "admin"].includes(data.role);
+  const text = {active: "Card on file. Invoices are charged automatically on the 1st.", card_needed: "No card on file yet. Invoices are emailed with a payment link until you add one.", past_due: "A payment didn't go through. The team is on hold until it's paid.", none: "Billing isn't set up for this business."}[st] || "";
+  return `<div class="box${st === "past_due" ? " alert" : ""}"><h4>Payment</h4><p>${esc(text)} Adding a card means you agree to the <a href="/terms" target="_blank">Terms</a>.</p>
+    ${can && st !== "none" ? `<div><button class="btn ${st === "active" ? "" : "go"}" data-bact="card">${st === "active" ? "Update card" : "Add a card"}</button></div>` : ""}</div>`;
+}
+
+function setBusiness(){
+  if (!settingsData) { call("settings_get").then(r => { settingsData = r; render(true); }).catch(e => showErr(e)); return `<p class="s">Loading…</p>`; }
+  const d = settingsData, c = d.config || {}, b = d.business, ro = d.can_edit ? "" : " disabled", DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  return `<div class="form" id="settingsForm">
+    <div class="box form"><h4>The business</h4>
+      <label class="field">Business name<input data-s="name" value="${esc(b.name)}"${ro}></label>
+      <label class="field">What the business does and what the team should achieve<textarea data-s="mission" rows="5"${ro}>${esc(c.mission || "")}</textarea><small>The team reads this before every piece of work.</small></label>
+      <label class="field">Facts<textarea data-s="facts" rows="6"${ro}>${esc(c.facts || "")}</textarea><small>Prices, offers, service area, links. The team uses these exactly and never adds to them.</small></label>
+      <label class="field">Rules the team must follow<textarea data-s="rules" rows="6"${ro}>${esc(c.rules || "")}</textarea></label>
+      <div class="grid2"><label class="field">Owner's name<input data-s="owner_name" value="${esc(c.owner?.name || "")}"${ro}></label>
+        <label class="field">Owner's email<input data-s="owner_email" value="${esc(c.owner?.email || "")}"${ro}><small>Reports and alerts go here.</small></label></div></div>
+    <div class="box form"><h4>Work hours</h4>
+      <div class="grid2"><label class="field">Starts at (hour, 0–23)<input data-s="shift_start" type="number" min="0" max="23" value="${b.shift_start}"${ro}></label>
+        <label class="field">Ends at (hour, 1–24)<input data-s="shift_end" type="number" min="1" max="24" value="${b.shift_end}"${ro}></label></div>
+      <div class="field">Work days<div class="days">${DAYS.map((n, i) => `<label><input type="checkbox" data-day="${i + 1}"${(b.shift_days || []).includes(i + 1) ? " checked" : ""}${ro}>${n}</label>`).join("")}</div></div>
+      <label class="field">Time zone<input data-s="timezone" value="${esc(b.timezone)}"${ro}></label></div>
+    <div><h3 style="font-size:17px;margin:8px 0 4px">The team</h3><p class="s" style="color:var(--muted);margin:0 0 12px">Untick someone to switch them off. Open a teammate to give them instructions for this business.</p>
+    <div class="list">${d.agents.map(a => `<details class="agent" data-agent="${a.slot}" data-k="a${a.slot}"><summary><input type="checkbox" data-a="enabled"${a.enabled ? " checked" : ""}${ro} aria-label="${esc(a.name)} is on">${av(a.slot, a.name)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${esc(a.role)}</div></div></summary>
+      <div class="inner"><label class="field">Instructions for ${esc(a.name)}<textarea data-a="role_instructions" rows="5"${ro}>${esc(a.role_instructions || "")}</textarea></label></div></details>`).join("")}</div></div>
+    ${d.advanced ? `<details class="box"><summary style="cursor:pointer;font-weight:600">Advanced settings (only you see this)</summary><textarea data-s="raw_config" style="min-height:240px;margin-top:12px;font-family:ui-monospace,Menlo,monospace;font-size:13px">${esc(JSON.stringify(c, null, 2))}</textarea><p style="margin-top:8px">Edit only if you know what you're changing. The fields above still apply on top.</p></details>` : ""}
+    ${d.can_edit ? `<div><button class="btn go" data-sact="save">Save settings</button></div>` : `<p class="s">Only admins can change settings.</p>`}
+    <div><h3 style="font-size:17px;margin:8px 0 12px">Saved versions</h3><div class="list">${d.versions.map(v => `<div class="row"><div class="grow"><div class="t">${esc(v.note || "Saved")}</div><div class="s">${esc(when(v.created_at))} · ${esc(v.created_by || "")}</div></div>${v.active ? `<span class="pill go">Current</span>` : d.can_edit ? `<button class="btn small" data-sact="restore" data-v="${v.version}">Restore</button>` : ""}</div>`).join("")}</div></div>
+  </div>`;
+}
+
+function setConnections(){
+  if (!conns) { call("integrations").then(r => { conns = r; render(true); }).catch(e => showErr(e)); return `<p class="s">Loading…</p>`; }
+  const HOW = {
+    gmail: `<ol><li>Turn on 2-Step Verification for the Gmail account.</li><li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a> and make an app password named "Destiny OS".</li><li>Paste the 16-letter password here.</li></ol>`,
+    resend: `<ol><li>Sign up at <a href="https://resend.com" target="_blank">resend.com</a> and add your domain. Resend shows the DNS records to add.</li><li>Create an API key with "Sending access".</li><li>For From, use your name and an address on that domain, like <i>Acme Roofing &lt;hello@acmeroofing.com&gt;</i>.</li></ol>`,
+    facebook: `<ol><li>In <a href="https://business.facebook.com/settings/system-users" target="_blank">Meta Business Settings, System users</a>, add a system user (Admin) and give it your Page.</li><li>Click "Generate new token", pick your app, and tick <i>pages_manage_posts</i>, <i>pages_read_engagement</i> and <i>pages_show_list</i>.</li><li>Your Page ID is on the Page under About, Page transparency.</li></ol>`,
+  };
+  const LBL = {user: "Gmail address", from_name: "Name people see", from: "From, e.g. Acme &lt;hi@acme.com&gt;", reply_to: "Replies go to (optional)", page_id: "Facebook Page ID", GMAIL_APP_PASSWORD: "App password", RESEND_API_KEY: "Resend API key", FACEBOOK_PAGE_TOKEN: "Page access token"};
+  const pill = (st) => st === "connected" ? `<span class="pill go">Connected</span>` : st === "error" ? `<span class="pill bad">Not working</span>` : `<span class="pill">Not connected</span>`;
+  return `<p style="color:var(--muted);margin:0 0 16px">Connect the accounts your team works through. Passwords and keys are stored encrypted and never shown again. Emails go out through Resend if it's connected, otherwise Gmail.</p>` +
+    conns.integrations.map(i => i.readonly ? `<div class="box" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center"><h4>${esc(i.label)}</h4>${pill(i.status)}</div></div>` :
+    `<div class="box" data-conn="${i.provider}" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h4>${esc(i.label)}</h4>${pill(i.status)}</div>
+      ${i.settings.page_name ? `<p>Page: ${esc(i.settings.page_name)}</p>` : ""}
+      ${conns.can_edit ? `<details${i.status === "connected" ? "" : " open"}><summary style="cursor:pointer;font-weight:600;color:var(--go)">${i.status === "connected" ? "Change" : "Set up"}</summary>
+        <div class="form" style="margin-top:14px">
+        ${i.fields.map(f => f === "check_inbox" ? `<label class="check"><input type="checkbox" data-cs="${f}"${i.settings[f] === "true" ? " checked" : ""}> Watch this inbox for replies and put them in Team chat</label>`
+          : `<label class="field">${LBL[f] || f}<input data-cs="${f}" value="${esc(i.settings[f] || "")}"></label>`).join("")}
+        ${i.secrets.map(f => `<label class="field">${LBL[f] || f}<input data-ck="${f}" type="password" autocomplete="off" placeholder="${i.status === "not_connected" ? "" : "Saved. Paste a new one to replace it."}"></label>`).join("")}
+        <div class="howto">How to get these:${HOW[i.provider] || ""}</div>
+        <div class="acts"><button class="btn go" data-xact="connect">Save and test</button>${i.status !== "not_connected" ? `<button class="btn bad" data-xact="disconnect">Disconnect</button>` : ""}</div>
+        </div></details>` : ""}</div>`).join("");
+}
+
+function setPeople(){
+  if (!["owner", "admin"].includes(data.role)) return `<div class="empty"><b>Only owners and admins can manage people.</b></div>`;
+  if (!people) { call("members").then(r => { people = r.members; render(true); }).catch(e => showErr(e)); return `<p class="s">Loading…</p>`; }
+  const R = {viewer: 1, caller: 2, operator: 3, admin: 4, owner: 5}, roles = Object.keys(R).filter(x => R[x] <= R[data.role]);
+  const RL = {viewer: "Can watch", caller: "Makes calls and uses Team chat (for a VA)", operator: "Can post, approve and call", admin: "Can also pause the team and add people", owner: "Full control"};
+  return (people.length ? `<div class="list">${people.map(p => `<div class="row"><div class="grow"><div class="t">${esc(p.email)}</div><div class="s">${esc(label(p.role))} · ${esc(RL[p.role] || "")}</div></div><button class="btn small bad" data-mact="remove" data-uid="${p.id}">Remove</button></div>`).join("")}</div>` : `<div class="empty"><b>Nobody else has access yet.</b>Add a partner, an assistant or the business owner below.</div>`) +
+    `<div class="box form" id="invite" style="margin-top:16px"><h4>Add a person</h4><p>They sign in with a code sent to their email.</p>
+      <label class="field">Email<input data-i="email" type="email" placeholder="their@email.com"></label>
+      <label class="field">What they can do<select data-i="role">${roles.map(x => `<option value="${x}">${label(x)}: ${RL[x]}</option>`).join("")}</select></label>
+      <div><button class="btn go" data-mact="invite">Add person</button></div></div>`;
+}
+function showErr(e){ $("view").insertAdjacentHTML("beforeend", `<p class="err">${esc(e.message)}</p>`); }
+
+// ---------- rendering ----------
+function render(force){
+  if (!data) return;
+  if (data.role === "caller" && !CALLER_VIEWS.has(view)) view = "calls";
+  counts(); topbar();
+  if (editing.size && !force) return;
+  const key = view + "|" + biz + "|" + workTab + "|" + setTab;
+  if (SLOW.has(view) && rendered === key && !force) return;
+  if (view === "chat" && rendered === key && !force) { appendNew(); return; }
+  const el = $("view");
+  el.className = "view" + (view === "chat" ? " wide" : "");
+  el.style.padding = view === "chat" ? "0" : "";
+  const html = VIEWS[view]();
+  if (rendered === key && html === lastHtml) return;
+  const open = [...el.querySelectorAll("details[open]")].map(x => x.dataset.k).filter(Boolean);
+  el.innerHTML = html; lastHtml = html;
+  open.forEach(k => el.querySelector(`details[data-k="${k}"]`)?.setAttribute("open", ""));
+  rendered = key;
+  if (view === "chat") { drawFeed(); fit(); if (innerWidth > 860) $("draft")?.focus({preventScroll: true}); }
+}
+function counts(){
+  const n = waiting().n;
+  document.querySelectorAll("[data-count]").forEach(b => { b.textContent = n; b.hidden = !n; });
+}
+function topbar(){
+  const b = data.business, can = ["owner", "admin"].includes(data.role);
+  $("title").textContent = TITLES[view] || "";
+  const st = $("state");
+  st.className = "state " + (b.status === "live" ? "live" : b.status === "paused" ? "paused" : "");
+  st.textContent = b.status === "live" ? (data.working?.length ? "Working now" : "Team on") : b.status === "paused" ? "Paused" : "Not started";
+  $("pauseBtn").hidden = !can;
+  $("pauseBtn").textContent = b.status === "live" ? "Pause team" : "Start team";
+  $("pauseBtn").classList.toggle("go", b.status !== "live");
+  const caller = data.role === "caller", showCalls = caller || !!data.calling?.number || data.admin;
+  document.querySelectorAll("[data-v]").forEach(x => {
+    x.setAttribute("aria-current", x.dataset.v === view ? "page" : "false");
+    const v = x.dataset.v;
+    if (["home", "approve", "work", "media", "money"].includes(v)) x.hidden = caller;
+    if (v === "calls") x.hidden = !showCalls;
+    if (v === "settings") x.hidden = caller;
+  });
+  $("pauseBtn").hidden = !can || caller;
+  document.querySelectorAll("[data-calls]").forEach(b2 => { const n = data.calling?.open || 0; b2.textContent = n; b2.hidden = !n; });
+}
+let feedDrawn = 0;
+function msgHtml(m, prev){
+  const T = teamBy(), a = T[m.sender], you = isYou(m.sender);
+  const dayChange = !prev || new Date(prev.created_at).toDateString() !== new Date(m.created_at).toDateString();
+  const day = dayChange ? `<div class="day">${new Date(m.created_at).toLocaleDateString([], {weekday: "long", month: "short", day: "numeric"})}</div>` : "";
+  if (!a && !you) return day + `<div class="msg sys">${fmtBody(m.body)}</div>`;
+  return day + `<div class="msg${you ? " you" : ""}" style="--c:var(--c-${a ? m.sender : "system"})">${you ? "" : av(m.sender, a.name)}<div style="min-width:0"><div class="who">${you ? esc(m.sender_name && m.sender_name !== "Owner" ? m.sender_name : "You") : esc(a.name)}<time>${clock(m.created_at)}</time></div><div class="body">${fmtBody(m.body)}</div></div></div>`;
+}
+function drawFeed(){
+  const f = $("feed"); if (!f) return;
+  f.innerHTML = msgs.length ? msgs.map((m, i) => msgHtml(m, msgs[i - 1])).join("") : `<div class="empty" style="margin:auto"><b>It's quiet in here.</b>Say hi to the team, or ask what they're working on.</div>`;
+  feedDrawn = msgs.length; f.scrollTop = f.scrollHeight;
+}
+function appendNew(){
+  const f = $("feed"); if (!f || feedDrawn >= msgs.length) return;
+  const atBottom = f.scrollHeight - f.scrollTop - f.clientHeight < 120;
+  if (!feedDrawn) f.innerHTML = "";
+  f.insertAdjacentHTML("beforeend", msgs.slice(feedDrawn).map((m, i) => msgHtml(m, msgs[feedDrawn + i - 1])).join(""));
+  feedDrawn = msgs.length;
+  if (atBottom) f.scrollTop = f.scrollHeight;
+}
+function go(v, opts = {}){
+  view = v; if (opts.st) setTab = opts.st;
+  editing.clear(); people = null; conns = null; settingsData = null; rendered = "";
+  if (v === "calls") { callsData = null; }
+  if (v === "media") { mediaData = null; }
+  render(true); window.scrollTo(0, 0);
+}
+
+// ---------- phone chat sizing: keep the message box above the bottom bar and the keyboard ----------
+function fit(){
+  const r = document.documentElement.style, top = document.querySelector(".top"), tb = $("tabbar"), vv = window.visualViewport;
+  if (!top) return;
+  r.setProperty("--top-h", top.offsetHeight + "px");
+  if (tb.offsetHeight) r.setProperty("--tab-h", tb.offsetHeight + "px");
+  r.setProperty("--vv-h", ((vv ? vv.height + vv.offsetTop : innerHeight) - top.offsetHeight) + "px");
+  const f = $("feed"); if (f && document.body.classList.contains("typing")) f.scrollTop = f.scrollHeight;
+}
+window.visualViewport?.addEventListener("resize", fit);
+window.visualViewport?.addEventListener("scroll", fit);
+addEventListener("resize", fit);
+document.addEventListener("focusin", e => { if (e.target.id === "draft") { document.body.classList.add("typing"); fit(); setTimeout(fit, 300); } });
+document.addEventListener("focusout", e => { if (e.target.id === "draft") { document.body.classList.remove("typing"); setTimeout(fit, 50); } });
+
+// ---------- events ----------
+document.addEventListener("click", e => {
+  const nav = e.target.closest("[data-v]"); if (nav && nav.id !== "outBtn") { e.preventDefault(); go(nav.dataset.v); return; }
+  const g = e.target.closest("[data-go]"); if (g) { go(g.dataset.go, {st: g.dataset.st}); return; }
+  const wt = e.target.closest("[data-wt]"); if (wt) { workTab = wt.dataset.wt; rendered = ""; render(true); return; }
+  const stb = e.target.closest("[data-st]"); if (stb && view === "settings") { setTab = stb.dataset.st; editing.clear(); people = null; conns = null; settingsData = null; rendered = ""; render(true); return; }
+  if (e.target.closest("[data-start]")) $("pauseBtn").click();
+  if (e.target.closest("[data-hidesetup]")) { try { localStorage.setItem("osSetupHide:" + biz, "1"); } catch {} rendered = ""; render(true); return; }
+});
+const V = $("view");
+V.addEventListener("submit", async e => {
+  if (e.target.id === "askForm") {
+    e.preventDefault(); const t = $("askInput").value.trim(); if (!t) return;
+    try { await call("post", {body: t}); go("chat"); tick(); } catch (err) { showErr(err); }
+  }
+  if (e.target.id === "compose") {
+    e.preventDefault(); const t = $("draft").value.trim(); if (!t) return;
+    $("draft").value = ""; try { await call("post", {body: t}); tick(); } catch (err) { $("draft").value = t; showErr(err); }
+  }
+});
+V.addEventListener("keydown", e => {
+  if (e.target.id === "draft" && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("compose").requestSubmit(); }
+});
+V.addEventListener("input", e => {
+  if (e.target.id === "draft") { e.target.style.height = "auto"; e.target.style.height = Math.min(180, e.target.scrollHeight) + "px"; return; }
+  if (e.target.id === "askInput") { editing.add("ask"); return; }
+  const c = e.target.closest("[data-ap],[data-ct]"); if (c) editing.add(c.dataset.ap || "c" + c.dataset.ct);
+  if (e.target.closest("#pricing")) editing.add("pricing");
+  if (e.target.closest(".dial")) editing.add("dial");
+  if (e.target.closest("#outcomeBox")) editing.add("outcome");
+  if (e.target.closest("#phoneSet")) editing.add("phone");
+  if (e.target.closest("#twBox,#buyBox")) editing.add("tw");
+  if (e.target.closest("[data-conn]")) editing.add("conn");
+  if (e.target.closest("#upBox")) editing.add("upload");
+  if (e.target.closest("#invite")) editing.add("invite");
+  if (e.target.closest("#settingsForm")) editing.add("settings");
+  if (e.target.dataset?.s === "raw_config") editing.add("raw");
+});
+V.addEventListener("focusout", e => { if (e.target.id === "askInput" && !e.target.value) editing.delete("ask"); });
+function fail(btn, box, err){ btn.disabled = false; box.insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+
+V.addEventListener("click", async e => {
+  const t = e.target.closest("button"); if (!t) return;
+  const d = t.dataset;
+
+  if (d.out && pending) { pending.outcome = d.out; pending.note = $("outNote")?.value; pending.cb = $("cbDate")?.value; editing.add("outcome"); rendered = ""; render(true); return; }
+  if (d.act) { // approvals and posts
+    const c = t.closest("[data-ap],[data-ct]"), f = (n) => c.querySelector(`[data-f="${n}"]`)?.value;
+    t.disabled = true; c.querySelectorAll(".err").forEach(x => x.remove());
+    try {
+      if (c.dataset.ap) {
+        const a = data.approvals.find(x => String(x.id) === c.dataset.ap);
+        let payload = a.payload;
+        if (a.kind === "email") payload = {...a.payload, to: f("to"), subject: f("subject"), body: f("body")};
+        else { try { payload = JSON.parse(f("json")); } catch { throw new Error("The details have a typo in them. Check the brackets and quotes, then try again."); } }
+        await call("decide", {id: a.id, decision: d.act, payload, note: f("note") || undefined});
+        editing.delete(c.dataset.ap);
+      } else {
+        await call("decide_content", {id: Number(c.dataset.ct), decision: d.act, body: f("body"), note: f("note") || undefined});
+        editing.delete("c" + c.dataset.ct);
+      }
+      c.remove(); tick();
+    } catch (err) { fail(t, c, err); }
+  }
+  if (d.cact) { // post by hand
+    const c = t.closest("[data-cm]"), item = data.content.find(x => String(x.id) === c.dataset.cm);
+    if (d.cact === "copy") { try { await navigator.clipboard.writeText([item.title, item.body].filter(Boolean).join("\n\n")); t.textContent = "Copied"; } catch { t.textContent = "Select the text above and copy it"; } return; }
+    t.disabled = true;
+    try { await call("content_done", {id: item.id}); c.remove(); tick(); } catch (err) { fail(t, c, err); }
+  }
+  if (d.kact) { // calls
+    const k = d.kact;
+    if (k === "call") return startCall(d.phone, d.name, d.qid, d.rid);
+    if (k === "dial") { const n = $("dialNum").value.trim(); if (!n) return; editing.delete("dial"); return startCall(n, $("dialName").value.trim() || null); }
+    if (k === "discard") { pending = null; rendered = ""; render(true); return; }
+    if (k === "result") { pending = {callId: Number(d.cid), who: d.name, outcome: ""}; rendered = ""; render(true); window.scrollTo(0, 0); return; }
+    if (k === "play") {
+      t.disabled = true;
+      try { const r = await call("recording", {call_id: Number(d.cid)}); const box = V.querySelector(`[data-audio="${d.cid}"]`); box.innerHTML = `<audio controls autoplay src="${r.audio}" style="width:100%;margin-top:8px"></audio>`; editing.add("audio" + d.cid); t.remove(); }
+      catch (err) { fail(t, t.closest(".row"), err); }
+      return;
+    }
+    t.disabled = true;
+    try {
+      if (k === "skip") await call("queue_skip", {id: Number(d.qid)});
+      if (k === "add") { await call("queue_add", {phone: $("dialNum").value.trim(), name: $("dialName").value.trim()}); editing.delete("dial"); }
+      if (k === "save") {
+        if (!pending.outcome) throw new Error("Pick how the call went.");
+        await call("call_outcome", {call_sid: pending.sid, call_id: pending.callId, outcome: pending.outcome, note: $("outNote").value, callback_on: $("cbDate")?.value});
+        pending = null; editing.delete("outcome");
+      }
+      if (k === "psave") { await call("phone_settings", {forward_to: $("fwdTo").value.trim(), record: $("recOn").checked}); editing.delete("phone"); }
+      if (k === "buy") { await call("phone_buy", {area_code: $("areaCode").value}); tick(); }
+      if (k === "twsave") { await call("twilio_setup", {account_sid: $("twAcc").value, auth_token: $("twTok").value, api_key_sid: $("twKey").value, api_key_secret: $("twSec").value}); editing.delete("tw"); }
+      await loadCalls(false); rendered = ""; render(true);
+    } catch (err) { fail(t, t.closest(".box,.row,.section") || V, err); }
+    return;
+  }
+  if (d.mf) { mediaFilter = d.mf; rendered = ""; render(true); return; }
+  if (d.gact) { // media library
+    if (d.gact === "upload") {
+      if (upBusy) return;
+      upBusy = true; t.disabled = true; $("upBox").querySelectorAll(".err,.ok").forEach(x => x.remove());
+      try {
+        const n = await uploadFiles();
+        editing.delete("upload"); mediaData = null; rendered = ""; render(true);
+        setTimeout(() => $("upBox")?.insertAdjacentHTML("beforeend", `<p class="ok">${n} file${n === 1 ? "" : "s"} added.</p>`), 900);
+      } catch (err) { fail(t, $("upBox"), err); } finally { upBusy = false; }
+      return;
+    }
+    const card = t.closest("[data-mid]"), m = mediaData.find(x => String(x.id) === card.dataset.mid);
+    if (d.gact === "del" && !confirmDel(t)) return;
+    t.disabled = true; card.querySelectorAll(".err").forEach(x => x.remove());
+    try {
+      if (d.gact === "del") { await call("media_delete", {id: m.id}); mediaData = mediaData.filter(x => x !== m); }
+      if (d.gact === "clear") { await call("media_update", {...m, permission: true}); m.permission = true; }
+      rendered = ""; render(true);
+    } catch (err) { fail(t, card.querySelector(".mi"), err); }
+    return;
+  }
+  if (d.bact === "card") {
+    t.disabled = true;
+    try { const r = await call("billing_link"); location.href = r.url; } catch (err) { fail(t, t.closest(".box"), err); }
+  }
+  if (d.pact) { // pricing
+    const box = $("pricing"), v = (sel) => box.querySelector(sel); t.disabled = true;
+    try {
+      if (d.pact === "save") await call("set_pricing", {markup_pct: v('[data-p="markup_pct"]').value, platform_fee_usd: v('[data-p="platform_fee_usd"]').value, monthly_budget_usd: v('[data-p="monthly_budget_usd"]').value, call_fee_per_min: v('[data-p="call_fee_per_min"]').value, phone_fee_usd: v('[data-p="phone_fee_usd"]').value});
+      if (d.pact === "add") await call("add_charge", {description: v('[data-c="description"]').value.trim(), kind: v('[data-c="kind"]').value, amount_usd: v('[data-c="amount_usd"]').value, recurring: v('[data-c="recurring"]').checked});
+      if (d.pact === "end") await call("end_charge", {id: Number(d.id)});
+      editing.delete("pricing"); rendered = ""; await tick();
+    } catch (err) { fail(t, box, err); }
+  }
+  if (d.mact) { // people
+    t.disabled = true;
+    try {
+      if (d.mact === "invite") { const box = $("invite"); await call("invite", {email: box.querySelector('[data-i="email"]').value.trim(), role: box.querySelector('[data-i="role"]').value}); }
+      if (d.mact === "remove") await call("remove_member", {user_id: d.uid});
+      editing.delete("invite"); people = null; render(true);
+    } catch (err) { fail(t, t.closest(".box,.row"), err); }
+  }
+  if (d.xact) { // connections
+    const box = t.closest("[data-conn]"), provider = box.dataset.conn;
+    t.disabled = true; box.querySelectorAll(".err,.ok").forEach(x => x.remove());
+    try {
+      if (d.xact === "connect") {
+        const settings = {}, secrets = {};
+        box.querySelectorAll("[data-cs]").forEach(i => settings[i.dataset.cs] = i.type === "checkbox" ? String(i.checked) : i.value.trim());
+        box.querySelectorAll("[data-ck]").forEach(i => secrets[i.dataset.ck] = i.value.trim());
+        const r = await call("connect", {provider, settings, secrets});
+        conns = null; editing.delete("conn"); render(true);
+        setTimeout(() => $("view").querySelector(`[data-conn="${provider}"]`)?.insertAdjacentHTML("beforeend", `<p class="${r.ok ? "ok" : "err"}">${esc(r.detail)}</p>`), 900);
+      }
+      if (d.xact === "disconnect") { await call("disconnect", {provider}); conns = null; editing.delete("conn"); render(true); }
+    } catch (err) { fail(t, box, err); }
+  }
+  if (d.sact) { // settings
+    const f = $("settingsForm"); t.disabled = true;
+    try {
+      if (d.sact === "save") {
+        const v = (k) => f.querySelector(`[data-s="${k}"]`)?.value ?? "";
+        const agents = [...f.querySelectorAll("[data-agent]")].map(a => ({slot: a.dataset.agent, enabled: a.querySelector('[data-a="enabled"]').checked, role_instructions: a.querySelector('[data-a="role_instructions"]').value}));
+        await call("settings_save", {name: v("name"), mission: v("mission"), facts: v("facts"), rules: v("rules"), owner_name: v("owner_name"), owner_email: v("owner_email"),
+          timezone: v("timezone"), shift_start: v("shift_start"), shift_end: v("shift_end"), shift_days: [...f.querySelectorAll("[data-day]:checked")].map(x => Number(x.dataset.day)),
+          agents, raw_config: f.querySelector('[data-s="raw_config"]') && editing.has("raw") ? v("raw_config") : undefined});
+      }
+      if (d.sact === "restore") await call("settings_restore", {version: Number(d.v)});
+      editing.clear(); settingsData = null; render(true); tick();
+      setTimeout(() => $("settingsForm")?.insertAdjacentHTML("afterbegin", `<p class="ok">Saved.</p>`), 900);
+    } catch (err) { fail(t, f || V, err); }
+  }
+  if (d.nact) { // new business
+    if (d.nact === "cancel") { go("home"); return; }
+    const f = $("newBiz"), v = (k) => f.querySelector(`[data-n="${k}"]`).value.trim(); t.disabled = true;
+    try {
+      const r = await call("create_business", {name: v("name"), owner_name: v("owner_name"), owner_email: v("owner_email"), mission: v("mission"), facts: v("facts"), rules: v("rules"),
+        timezone: v("timezone"), platform_fee_usd: v("platform_fee_usd"), markup_pct: v("markup_pct"), monthly_budget_usd: v("monthly_budget_usd")});
+      if (f.querySelector('[data-n="trial"]').checked) await sCall("admin_trial", {business_id: r.business_id});
+      editing.clear(); try { localStorage.setItem("osBiz", r.business_id); } catch {}
+      view = "home"; await start();
+    } catch (err) { fail(t, f, err); }
+  }
+});
+
+// ---------- media uploads ----------
+const EXT_MIME = {jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic", heif: "image/heif", mp4: "video/mp4", mov: "video/quicktime", mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav"};
+// Delete asks twice: the first click turns the button into "Sure?" for a few seconds.
+function confirmDel(btn){
+  if (btn.dataset.sure) return true;
+  btn.dataset.sure = "1"; btn.textContent = "Sure? Delete";
+  setTimeout(() => { if (btn.isConnected) { delete btn.dataset.sure; btn.textContent = "Delete"; } }, 4000);
+  return false;
+}
+// Previews: a photo shrunk to 1024px, or 6 frames spread through a video. Formats the browser can't open (HEIC) get none.
+const once = (el, ev, ms = 8000) => new Promise((ok, no) => { const t = setTimeout(() => no(new Error("timeout")), ms); el.addEventListener(ev, () => { clearTimeout(t); ok(); }, {once: true}); el.addEventListener("error", () => { clearTimeout(t); no(new Error("unreadable")); }, {once: true}); });
+function jpeg(src, w, h){
+  const s = Math.min(1, 1024 / Math.max(w, h)), c = document.createElement("canvas");
+  c.width = Math.round(w * s); c.height = Math.round(h * s);
+  c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
+  return new Promise(ok => c.toBlob(ok, "image/jpeg", 0.8));
+}
+async function previews(file, mime){
+  const url = URL.createObjectURL(file);
+  try {
+    if (/^image\/(jpeg|png|webp)$/.test(mime)) {
+      const img = new Image(); img.src = url; await once(img, "load");
+      return [await jpeg(img, img.naturalWidth, img.naturalHeight)];
+    }
+    if (mime.startsWith("video/")) {
+      const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = url;
+      await once(v, "loadeddata", 15000);
+      const out = [];
+      for (const at of [0.06, 0.24, 0.42, 0.6, 0.78, 0.94]) { v.currentTime = v.duration * at; await once(v, "seeked"); out.push(await jpeg(v, v.videoWidth, v.videoHeight)); }
+      return out.filter(Boolean);
+    }
+  } catch {} finally { URL.revokeObjectURL(url); }
+  return [];
+}
+async function uploadFiles(){
+  const box = $("upBox"), files = [...($("upFiles").files || [])], prog = $("upProg"), v = (k) => box.querySelector(`[data-u="${k}"]`);
+  if (!files.length) throw new Error("Pick at least one file first.");
+  const meta = {tag: v("tag").value, trade: v("trade").value, contractor: v("contractor").value, job: v("job").value, notes: v("notes").value, permission: v("permission").checked};
+  let done = 0; const errs = [];
+  for (const [i, f] of files.entries()) {
+    prog.textContent = `Uploading ${i + 1} of ${files.length}…`;
+    try {
+      const mime = (f.type || EXT_MIME[f.name.split(".").pop().toLowerCase()] || "").toLowerCase();
+      const tag = mime.startsWith("audio/") && ["before", "after", "job"].includes(meta.tag) ? "music" : meta.tag;
+      const u = await call("media_upload", {name: f.name, mime, bytes: f.size});
+      const r = await fetch(u.url, {method: "PUT", headers: {"content-type": mime}, body: f});
+      if (!r.ok) throw new Error(`${f.name} didn't upload (${r.status}). Try it again.`);
+      // Small JPEG previews (the photo shrunk, or 6 frames of a video) so Grayson can see what's in it.
+      const frames = [];
+      for (const p of await previews(f, mime)) {
+        try {
+          const pu = await call("media_upload", {name: "preview.jpg", mime: "image/jpeg", bytes: p.size});
+          if ((await fetch(pu.url, {method: "PUT", headers: {"content-type": "image/jpeg"}, body: p})).ok) frames.push(pu.path);
+        } catch {}
+      }
+      await call("media_save", {path: u.path, mime, ...meta, tag, frames, title: f.name.replace(/\.[^.]+$/, "").slice(0, 160)});
+      done++;
+    } catch (e) { errs.push(e.message); }
+  }
+  prog.textContent = "";
+  if (errs.length) throw new Error((done ? `${done} uploaded. ` : "") + errs.join(" "));
+  return done;
+}
+V.addEventListener("change", async e => {
+  const s = e.target.closest("[data-gtag]"); if (!s) return;
+  const card = s.closest("[data-mid]"), m = mediaData?.find(x => String(x.id) === card.dataset.mid); if (!m) return;
+  try { await call("media_update", {...m, tag: s.value}); m.tag = s.value; } catch (err) { s.value = m.tag; fail(s, card.querySelector(".mi"), err); }
+});
+
+// ---------- data loop ----------
+async function tick(){
+  if (!biz) return;
+  try {
+    const d = await call("feed", {since_id: lastId});
+    if (lastId === 0) msgs = [];
+    d.messages.forEach(m => { if (m.id > lastId) { msgs.push(m); lastId = m.id; } });
+    if (msgs.length > 400) { msgs = msgs.slice(-300); feedDrawn = 0; if (view === "chat") rendered = ""; }
+    data = d;
+    if (view === "calls" && Date.now() - callsAt > 8000 && !editing.size) await loadCalls(false);
+    render();
+  } catch (e) {
+    if (e.status === 401) return showGate("Please sign in again.");
+    const st = $("state"); st.className = "state paused"; st.textContent = "Reconnecting…";
+  }
+}
+async function start(){
+  const me = await call("me");
+  isAdmin = !!me.admin; $("newBizBtn").hidden = !isAdmin;
+  if (!me.businesses.length && isAdmin) { $("gate").hidden = true; $("app").hidden = false; view = "new"; data = {team: [], working: [], approvals: [], content: [], records: [], tasks: [], business: {status: "setup"}, role: "owner"}; render(true); return; }
+  if (!me.businesses.length) return showGate("You're signed in, but nobody has added you to a business yet. Ask the business owner to add you under Settings, People.");
+  const opts = me.businesses.map(b => `<option value="${b.id}">${esc(b.name)}${b.status === "live" ? "" : b.status === "paused" ? " (paused)" : " (not started)"}</option>`).join("");
+  $("bizSel").innerHTML = opts; $("bizSelM").innerHTML = opts;
+  let saved = ""; try { saved = localStorage.getItem("osBiz") || ""; } catch {}
+  biz = me.businesses.some(b => b.id === saved) ? saved : me.businesses[0].id;
+  $("bizSel").value = biz; $("bizSelM").value = biz;
+  $("gate").hidden = true; $("app").hidden = false;
+  lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
+  await tick(); clearInterval(timer); timer = setInterval(tick, 3000);
+  loadTrial();
+}
+function switchBiz(id){
+  biz = id; $("bizSel").value = id; $("bizSelM").value = id; try { localStorage.setItem("osBiz", biz); } catch {}
+  people = null; conns = null; settingsData = null; callsData = null; mediaData = null; pending = null; editing.clear(); lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
+  if (device && !active) { try { device.destroy(); } catch {} device = null; deviceBiz = null; }
+  tick(); loadTrial();
+}
+$("bizSel").addEventListener("change", e => switchBiz(e.target.value));
+$("bizSelM").addEventListener("change", e => switchBiz(e.target.value));
+$("pauseBtn").addEventListener("click", async () => {
+  const b = $("pauseBtn"); b.disabled = true;
+  try { await call("pause", {paused: data.business.status === "live"}); rendered = ""; await tick(); } catch (err) { showErr(err); } finally { b.disabled = false; }
+});
+$("outBtn").addEventListener("click", () => showGate(""));
+
+// ---------- sign in ----------
+function showGate(msg){ clearInterval(timer); $("app").hidden = true; $("gate").hidden = false; $("gateErr").textContent = msg || ""; token = ""; try { localStorage.removeItem("osToken"); } catch {} setStep("email"); }
+let step = "email";
+function setStep(s){ step = s; $("stepEmail").hidden = s !== "email"; $("stepCode").hidden = s !== "code"; $("backBtn").hidden = s !== "code"; $("gateBtn").textContent = s === "email" ? "Email me a code" : "Sign in"; if (s === "code") $("code").focus(); }
+$("backBtn").addEventListener("click", () => { $("gateErr").textContent = ""; $("code").value = ""; setStep("email"); });
+$("gateForm").addEventListener("submit", async e => {
+  e.preventDefault(); $("gateErr").textContent = ""; $("gateBtn").disabled = true;
+  try {
+    const email = $("email").value.trim();
+    if (step === "email") {
+      if (!email) { $("gateErr").textContent = "Type your email."; return; }
+      await call("request_code", {email}); setStep("code");
+      $("gateSub").textContent = "If that email has access, a code is on its way. Check spam if it isn't there in a minute.";
+    } else {
+      const r = await call("verify_code", {email, code: $("code").value});
+      token = r.token; try { localStorage.setItem("osToken", token); } catch {}
+      await start();
+    }
+  } catch (err) { $("gateErr").textContent = err.message; } finally { $("gateBtn").disabled = false; }
+});
+const back = new URLSearchParams(location.search).get("billing");
+if (back) { view = "money"; history.replaceState(null, "", location.pathname); }
+if (token && location.pathname === "/login") history.replaceState(null, "", "/app" + location.search);
+if (token) start().catch(() => showGate());
+</script>
+</body>
+</html>
