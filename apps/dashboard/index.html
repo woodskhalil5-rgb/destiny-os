@@ -304,6 +304,7 @@ details.agent .inner{padding:0 18px 18px}
     <button class="btn go" type="submit" id="gateBtn">Email me a code</button>
     <button class="btn quiet" type="button" id="backBtn" hidden>Use a different email or send a new code</button>
     <p class="legal">By signing in you agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</p>
+    <p class="legal">New to Destiny OS? <a href="/trial">Start a 14-day free trial</a>.</p>
   </form>
 </div>
 
@@ -375,6 +376,32 @@ const OUTCOMES = [["talked", "Talked"], ["interested", "Interested"], ["callback
 let callsData = null, callsAt = 0, device = null, deviceBiz = null, active = null, incoming = null, callStart = 0, callWho = "", pending = null, barTimer = null;
 const fmtPhone = (p) => { const d = String(p || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : String(p || ""); };
 
+// Free trials live in their own small service.
+const SIGNUP = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-signup";
+let trialInfo = {};
+async function sCall(action, extra = {}) {
+  const r = await fetch(SIGNUP, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
+  const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+async function loadTrial(){
+  const id = biz;
+  try { const r = await sCall("trial_status"); trialInfo[id] = r.trial; } catch { trialInfo[id] = null; }
+  if (id === biz) { rendered = ""; render(true); }
+}
+function trialBanner(){
+  const t = trialInfo[biz];
+  if (!t) return "";
+  const end = new Date(t.ends_at).toLocaleDateString([], {month: "long", day: "numeric"});
+  const left = `${t.days_left} day${t.days_left === 1 ? "" : "s"} left`;
+  const msg = t.card_on_file ? `Free trial: ${left}. Your card is on file, so your team keeps working after ${end}.`
+    : t.ended ? "Your free trial has ended, so the team is paused. Add a card and it picks up where it left off."
+    : `Free trial: ${left} (until ${end}). Add a card to keep your team after that; you're only billed from then on.`;
+  const btn = !t.card_on_file && ["owner", "admin"].includes(data.role) ? `<button class="btn go small" data-bact="card">Add a card</button>` : "";
+  return `<div class="box ${t.ended && !t.card_on_file ? "alert" : ""}" style="margin-bottom:20px;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap"><p style="margin:0;color:var(--ink)">${esc(msg)}</p>${btn}</div>`;
+}
+
 async function call(action, extra = {}) {
   const r = await fetch(API, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
   const j = await r.json().catch(() => ({error: "The server sent a bad response. Try again."}));
@@ -420,7 +447,7 @@ const VIEWS = {
     else if (working.length) head = `${working.map(s => T[s]?.name).filter(Boolean).join(" and ").replace(/ and (?=.* and )/g, ", ")} ${working.length === 1 ? "is" : "are"} working right now.`;
     else if (b.status === "paused") head = "The team is paused.";
     else head = "Nothing needs you right now.";
-    let out = `<p class="hello">${greet}</p><h1 class="headline">${esc(head)}</h1>`;
+    let out = trialBanner() + `<p class="hello">${greet}</p><h1 class="headline">${esc(head)}</h1>`;
 
     if (b.status === "setup") out += setupSteps();
 
@@ -558,7 +585,7 @@ const VIEWS = {
   money(){
     const T = teamBy(), bill = data.bill || [], total = bill.reduce((t, l) => t + l.amount_usd, 0), b = data.business;
     const budget = Number(b.monthly_budget_usd || 0), ai = bill.find(l => l.kind === "ai_usage")?.amount_usd || 0, pct = budget ? Math.min(100, ai / budget * 100) : 0;
-    let h = `<div class="month">
+    let h = trialBanner() + `<div class="month">
       <div class="fig"><b>${money(total)}</b><span>bill so far this month</span></div>
       <div class="fig"><b>${money(ai)}</b><span>AI team</span></div>
       <div class="fig"><b>${budget ? money(budget) : "No limit"}</b><span>${budget ? `monthly AI limit · ${Math.round(pct)}% used` : "monthly AI limit"}</span>${budget ? `<div class="meter${pct >= 80 ? " hot" : ""}"><i style="width:${pct}%"></i></div>` : ""}</div></div>`;
@@ -654,6 +681,7 @@ const VIEWS = {
       <label class="field">Rules the team must follow<textarea data-n="rules" rows="3"></textarea></label>
       <div class="grid2"><label class="field">Time zone<input data-n="timezone" value="America/New_York"></label><label class="field">Platform fee ($ a month)<input data-n="platform_fee_usd" type="number" min="0" value="650"></label>
         <label class="field">Markup on AI usage (%)<input data-n="markup_pct" type="number" min="0" value="30"></label><label class="field">AI limit ($ a month)<input data-n="monthly_budget_usd" type="number" min="0" value="200"></label></div>
+      <label class="check"><input type="checkbox" data-n="trial"> Start with a 14-day free trial (no platform fee; you cover their AI use up to $40)</label>
       <div class="acts"><button class="btn go" data-nact="create">Create business</button><button class="btn quiet" data-nact="cancel">Cancel</button></div></form>`;
   },
 };
@@ -1080,6 +1108,7 @@ V.addEventListener("click", async e => {
     try {
       const r = await call("create_business", {name: v("name"), owner_name: v("owner_name"), owner_email: v("owner_email"), mission: v("mission"), facts: v("facts"), rules: v("rules"),
         timezone: v("timezone"), platform_fee_usd: v("platform_fee_usd"), markup_pct: v("markup_pct"), monthly_budget_usd: v("monthly_budget_usd")});
+      if (f.querySelector('[data-n="trial"]').checked) await sCall("admin_trial", {business_id: r.business_id});
       editing.clear(); try { localStorage.setItem("osBiz", r.business_id); } catch {}
       view = "home"; await start();
     } catch (err) { fail(t, f, err); }
@@ -1184,12 +1213,13 @@ async function start(){
   $("gate").hidden = true; $("app").hidden = false;
   lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
   await tick(); clearInterval(timer); timer = setInterval(tick, 3000);
+  loadTrial();
 }
 function switchBiz(id){
   biz = id; $("bizSel").value = id; $("bizSelM").value = id; try { localStorage.setItem("osBiz", biz); } catch {}
   people = null; conns = null; settingsData = null; callsData = null; mediaData = null; pending = null; editing.clear(); lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
   if (device && !active) { try { device.destroy(); } catch {} device = null; deviceBiz = null; }
-  tick();
+  tick(); loadTrial();
 }
 $("bizSel").addEventListener("change", e => switchBiz(e.target.value));
 $("bizSelM").addEventListener("change", e => switchBiz(e.target.value));
