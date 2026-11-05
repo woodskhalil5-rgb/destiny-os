@@ -60,9 +60,12 @@ async function publishDue() {
       continue;
     }
     const message = [c.title && !c.body?.startsWith(c.title) ? c.title : null, c.body].filter(Boolean).join("\n\n");
+    // A system-user or user token can't post as the Page itself; trade it for the Page's own token when possible.
+    const pg = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(fb.settings.page_id)}?fields=access_token&access_token=${encodeURIComponent(tok.v)}`, { signal: AbortSignal.timeout(15_000) })
+      .then((x) => x.json()).catch(() => ({}));
     const r = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(fb.settings.page_id)}/feed`, {
       method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ message, access_token: tok.v }).toString(), signal: AbortSignal.timeout(20_000),
+      body: new URLSearchParams({ message, access_token: pg?.access_token ?? tok.v }).toString(), signal: AbortSignal.timeout(20_000),
     });
     const j = await r.json().catch(() => ({}));
     if (r.ok && j.id) {

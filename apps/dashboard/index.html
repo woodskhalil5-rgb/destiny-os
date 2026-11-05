@@ -5,148 +5,303 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Destiny OS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
 <style>
 :root{
-  --bg:#f4f4f1; --panel:#fff; --ink:#16181d; --muted:#5f6670; --line:#e1e2dd;
-  --accent:#1f4fd1; --accent-ink:#fff; --warn:#a85a00; --bad:#b3261e; --good:#1f7a3a;
-  --c-research:#2f5fb3; --c-analysis:#7246b8; --c-production:#c0601a; --c-coordination:#0d6b67; --c-media:#b0306a; --c-distribution:#3f7d20; --c-system:#7a8794;
-  --bubble:#efefea; --bubble-you:#16181d; --bubble-you-ink:#f4f4f1;
-  --f-display:"Bricolage Grotesque",system-ui,sans-serif; --f-body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --bg:#f3f5f2; --surface:#ffffff; --sunk:#eef1ed; --ink:#18222d; --soft:#3c4854; --muted:#68737e; --line:#dfe4de;
+  --go:#106b55; --go-ink:#ffffff; --go-tint:#e3f1ec; --need:#a85407; --need-tint:#fbefe2; --bad:#b42318; --bad-tint:#fbe9e7;
+  --c-research:#2f5fb3; --c-analysis:#7246b8; --c-production:#bb5a17; --c-coordination:#0d6b67; --c-media:#b0306a; --c-distribution:#3f7d20; --c-system:#7a8794;
+  --r-lg:16px; --r-md:10px; --r-sm:8px;
+  --font:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
 }
-@media (prefers-color-scheme:dark){:root{
-  --bg:#101215; --panel:#171a1f; --ink:#e8e9ea; --muted:#9aa1a9; --line:#272b31;
-  --accent:#7d9bff; --accent-ink:#0b1430; --warn:#e6a04a; --bad:#ff8a80; --good:#6fcf8a;
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171c; --surface:#1a2027; --sunk:#151b21; --ink:#e9edf0; --soft:#c3cbd2; --muted:#93a0ab; --line:#2a323a;
+  --go:#4cc7a3; --go-ink:#06231b; --go-tint:#173229; --need:#f0a75a; --need-tint:#33261a; --bad:#ff8a80; --bad-tint:#3a1f1d;
   --c-research:#7aa5f0; --c-analysis:#b597f0; --c-production:#f0a165; --c-coordination:#3fb7ad; --c-media:#f08cb8; --c-distribution:#8fd16a; --c-system:#7f8d97;
-  --bubble:#1e2228; --bubble-you:#e8e9ea; --bubble-you-ink:#101215; color-scheme:dark}}
+  color-scheme:dark}}
 [hidden]{display:none!important}
+*{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body)}
-button,select{font:600 13px var(--f-body);border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 12px;cursor:pointer}
-button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-button.danger{color:var(--bad)}
-button:disabled{opacity:.5;cursor:default}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.app{display:grid;grid-template-columns:minmax(0,1fr) 400px;grid-template-rows:auto minmax(0,1fr);height:100%}
-header{grid-column:1/-1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px max(16px,env(safe-area-inset-left));border-bottom:1px solid var(--line);background:var(--panel)}
-.brand{font:700 18px/1 var(--f-display);letter-spacing:-.01em}
-.brand span{color:var(--accent)}
-.status{margin-left:auto;display:flex;gap:10px;align-items:center;font-size:13px;color:var(--muted)}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--good);display:inline-block}.dot.off{background:var(--warn)}
-.team{display:flex;gap:6px;flex-wrap:wrap}
-.chip{font:600 12px var(--f-body);padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--c);display:flex;align-items:center;gap:6px}
-.chip.busy::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c);animation:pulse 1s infinite alternate}
-@keyframes pulse{to{opacity:.2}}
-.room{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
-.feed{flex:1;overflow-y:auto;padding:18px max(16px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:14px}
-.msg{display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;max-width:760px}
-.av{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font:700 13px var(--f-display);color:#fff;background:var(--c)}
-.who{font-weight:600;font-size:13px;color:var(--c)}
-.who time{font:400 11px var(--f-mono);color:var(--muted);margin-left:8px}
-.body{background:var(--bubble);padding:9px 12px;border-radius:4px 12px 12px 12px;white-space:pre-wrap;overflow-wrap:anywhere}
-.msg.you{margin-left:auto;grid-template-columns:minmax(0,1fr)}
-.msg.you .av{display:none}.msg.you .who{text-align:right;color:var(--muted)}
-.msg.you .body{background:var(--bubble-you);color:var(--bubble-you-ink);border-radius:12px 4px 12px 12px}
-.msg.system{grid-template-columns:minmax(0,1fr);max-width:none}
-.msg.system .av,.msg.system .who{display:none}
-.msg.system .body{background:none;color:var(--muted);font-size:13px;text-align:center;padding:2px}
-.compose{display:flex;gap:10px;padding:12px max(16px,env(safe-area-inset-left)) calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--panel)}
-textarea{flex:1;resize:none;font:15px/1.4 var(--f-body);border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);color:var(--ink);min-height:44px;max-height:160px}
-.rail{display:flex;flex-direction:column;min-height:0;min-width:0}
-.tabs{display:flex;gap:2px;padding:8px 12px 0;border-bottom:1px solid var(--line);overflow-x:auto}
-.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;color:var(--muted);padding:8px 10px;white-space:nowrap}
-.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
-.count{font:500 11px var(--f-mono);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:0 6px;margin-left:4px}
-.pane{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
-.card textarea,.card input{width:100%;box-sizing:border-box;font:14px var(--f-body);border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--bg);color:var(--ink)}
-.card textarea{min-height:140px;resize:vertical}
-.row{display:flex;gap:8px;flex-wrap:wrap}
-.meta{font-size:12px;color:var(--muted)}
-.empty{font-size:13px;color:var(--muted)}
-.item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;cursor:pointer}
-.item .num{font:500 12px var(--f-mono);color:var(--muted)}
-.item .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pill{font:500 11px var(--f-body);border-radius:999px;padding:2px 8px;border:1px solid var(--line);color:var(--muted)}
-.pill.hot{color:var(--accent);border-color:var(--accent)}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
-.stat b{display:block;font:600 20px var(--f-mono);font-variant-numeric:tabular-nums}
-.stat span{font-size:11px;color:var(--muted)}
-table{width:100%;border-collapse:collapse;font-size:13px}
-td,th{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
-th{font-weight:600;color:var(--muted);font-size:12px}
-td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
-.gate{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;padding:16px;z-index:5}
-.gate form{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;width:min(360px,100%);box-sizing:border-box;display:flex;flex-direction:column;gap:10px}
-.gate input{font:16px var(--f-body);padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
-.err{color:var(--bad);font-size:13px;min-height:1em}
-.ok{color:var(--good);font-size:13px}
-.legal{font-size:12px;color:var(--muted);text-align:center}
-.legal a{color:var(--muted)}
-.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-.field small{font-size:11px}
-.days{display:flex;gap:6px;flex-wrap:wrap}
-.days label{display:flex;gap:4px;align-items:center;font-size:13px;color:var(--ink)}
-.days input{width:auto}
-details.agent{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
-details.agent summary{cursor:pointer;font-weight:600;font-size:14px;display:flex;gap:8px;align-items:center}
-details.agent summary input{width:auto}
-.pill.good{color:var(--good);border-color:var(--good)}
-.pill.bad{color:var(--bad);border-color:var(--bad)}
-.howto{font-size:12px;color:var(--muted);line-height:1.5}
-.howto ol{margin:4px 0 0;padding-left:18px}
-@media (max-width:900px){
-  .app{grid-template-columns:1fr;grid-template-rows:auto 70vh auto;height:auto;min-height:100%}
-  .room{border-right:0}
-  .rail{min-height:60vh}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--font);-webkit-font-smoothing:antialiased}
+a{color:var(--go)}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--go);outline-offset:2px}
+.btn{white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:15px;line-height:1;padding:11px 16px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);min-height:42px}
+.btn:hover{border-color:var(--muted)}
+.btn.go{background:var(--go);border-color:var(--go);color:var(--go-ink)}
+.btn.go:hover{filter:brightness(1.07)}
+.btn.quiet{border-color:transparent;background:none;color:var(--soft)}
+.btn.quiet:hover{background:var(--sunk)}
+.btn.bad{color:var(--bad)}
+.btn.small{font-size:14px;padding:8px 12px;min-height:36px}
+.btn:disabled{opacity:.55;cursor:default}
+input:not([type=checkbox]),select,textarea{width:100%;font-size:15px;border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;background:var(--surface);color:var(--ink)}
+textarea{resize:vertical;line-height:1.5}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--go);box-shadow:0 0 0 3px var(--go-tint)}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--go)}
+
+/* ---------- sign in ---------- */
+.gate{position:fixed;inset:0;display:grid;place-items:center;padding:16px;background:var(--bg);z-index:10}
+.gate form{width:min(400px,100%);display:flex;flex-direction:column;gap:14px}
+.gate h1{font-size:34px;line-height:1.1;font-weight:800;letter-spacing:-.02em;margin:0 0 4px}
+.gate p{margin:0;color:var(--muted)}
+.mark{display:inline-flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.01em}
+.mark i{width:26px;height:26px;border-radius:8px;background:var(--go);display:grid;place-items:center;color:var(--go-ink);font-style:normal;font-size:15px}
+.err{color:var(--bad);font-size:14px}
+.ok{color:var(--go);font-size:14px}
+.legal{font-size:13px;color:var(--muted)}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100%}
+.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:6px;padding:20px 14px;border-right:1px solid var(--line);background:var(--surface)}
+.side .mark{padding:4px 10px 18px}
+.biz{display:flex;flex-direction:column;gap:6px;padding:0 4px 14px}
+.biz label{font-size:13px;color:var(--muted);padding-left:6px}
+.biz select{font-weight:600}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:none;padding:10px 12px;border-radius:var(--r-sm);font-weight:600;font-size:15px;color:var(--soft)}
+.nav button:hover{background:var(--sunk)}
+.nav button[aria-current="page"]{background:var(--go-tint);color:var(--go)}
+.nav svg{width:20px;height:20px;flex:none}
+.badge{margin-left:auto;min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:var(--need);color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center}
+.side .foot{margin-top:auto;display:flex;flex-direction:column;gap:2px}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:12px;padding:16px 32px;border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:3}
+.top h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.state{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--soft)}
+.state::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.state.live::before{background:var(--go);box-shadow:0 0 0 4px var(--go-tint)}
+.state.paused::before{background:var(--need)}
+.mobile-only{display:none}
+.view{padding:28px 32px 64px;max-width:960px;width:100%}
+.view.wide{max-width:none}
+
+/* ---------- home ---------- */
+.hello{font-size:15px;color:var(--muted);margin:0 0 6px}
+.headline{font-size:clamp(30px,4.2vw,46px);line-height:1.08;font-weight:800;letter-spacing:-.025em;margin:0 0 28px;max-width:20ch}
+.section{margin-top:36px}
+.section > h3{font-size:17px;font-weight:700;margin:0 0 12px;display:flex;align-items:baseline;gap:10px}
+.section > h3 .btn{margin-left:auto}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.row{display:flex;align-items:center;gap:14px;padding:14px 18px;border-top:1px solid var(--line);min-width:0}
+.row:first-child{border-top:0}
+.row.click{cursor:pointer}
+.row.click:hover{background:var(--sunk)}
+.row .grow{flex:1;min-width:0}
+.row .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .s{font-size:14px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kind{flex:none;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--need-tint);color:var(--need)}
+.kind svg{width:18px;height:18px}
+.crew{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.mate{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.mate .id{display:flex;align-items:center;gap:10px}
+.av{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:15px;color:#fff;background:var(--c)}
+.mate .nm{font-weight:700;line-height:1.2}
+.mate .jb{font-size:13px;color:var(--muted)}
+.mate .said{font-size:14px;color:var(--soft);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:0}
+.mate .when{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.busy{color:var(--go);font-weight:600}
+.busy::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--go);animation:breathe 1.2s ease-in-out infinite alternate}
+@keyframes breathe{to{opacity:.25}}
+.month{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px}
+.fig b{display:block;font-size:26px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.fig span{font-size:14px;color:var(--muted)}
+.meter{height:6px;border-radius:99px;background:var(--sunk);margin-top:10px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--go);border-radius:99px}
+.meter.hot i{background:var(--need)}
+.ask{display:flex;gap:10px;margin-top:14px}
+.ask input{flex:1}
+.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+.steps li{counter-increment:s;display:flex;align-items:center;gap:14px;padding:14px 18px;border-top:1px solid var(--line)}
+.steps li:first-child{border-top:0}
+.steps li::before{content:counter(s);flex:none;width:28px;height:28px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--muted)}
+.steps li.done::before{content:"✓";background:var(--go);border-color:var(--go);color:var(--go-ink)}
+.steps li.done .t{color:var(--muted);text-decoration:line-through}
+
+/* ---------- chat ---------- */
+.chat{display:flex;flex-direction:column;height:calc(100vh - 71px)}
+.feed{flex:1;overflow-y:auto;padding:24px 32px;display:flex;flex-direction:column;gap:18px}
+.msg{display:flex;gap:12px;max-width:720px}
+.msg .av{width:34px;height:34px;font-size:14px}
+.msg .who{font-weight:700;font-size:14px;color:var(--c)}
+.msg .who time{font-weight:400;font-size:12px;color:var(--muted);margin-left:8px}
+.msg .body{margin-top:2px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink)}
+.msg.you{align-self:flex-end;flex-direction:row-reverse}
+.msg.you .who{text-align:right;color:var(--muted)}
+.msg.you .body{background:var(--go);color:var(--go-ink);padding:10px 14px;border-radius:16px 4px 16px 16px}
+.msg.sys{display:block;align-self:center;max-width:560px;font-size:13px;color:var(--muted);text-align:center;white-space:pre-wrap}
+.day{align-self:center;font-size:12px;font-weight:600;color:var(--muted);padding:2px 10px;border-radius:99px;background:var(--sunk)}
+.compose{display:flex;gap:10px;align-items:flex-end;padding:10px 32px calc(14px + env(safe-area-inset-bottom));background:var(--surface)}
+.compose textarea{min-height:46px;max-height:180px;resize:none}
+.hint{font-size:13px;color:var(--muted);padding:10px 32px 0;background:var(--surface);border-top:1px solid var(--line)}
+
+/* ---------- approvals ---------- */
+.ap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.ap.warn{border-color:var(--need);box-shadow:inset 4px 0 0 var(--need)}
+.ap .from{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
+.ap .from .av{width:28px;height:28px;font-size:12px}
+.ap h4{margin:0;font-size:18px;font-weight:700;line-height:1.3}
+.mail{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.mail label{display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--line);font-size:14px;color:var(--muted)}
+.mail label input{border:0;border-radius:0;padding:10px 0;box-shadow:none!important}
+.mail textarea{border:0;border-radius:0;min-height:220px;padding:14px 12px;box-shadow:none!important}
+.post{white-space:pre-wrap;font-size:15px;background:var(--sunk);border-radius:var(--r-md);padding:14px}
+.acts{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.acts .note{flex:1 1 220px}
+.note-err{color:var(--bad);font-size:14px}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r-lg);padding:28px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:4px}
+
+/* ---------- work ---------- */
+.seg{display:inline-flex;gap:4px;padding:4px;background:var(--sunk);border-radius:12px;margin-bottom:22px;flex-wrap:wrap}
+.seg button{border:0;background:none;padding:8px 14px;border-radius:9px;font-weight:600;font-size:14px;color:var(--soft)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(20,30,40,.12)}
+.stages{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.stage{font-size:13px;font-weight:600;padding:5px 11px;border-radius:99px;background:var(--surface);border:1px solid var(--line);color:var(--soft)}
+.stage b{color:var(--ink);margin-left:4px}
+.pill{flex:none;font-size:13px;font-weight:600;padding:3px 10px;border-radius:99px;background:var(--sunk);color:var(--soft);white-space:nowrap}
+.pill.go{background:var(--go-tint);color:var(--go)}
+.pill.need{background:var(--need-tint);color:var(--need)}
+.pill.bad{background:var(--bad-tint);color:var(--bad)}
+details.rec > summary{list-style:none}
+details.rec > summary::-webkit-details-marker{display:none}
+.facts{margin:0;padding:4px 18px 16px 68px;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 16px;font-size:14px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;overflow-wrap:anywhere}
+.tasks-who{display:flex;align-items:center;gap:10px;margin:22px 0 8px;font-weight:700}
+.tasks-who:first-child{margin-top:0}
+.tasks-who .av{width:28px;height:28px;font-size:12px}
+
+/* ---------- money ---------- */
+table{width:100%;border-collapse:collapse;font-size:15px}
+td,th{text-align:left;padding:12px 18px;border-top:1px solid var(--line)}
+tr:first-child td,tr:first-child th{border-top:0}
+th{font-size:13px;font-weight:600;color:var(--muted)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.total td{font-weight:700}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;display:flex;flex-direction:column;gap:12px}
+.box.alert{border-color:var(--bad);background:var(--bad-tint)}
+.box h4{margin:0;font-size:16px}
+.box p{margin:0;color:var(--soft);font-size:15px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;color:var(--soft)}
+.field small{font-weight:400;color:var(--muted);font-size:13px}
+.check{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--ink);font-weight:500}
+.days{display:flex;gap:8px;flex-wrap:wrap}
+.days label{display:flex;align-items:center;gap:6px;padding:7px 11px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:14px;font-weight:600;background:var(--surface)}
+details.agent{border-top:1px solid var(--line)}
+details.agent:first-of-type{border-top:0}
+details.agent summary{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;list-style:none}
+details.agent summary::-webkit-details-marker{display:none}
+details.agent .inner{padding:0 18px 18px}
+.howto{font-size:14px;color:var(--soft)}
+.howto ol{margin:6px 0 0;padding-left:20px}
+.howto li{margin:3px 0}
+.form{display:flex;flex-direction:column;gap:16px}
+
+/* ---------- mobile ---------- */
+.tabbar{display:none}
+@media (max-width:860px){
+  .shell{grid-template-columns:1fr}
+  .side{display:none}
+  .mobile-only{display:inline-flex}
+  .top{padding:12px 16px;gap:8px}
+  .top select{max-width:52vw;font-weight:700;border:0;background:none;padding:6px 4px;font-size:17px}
+  .top h2{display:none}
+  .view{padding:20px 16px 110px}
+  .month{grid-template-columns:1fr}
+  .crew{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .mate{padding:12px;gap:8px}
+  .mate .said{font-size:13px}
+  .state{font-size:0;gap:0}
+  .headline{margin-bottom:20px}
+  .grid2{grid-template-columns:1fr}
+  .feed{padding:16px}
+  .chat{height:calc(100vh - 62px - 68px)}
+  .compose{padding:10px 16px}
+  .hint{padding:8px 16px 0}
+  .facts{padding-left:18px}
+  td,th{padding:10px 12px}
+  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:4}
+  .tabbar button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--muted);padding:6px 0;position:relative}
+  .tabbar button[aria-current="page"]{color:var(--go)}
+  .tabbar svg{width:22px;height:22px}
+  .tabbar .badge{position:absolute;top:0;left:calc(50% + 6px);margin:0;min-width:18px;height:18px;font-size:11px;padding:0 5px}
 }
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5 11.5 14 16 9"/><rect x="3" y="3" width="18" height="18" rx="4"/></symbol>
+  <symbol id="i-work" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></symbol>
+  <symbol id="i-money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6 8.5 7 8.5-7"/></symbol>
+  <symbol id="i-post" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10M7 12h10M7 16h6"/></symbol>
+  <symbol id="i-hand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+</svg>
+
 <div class="gate" id="gate">
   <form id="gateForm">
-    <div class="brand">Destiny <span>OS</span></div>
-    <div id="stepEmail"><label for="email" class="meta">Your email</label>
-      <input id="email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@company.com"></div>
-    <div id="stepCode" hidden><label for="code" class="meta">Enter the 6-digit code we emailed you</label>
-      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"></div>
-    <div class="err" id="gateErr"></div>
-    <button class="primary" type="submit" id="gateBtn">Email me a code</button>
-    <button type="button" id="backBtn" hidden>Use a different email or resend</button>
+    <span class="mark"><i>D</i>Destiny OS</span>
+    <div><h1>Sign in to your team</h1><p id="gateSub">We'll email you a 6-digit code. No password needed.</p></div>
+    <div id="stepEmail"><label class="field" for="email">Email
+      <input id="email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@company.com"></label></div>
+    <div id="stepCode" hidden><label class="field" for="code">The 6-digit code from your email
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" style="font-size:22px;letter-spacing:.3em"></label></div>
+    <div class="err" id="gateErr" role="alert"></div>
+    <button class="btn go" type="submit" id="gateBtn">Email me a code</button>
+    <button class="btn quiet" type="button" id="backBtn" hidden>Use a different email or send a new code</button>
     <p class="legal">By signing in you agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</p>
   </form>
 </div>
 
-<div class="app" id="app" hidden>
-  <header>
-    <div class="brand">Destiny <span>OS</span></div>
-    <select id="bizSel" aria-label="Business"></select>
-    <div class="team" id="team"></div>
-    <div class="status"><span class="dot" id="liveDot"></span><span id="liveText">Live</span>
-      <button id="newBizBtn" type="button" hidden>+ New business</button><button id="pauseBtn" type="button">Pause team</button><button id="outBtn" type="button">Sign out</button></div>
-  </header>
-  <section class="room">
-    <div class="feed" id="feed" aria-live="polite"></div>
-    <form class="compose" id="compose">
-      <textarea id="draft" rows="1" placeholder="Message the team. Everyone answers you; @name to go direct."></textarea>
-      <button class="primary" type="submit">Send</button>
-    </form>
-  </section>
-  <aside class="rail">
-    <div class="tabs" role="tablist" id="tabs">
-      <button role="tab" data-t="approvals" aria-selected="true">Approvals<span class="count" id="nAp">0</span></button>
-      <button role="tab" data-t="content">Content<span class="count" id="nCt">0</span></button>
-      <button role="tab" data-t="records">Records</button>
-      <button role="tab" data-t="tasks">Tasks</button>
-      <button role="tab" data-t="usage">Costs</button>
-      <button role="tab" data-t="people">People</button>
-      <button role="tab" data-t="connections">Connections</button>
-      <button role="tab" data-t="settings">Settings</button>
-      <button role="tab" data-t="activity">Activity</button>
+<div class="shell" id="app" hidden>
+  <aside class="side">
+    <span class="mark"><i>D</i>Destiny OS</span>
+    <div class="biz"><label for="bizSel">Business</label><select id="bizSel"></select></div>
+    <nav class="nav" id="nav">
+      <button data-v="home"><svg><use href="#i-home"/></svg>Home</button>
+      <button data-v="chat"><svg><use href="#i-chat"/></svg>Team chat</button>
+      <button data-v="approve"><svg><use href="#i-check"/></svg>To approve<span class="badge" data-count hidden></span></button>
+      <button data-v="work"><svg><use href="#i-work"/></svg>Work</button>
+      <button data-v="money"><svg><use href="#i-money"/></svg>Money</button>
+    </nav>
+    <div class="foot nav">
+      <button data-v="new" id="newBizBtn" hidden><svg><use href="#i-plus"/></svg>Add a business</button>
+      <button data-v="settings"><svg><use href="#i-gear"/></svg>Settings</button>
+      <button id="outBtn" type="button"><svg><use href="#i-out"/></svg>Sign out</button>
     </div>
-    <div class="pane" id="pane"></div>
   </aside>
+  <div class="main">
+    <div class="top">
+      <select id="bizSelM" class="mobile-only" aria-label="Business"></select>
+      <h2 id="title">Home</h2>
+      <div class="right">
+        <span class="state" id="state">Not started</span>
+        <button class="btn small" id="pauseBtn" type="button">Start team</button>
+        <button class="btn quiet small mobile-only" data-v="settings" aria-label="Settings"><svg width="20" height="20"><use href="#i-gear"/></svg></button>
+      </div>
+    </div>
+    <div id="view"></div>
+  </div>
+  <nav class="tabbar" id="tabbar">
+    <button data-v="home"><svg><use href="#i-home"/></svg>Home</button>
+    <button data-v="chat"><svg><use href="#i-chat"/></svg>Chat</button>
+    <button data-v="approve"><svg><use href="#i-check"/></svg>Approve<span class="badge" data-count hidden></span></button>
+    <button data-v="work"><svg><use href="#i-work"/></svg>Work</button>
+    <button data-v="money"><svg><use href="#i-money"/></svg>Money</button>
+  </nav>
 </div>
 
 <script>
@@ -154,349 +309,530 @@ const API = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-api";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let token = ""; try { token = localStorage.getItem("osToken") || ""; } catch {}
-let biz = null, lastId = 0, data = null, tab = "approvals", editing = new Set(), timer, people = null, settingsData = null, conns = null, isAdmin = false, paneFor = "";
-const STATIC = new Set(["people", "connections", "settings", "new"]);
+let biz = null, lastId = 0, data = null, msgs = [], view = "home", workTab = "pipeline", setTab = "business", isAdmin = false, timer;
+let editing = new Set(), people = null, settingsData = null, conns = null, rendered = "", lastHtml = "";
+const SLOW = new Set(["settings", "new"]);
+const ROLE = {research: "Research", analysis: "Analysis", production: "Writing", coordination: "Manager", media: "Media", distribution: "Outreach"};
+const TITLES = {home: "Home", chat: "Team chat", approve: "To approve", work: "Work", money: "Money", settings: "Settings", new: "Add a business"};
 
 async function call(action, extra = {}) {
-  const r = await fetch(API, {method:"POST", headers:{"content-type":"application/json","x-os-token":token}, body:JSON.stringify({action, business_id: biz, ...extra})});
-  const j = await r.json().catch(() => ({error:"Bad response"}));
-  if (!r.ok) throw Object.assign(new Error(j.error || r.statusText), {status:r.status});
+  const r = await fetch(API, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
+  const j = await r.json().catch(() => ({error: "The server sent a bad response. Try again."}));
+  if (!r.ok) throw Object.assign(new Error(j.error || r.statusText), {status: r.status});
   return j;
 }
 
+// ---------- helpers ----------
 const teamBy = () => Object.fromEntries((data?.team || []).map(t => [t.slot, t]));
+const isYou = (s) => s === "owner" || String(s).startsWith("user:");
+const money = (v) => "$" + Number(v || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const when = (d) => new Date(d).toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"});
+const clock = (d) => new Date(d).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+function ago(d){
+  const s = (Date.now() - new Date(d)) / 1000;
+  if (s < 60) return "just now"; if (s < 3600) return `${Math.floor(s / 60)} min ago`; if (s < 86400) return `${Math.floor(s / 3600)} hr ago`;
+  return when(d);
+}
+const label = (k) => String(k).replace(/_/g, " ").replace(/^./, c => c.toUpperCase());
+const av = (slot, name) => `<span class="av" style="--c:var(--c-${slot})">${esc((name || "?")[0])}</span>`;
 function fmtBody(t){
   let h = esc(t);
   for (const a of data?.team || []) h = h.replace(new RegExp(`@${a.handle}\\b`, "gi"), m => `<b style="color:var(--c-${a.slot})">${m}</b>`);
-  return h;
+  return h.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
 }
-function addMsg(m, isNew){
-  const T = teamBy(), a = T[m.sender], you = m.sender === "owner" || String(m.sender).startsWith("user:");
-  const el = document.createElement("div");
-  el.className = `msg ${you ? "you" : a ? "" : "system"}`;
-  el.style.setProperty("--c", `var(--c-${a ? m.sender : "system"})`);
-  const t = new Date(m.created_at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"});
-  el.innerHTML = `<div class="av">${a ? esc(a.name[0]) : ""}</div><div><div class="who">${you ? esc(m.sender_name || "You") : a ? esc(a.name) : "System"}<time>${t}</time></div><div class="body">${fmtBody(m.body)}</div></div>`;
-  $("feed").appendChild(el);
+function waiting(){
+  if (!data) return {aps: [], posts: [], manual: [], n: 0};
+  const aps = data.approvals.filter(a => a.status === "pending" || a.status === "failed");
+  const posts = data.content.filter(c => c.status === "pending");
+  const manual = data.content.filter(c => c.status === "needs_manual" || c.status === "failed");
+  return {aps, posts, manual, n: aps.length + posts.length + manual.length};
 }
 
-function renderTeam(){
-  $("team").innerHTML = (data.team || []).filter(t => t.enabled).map(t => `<span class="chip${data.working.includes(t.slot) ? " busy" : ""}" style="--c:var(--c-${t.slot})" title="${data.working.includes(t.slot) ? "working now" : ""}">${esc(t.name)}</span>`).join("");
-}
+// ---------- views ----------
+const VIEWS = {
+  home(){
+    const T = teamBy(), w = waiting(), b = data.business, h = new Date().getHours();
+    const greet = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+    const working = data.working || [];
+    let head;
+    if (b.status === "setup") head = "Your team is ready when you are.";
+    else if (w.n) head = `${w.n} ${w.n === 1 ? "thing needs" : "things need"} you.`;
+    else if (working.length) head = `${working.map(s => T[s]?.name).filter(Boolean).join(" and ").replace(/ and (?=.* and )/g, ", ")} ${working.length === 1 ? "is" : "are"} working right now.`;
+    else if (b.status === "paused") head = "The team is paused.";
+    else head = "Nothing needs you right now.";
+    let out = `<p class="hello">${greet}</p><h1 class="headline">${esc(head)}</h1>`;
 
-function billing(){
-  const st = data.business.billing_status, canManage = ["owner","admin"].includes(data.role);
-  const text = {active:"Card on file. Invoices are charged automatically on the 1st.", card_needed:"No card on file yet. Invoices are emailed with a payment link until one is added.", past_due:"A payment didn't go through. The team is on hold until it's paid.", none:"Billing isn't set up for this business."}[st] || "";
-  return `<div class="card"${st === "past_due" ? ' style="border-color:var(--bad)"' : ""}><b>Billing</b><div class="meta"${st === "past_due" ? ' style="color:var(--bad)"' : ""}>${esc(text)} Billed on the 1st for the month before: platform fee, AI team usage and any other charges below. Adding a card means you agree to the <a href="/terms" target="_blank">Terms</a>.</div>
-    ${canManage ? `<div class="row"><button class="${st === "active" ? "" : "primary"}" data-bact="card">${st === "active" ? "Update card" : "Add a card"}</button></div>` : ""}</div>`;
-}
-const PANES = {
-  approvals(){
-    const p = data.approvals.filter(a => a.status === "pending" || a.status === "failed");
-    if (!p.length) return `<p class="empty">Nothing waiting. Emails, offers and anything else that leaves the company land here before it happens.</p>` + recent();
-    return p.map(a => {
-      const T = teamBy(), pl = a.payload || {}, isEmail = a.kind === "email";
-      return `<div class="card" data-ap="${a.id}"><div class="meta">#${a.id} · ${esc(a.kind)} · from ${esc(T[a.requested_by]?.name || a.requested_by)}${a.status === "failed" ? ` · <span style="color:var(--bad)">failed: ${esc(a.note)}</span>` : a.note ? ` · ${esc(a.note)}` : ""}</div>
-        <b>${esc(a.summary)}</b>
-        ${isEmail ? `<input data-f="to" value="${esc(pl.to)}" aria-label="To"><input data-f="subject" value="${esc(pl.subject)}" aria-label="Subject"><textarea data-f="body" aria-label="Body">${esc(pl.body)}</textarea>`
-                  : `<textarea data-f="json" aria-label="Details">${esc(JSON.stringify(pl, null, 2))}</textarea>`}
-        <input data-f="note" placeholder="Optional: why (DeMarcus learns from this)">
-        <div class="row"><button class="primary" data-act="approve">Approve</button><button class="danger" data-act="reject">Reject</button></div></div>`;
-    }).join("") + recent();
-    function recent(){
-      const d = data.approvals.filter(a => ["done","approved","rejected"].includes(a.status)).slice(0, 10);
-      return d.length ? `<div class="meta" style="margin-top:8px">Recently decided</div>` + d.map(a => `<div class="item"><span class="num">#${a.id}</span><span class="name">${esc(a.summary)}</span><span class="pill ${a.status === "rejected" ? "" : "hot"}">${esc(a.status)}</span></div>`).join("") : "";
+    if (b.status === "setup") out += setupSteps();
+
+    if (w.n) {
+      const rows = [
+        ...w.aps.map(a => ({icon: a.kind === "email" ? "mail" : "check", t: a.summary, s: `${a.status === "failed" ? "Didn't go through · " : ""}${label(a.kind)} from ${T[a.requested_by]?.name || a.requested_by}`})),
+        ...w.posts.map(c => ({icon: "post", t: c.title || firstLine(c.body), s: `${label(c.kind)}${c.channel ? " for " + c.channel : ""} from ${T[c.created_by]?.name || "the team"}`})),
+        ...w.manual.map(c => ({icon: "hand", t: c.title || firstLine(c.body), s: c.status === "failed" ? "Didn't publish; post it by hand" : `Ready to post by hand on ${c.channel || "Facebook"}`})),
+      ];
+      out += `<div class="section"><h3>Needs you<button class="btn small go" data-go="approve">Review all</button></h3><div class="list">${rows.slice(0, 5).map(r =>
+        `<div class="row click" data-go="approve"><span class="kind"><svg><use href="#i-${r.icon}"/></svg></span><div class="grow"><div class="t">${esc(r.t)}</div><div class="s">${esc(r.s)}</div></div></div>`).join("")}
+        ${rows.length > 5 ? `<div class="row click" data-go="approve"><div class="grow s">and ${rows.length - 5} more</div></div>` : ""}</div></div>`;
+    }
+
+    const crew = (data.team || []).filter(t => t.enabled);
+    out += `<div class="section"><h3>Your team<button class="btn small quiet" data-go="chat">Open chat</button></h3><div class="crew">${crew.map(t => {
+      const last = [...msgs].reverse().find(m => m.sender === t.slot), busy = working.includes(t.slot);
+      return `<div class="mate"><div class="id">${av(t.slot, t.name)}<div><div class="nm">${esc(t.name)}</div><div class="jb">${ROLE[t.slot] || ""}</div></div></div>
+        <p class="said">${last ? esc(last.body) : "Hasn't said anything yet."}</p>
+        <div class="when">${busy ? `<span class="busy">Working now</span>` : last ? esc(ago(last.created_at)) : ""}</div></div>`;
+    }).join("")}</div>
+      <form class="ask" id="askForm"><input id="askInput" placeholder="Ask the team something…" aria-label="Message the team"><button class="btn go" type="submit">Send</button></form></div>`;
+
+    const bill = data.bill || [], total = bill.reduce((t, l) => t + l.amount_usd, 0), ai = bill.find(l => l.kind === "ai_usage")?.amount_usd || 0;
+    const budget = Number(b.monthly_budget_usd || 0), pct = budget ? Math.min(100, ai / budget * 100) : 0;
+    const results = (data.results || []).reduce((t, r) => t + r.records_created + r.drafts + r.content, 0);
+    out += `<div class="section"><h3>This month<button class="btn small quiet" data-go="money">See costs</button></h3><div class="month">
+      <div class="fig"><b>${money(ai)}</b><span>AI team so far${budget ? ` of ${money(budget)} limit` : ""}</span>${budget ? `<div class="meter${pct >= 80 ? " hot" : ""}"><i style="width:${pct}%"></i></div>` : ""}</div>
+      <div class="fig"><b>${results}</b><span>new records, drafts and posts</span></div>
+      <div class="fig"><b>${money(total)}</b><span>total bill so far</span></div></div></div>`;
+    return out;
+  },
+
+  chat(){
+    return `<div class="chat"><div class="feed" id="feed" aria-live="polite"></div>
+      <div class="hint">Everyone answers when you post. Type @ and a name (like @demarcus) to talk to one person.</div>
+      <form class="compose" id="compose"><textarea id="draft" rows="1" placeholder="Message the team"></textarea><button class="btn go" type="submit">Send</button></form></div>`;
+  },
+
+  approve(){
+    const T = teamBy(), w = waiting();
+    if (!w.n) {
+      const done = data.approvals.filter(a => ["done", "approved", "rejected"].includes(a.status)).slice(0, 8);
+      return `<div class="empty"><b>You're all caught up.</b>Emails, posts and anything else that leaves the business wait here for your OK first.</div>`
+        + (done.length ? `<div class="section"><h3>Recently decided</h3><div class="list">${done.map(a => `<div class="row"><div class="grow"><div class="t">${esc(a.summary)}</div><div class="s">${a.decided_at ? esc(when(a.decided_at)) : ""}</div></div><span class="pill ${a.status === "rejected" ? "" : "go"}">${a.status === "rejected" ? "Sent back" : a.status === "done" ? "Sent" : "Approved"}</span></div>`).join("")}</div></div>` : "");
+    }
+    const from = (slot) => `<div class="from">${av(slot, T[slot]?.name || "S")}<span>From ${esc(T[slot]?.name || slot)}</span></div>`;
+    return w.aps.map(a => {
+      const pl = a.payload || {}, isEmail = a.kind === "email";
+      return `<article class="ap${a.status === "failed" ? " warn" : ""}" data-ap="${a.id}">${from(a.requested_by)}
+        <h4>${esc(a.summary)}</h4>
+        ${a.status === "failed" ? `<div class="note-err">This was approved but didn't go through: ${esc(a.note)}. Fix it and approve again.</div>` : a.note ? `<div class="s">${esc(a.note)}</div>` : ""}
+        ${isEmail ? `<div class="mail"><label>To<input data-f="to" value="${esc(pl.to)}"></label><label>Subject<input data-f="subject" value="${esc(pl.subject)}"></label><textarea data-f="body" aria-label="Email">${esc(pl.body)}</textarea></div>`
+                  : `<label class="field">Details<textarea data-f="json" style="font-family:ui-monospace,Menlo,monospace;font-size:13px;min-height:160px">${esc(JSON.stringify(pl, null, 2))}</textarea></label>`}
+        <div class="acts"><button class="btn go" data-act="approve">${isEmail ? "Approve and send" : "Approve"}</button><button class="btn" data-act="reject">Send back</button>
+          <input class="note" data-f="note" placeholder="Why? (optional; the team learns from it)"></div></article>`;
+    }).join("")
+    + w.posts.map(c => `<article class="ap" data-ct="${c.id}">${from(c.created_by)}
+        <h4>${esc(c.title || label(c.kind))}</h4><div class="s">${esc(label(c.kind))}${c.channel ? " for " + esc(c.channel) : ""}${c.audience ? " · " + esc(c.audience) : ""}</div>
+        <textarea data-f="body" rows="${Math.min(16, Math.max(5, String(c.body).split("\n").length + 2))}">${esc(c.body)}</textarea>
+        <div class="acts"><button class="btn go" data-act="approve">Approve</button><button class="btn" data-act="reject">Send back</button>
+          <input class="note" data-f="note" placeholder="Note for the team (optional)"></div></article>`).join("")
+    + w.manual.map(c => `<article class="ap warn" data-cm="${c.id}"><div class="from">Ready to post by hand on ${esc(c.channel || "Facebook")}</div>
+        <h4>${esc(c.title || label(c.kind))}</h4>${c.note ? `<div class="s">${esc(c.note)}</div>` : ""}<div class="post">${esc(c.body)}</div>
+        <div class="acts"><button class="btn" data-cact="copy">Copy text</button><button class="btn go" data-cact="done">I posted it</button></div></article>`).join("");
+  },
+
+  work(){
+    const seg = `<div class="seg" role="group">${[["pipeline", "Records"], ["tasks", "Tasks"], ["posts", "Posts"], ["log", "Activity"]].map(([k, n]) => `<button data-wt="${k}" aria-pressed="${workTab === k}">${n}</button>`).join("")}</div>`;
+    return seg + ({pipeline, tasks, posts, log})[workTab]();
+    function pipeline(){
+      if (!data.records.length) return `<div class="empty"><b>Nothing tracked yet.</b>Everything the team finds and works on shows up here, with where it's at.</div>`;
+      return [...new Set(data.records.map(r => r.type))].map(t => {
+        const rs = data.records.filter(r => r.type === t), by = {};
+        rs.forEach(r => by[r.status] = (by[r.status] || 0) + 1);
+        return `<div class="section" style="margin-top:0;margin-bottom:28px"><h3>${esc(label(t))}s <span class="s" style="font-weight:500;color:var(--muted)">${rs.length}</span></h3>
+          <div class="stages">${Object.entries(by).map(([k, v]) => `<span class="stage">${esc(label(k))}<b>${v}</b></span>`).join("")}</div>
+          <div class="list">${rs.slice(0, 80).map(r => `<details class="rec" data-k="r${r.id}"><summary class="row click">${av(t === "brand" ? "coordination" : "research", r.title)}<div class="grow"><div class="t">${esc(r.title)}</div><div class="s">${r.next_step ? "Next: " + esc(r.next_step) + (r.next_step_due ? ` (${esc(String(r.next_step_due).slice(0, 10))})` : "") : "Updated " + esc(ago(r.updated_at))}</div></div><span class="pill">${esc(label(r.status))}</span></summary>
+            <dl class="facts">${Object.entries(r.data || {}).filter(([, v]) => v !== "" && v != null).map(([k, v]) => `<dt>${esc(label(k))}</dt><dd>${typeof v === "string" ? fmtBody(v) : esc(JSON.stringify(v))}</dd>`).join("") || "<dt>No details yet</dt><dd></dd>"}</dl></details>`).join("")}</div></div>`;
+      }).join("");
+    }
+    function tasks(){
+      if (!data.tasks.length) return `<div class="empty"><b>No open tasks.</b>DeMarcus hands out work as tasks; they show up here.</div>`;
+      const T = teamBy(), groups = {};
+      data.tasks.forEach(t => (groups[t.assignee_slot || "x"] ||= []).push(t));
+      return Object.entries(groups).map(([slot, ts]) => `<div class="tasks-who">${av(slot, T[slot]?.name)}${esc(T[slot]?.name || "Unassigned")}</div>
+        <div class="list">${ts.map(t => `<div class="row"><div class="grow"><div class="t">${esc(t.title)}</div>${t.due_at ? `<div class="s">Due ${esc(when(t.due_at))}</div>` : ""}</div><span class="pill ${t.status === "blocked" ? "bad" : t.status === "in_progress" ? "go" : ""}">${esc(label(t.status))}</span></div>`).join("")}</div>`).join("");
+    }
+    function posts(){
+      if (!data.content.length) return `<div class="empty"><b>No posts yet.</b>Posts, ads and scripts the team writes show up here.</div>`;
+      const P = {pending: ["Waiting for you", "need"], approved: ["Approved", "go"], scheduled: ["Scheduled", "go"], published: ["Posted", "go"], rejected: ["Sent back", ""], needs_manual: ["Post by hand", "need"], failed: ["Didn't publish", "bad"]};
+      return `<div class="list">${data.content.map(c => `<details class="rec" data-k="c${c.id}"><summary class="row click"><span class="kind" style="background:var(--sunk);color:var(--soft)"><svg><use href="#i-post"/></svg></span><div class="grow"><div class="t">${esc(c.title || firstLine(c.body))}</div><div class="s">${esc(label(c.kind))}${c.channel ? " · " + esc(c.channel) : ""}${c.scheduled_for ? " · " + esc(when(c.scheduled_for)) : ""}</div></div><span class="pill ${(P[c.status] || [])[1] || ""}">${esc((P[c.status] || [label(c.status)])[0])}</span></summary>
+        <div class="post" style="margin:0 18px 16px">${esc(c.body)}</div></details>`).join("")}</div>`;
+    }
+    function log(){
+      const T = teamBy(), A = {"tool:save_record": "saved a record", "tool:create_task": "created a task", "tool:request_approval": "asked for approval", "tool:save_content": "wrote a post", "tool:web_search": "searched the web", "tool:recall": "checked the team's notes", "tool:save_note": "saved a note", "tool:report_to_owner": "reported to you", "tool:review_approval": "reviewed an approval", "tool:write_notebook": "wrote the notebook", "sign-in": "signed in", resume: "started the team", pause: "paused the team"};
+      const rows = (data.activity || []);
+      return rows.length ? `<div class="list">${rows.map(a => `<div class="row"><div class="grow"><div class="t" style="font-weight:500">${esc(T[a.actor]?.name || a.actor)} ${esc(A[a.action] || label(a.action.replace(/^tool:/, "")))}</div></div><span class="s">${esc(ago(a.at))}</span></div>`).join("")}</div>` : `<div class="empty"><b>No activity yet.</b></div>`;
     }
   },
-  content(){
-    const p = data.content.filter(c => c.status === "pending");
-    const rest = data.content.filter(c => !["pending","needs_manual","failed"].includes(c.status)).slice(0, 12);
-    return (p.length ? p.map(c => `<div class="card" data-ct="${c.id}"><div class="meta">#${c.id} · ${esc(c.kind)}${c.channel ? " · " + esc(c.channel) : ""}${c.audience ? " · for " + esc(c.audience) : ""}</div>${c.title ? `<b>${esc(c.title)}</b>` : ""}
-      <textarea data-f="body">${esc(c.body)}</textarea><input data-f="note" placeholder="Optional note for Grayson">
-      <div class="row"><button class="primary" data-act="approve">Approve</button><button class="danger" data-act="reject">Reject</button></div></div>`).join("")
-      : `<p class="empty">Nothing waiting for approval. Grayson's posts, ads and scripts land here for your OK.</p>`)
-      + data.content.filter(c => c.status === "needs_manual" || c.status === "failed").map(c => `<div class="card" data-cm="${c.id}" style="border-color:var(--warn)"><div class="meta">#${c.id} · ${esc(c.channel || "Facebook")} · <span style="color:var(--warn)">${c.status === "failed" ? "didn't publish" : "post this by hand"}</span>${c.note ? " · " + esc(c.note) : ""}</div>${c.title ? `<b>${esc(c.title)}</b>` : ""}<div style="white-space:pre-wrap;font-size:14px">${esc(c.body)}</div>
-        <div class="row"><button data-cact="copy">Copy text</button><button class="primary" data-cact="done">Mark posted</button></div></div>`).join("")
-      + rest.map(c => `<details><summary class="item"><span class="num">#${c.id}</span><span class="name">${esc(c.title || c.kind)}</span><span class="pill ${c.status === "rejected" ? "" : "hot"}">${c.scheduled_for ? new Date(c.scheduled_for).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}) : esc(c.status)}</span></summary><div class="meta" style="white-space:pre-wrap;padding:6px 0 10px">${esc(c.body)}</div></details>`).join("");
-  },
-  records(){
-    if (!data.records.length) return `<p class="empty">No records yet. Everything the team finds and works on shows up here with its stage.</p>`;
-    const types = [...new Set(data.records.map(r => r.type))];
-    return types.map(t => {
-      const rs = data.records.filter(r => r.type === t), byStage = {};
-      rs.forEach(r => byStage[r.status] = (byStage[r.status] || 0) + 1);
-      return `<div class="meta" style="text-transform:capitalize">${esc(t)} · ${Object.entries(byStage).map(([k, v]) => `${esc(k)} ${v}`).join(" · ")}</div>` +
-        rs.slice(0, 60).map(r => `<details><summary class="item"><span class="num">#${r.id}</span><span class="name">${esc(r.title)}</span><span class="pill">${esc(r.status)}</span></summary>
-          <div class="meta" style="white-space:pre-wrap;padding:6px 0 10px">${r.next_step ? `Next: ${esc(r.next_step)}${r.next_step_due ? " (" + esc(String(r.next_step_due).slice(0, 10)) + ")" : ""}\n` : ""}${Object.entries(r.data || {}).map(([k, v]) => `${esc(k)}: ${esc(typeof v === "string" ? v : JSON.stringify(v))}`).join("\n")}</div></details>`).join("");
-    }).join("");
-  },
-  tasks(){
-    return data.tasks.length ? data.tasks.map(t => `<div class="item"><span class="num">#${t.id}</span><span class="name">${esc(t.title)} <span class="meta">${esc(t.assignee || "")}</span></span><span class="pill">${esc(t.status)}</span></div>`).join("")
-      : `<p class="empty">No open tasks.</p>`;
-  },
-  usage(){
-    const T = teamBy(), money = (v) => "$" + Number(v || 0).toFixed(2), bill = data.bill || [], total = bill.reduce((t, l) => t + l.amount_usd, 0);
-    const budget = data.business.monthly_budget_usd, ai = bill.find(l => l.kind === "ai_usage")?.amount_usd || 0;
-    let h = `<div class="stats"><div class="stat"><b>${money(total)}</b><span>total this month</span></div><div class="stat"><b>${money(ai)}</b><span>AI team</span></div><div class="stat"><b>${budget ? money(budget) : "none"}</b><span>monthly AI budget</span></div></div>
-      ${billing()}
-      <table><thead><tr><th>This month</th><th class="n">Amount</th>${data.admin ? `<th class="n">Our cost</th>` : ""}</tr></thead><tbody>
+
+  money(){
+    const T = teamBy(), bill = data.bill || [], total = bill.reduce((t, l) => t + l.amount_usd, 0), b = data.business;
+    const budget = Number(b.monthly_budget_usd || 0), ai = bill.find(l => l.kind === "ai_usage")?.amount_usd || 0, pct = budget ? Math.min(100, ai / budget * 100) : 0;
+    let h = `<div class="month">
+      <div class="fig"><b>${money(total)}</b><span>bill so far this month</span></div>
+      <div class="fig"><b>${money(ai)}</b><span>AI team</span></div>
+      <div class="fig"><b>${budget ? money(budget) : "No limit"}</b><span>${budget ? `monthly AI limit · ${Math.round(pct)}% used` : "monthly AI limit"}</span>${budget ? `<div class="meter${pct >= 80 ? " hot" : ""}"><i style="width:${pct}%"></i></div>` : ""}</div></div>`;
+    h += `<div class="section">${billing()}</div>`;
+    h += `<div class="section"><h3>This month's bill</h3><div class="list"><table><tr><th>Item</th><th class="n">Amount</th>${data.admin ? `<th class="n">Your cost</th>` : ""}</tr>
       ${bill.map(l => `<tr><td>${esc(l.line)}</td><td class="n">${money(l.amount_usd)}</td>${data.admin ? `<td class="n">${l.our_cost_usd == null ? "–" : money(l.our_cost_usd)}</td>` : ""}</tr>`).join("")}
-      <tr><td><b>Total</b></td><td class="n"><b>${money(total)}</b></td>${data.admin ? `<td class="n"><b>${money(bill.reduce((t, l) => t + (l.our_cost_usd || 0), 0))}</b></td>` : ""}</tr></tbody></table>
-      <div class="meta">AI team cost by agent</div>
-      <table><thead><tr><th>Agent</th><th class="n">Calls</th><th class="n">Tokens</th><th class="n">Cost</th>${data.admin ? `<th class="n">Ours</th>` : ""}</tr></thead><tbody>${(data.usage_by_agent || []).map(r => `<tr><td>${esc(T[r.slot]?.name || r.slot)}</td><td class="n">${r.calls}</td><td class="n">${Number(r.tokens).toLocaleString()}</td><td class="n">${money(r.usd)}</td>${data.admin ? `<td class="n">${money(r.our_cost)}</td>` : ""}</tr>`).join("") || `<tr><td colspan="5" class="meta">No AI usage yet this month.</td></tr>`}</tbody></table>`;
-    const res = (data.results || []).filter(r => Number(r.billed_usd) > 0 || r.records_created + r.records_updated + r.drafts + r.content + r.reviews > 0);
+      <tr class="total"><td>Total</td><td class="n">${money(total)}</td>${data.admin ? `<td class="n">${money(bill.reduce((t, l) => t + (l.our_cost_usd || 0), 0))}</td>` : ""}</tr></table></div>
+      <p class="s" style="color:var(--muted);font-size:14px;margin:10px 2px 0">Billed on the 1st for the month before.</p></div>`;
+    const res = (data.results || []).filter(r => Number(r.billed_usd) > 0);
     if (res.length) {
-      const did = r => [[r.records_created, "new records"], [r.records_updated, "updates"], [r.drafts, "drafts"], [r.sent, "sent"], [r.content, "content pieces"], [r.published, "published"], [r.reviews, "reviews"]]
-        .filter(([n]) => n > 0).map(([n, w]) => `${n} ${w}`).join(", ") || "nothing saved yet";
+      const did = r => [[r.records_created, "new records"], [r.records_updated, "updates"], [r.drafts, "drafts"], [r.sent, "sent"], [r.content, "posts"], [r.published, "published"], [r.reviews, "reviews"]]
+        .filter(([n]) => n > 0).map(([n, w]) => `${n} ${w}`).join(", ") || "Nothing saved yet";
       const count = r => r.records_created + r.records_updated + r.drafts + r.content + r.reviews;
-      h += `<div class="meta">Results per dollar this month</div>
-      <table><thead><tr><th>Agent</th><th>What they did</th><th class="n">Cost</th><th class="n">Per result</th></tr></thead><tbody>${res.map(r => `<tr><td>${esc(T[r.slot]?.name || r.slot)}</td><td class="meta">${esc(did(r))}</td><td class="n">${money(r.billed_usd)}</td><td class="n">${count(r) ? money(Number(r.billed_usd) / count(r)) : "–"}</td></tr>`).join("")}</tbody></table>`;
+      h += `<div class="section"><h3>What each teammate did for the money</h3><div class="list"><table><tr><th>Teammate</th><th>Did</th><th class="n">Cost</th><th class="n">Per result</th></tr>
+        ${res.map(r => `<tr><td><span style="display:inline-flex;align-items:center;gap:10px">${av(r.slot, T[r.slot]?.name)}${esc(T[r.slot]?.name || r.slot)}</span></td><td style="color:var(--soft)">${esc(did(r))}</td><td class="n">${money(r.billed_usd)}</td><td class="n">${count(r) ? money(Number(r.billed_usd) / count(r)) : "–"}</td></tr>`).join("")}</table></div>`;
+      const ci = Number(data.cache?.input || 0), cr = Number(data.cache?.read || 0);
+      if (ci > 0 && cr > 0) h += `<p style="color:var(--muted);font-size:14px;margin:10px 2px 0">${Math.round(cr / ci * 100)}% of what the team read this month came from memory, at a tenth of the price.</p>`;
+      h += `</div>`;
     }
-    const ci = Number(data.cache?.input || 0), cr = Number(data.cache?.read || 0);
-    if (ci > 0 && cr > 0) h += `<div class="meta">${Math.round(cr / ci * 100)}% of what the team read this month came from memory at a tenth of the price.</div>`;
-    if ((data.invoices || []).length) h += `<div class="meta">Invoices</div><table><tbody>${data.invoices.map(i => `<tr><td>${new Date(String(i.month).slice(0, 10) + "T12:00:00Z").toLocaleString([], {month:"long", year:"numeric", timeZone:"UTC"})}</td><td class="n">${money(i.amount_usd)}</td><td>${i.hosted_url ? `<a href="${esc(i.hosted_url)}" target="_blank" rel="noopener">${esc(i.status)}</a>` : esc(i.status)}</td></tr>`).join("")}</tbody></table>`;
+    if ((data.invoices || []).length) h += `<div class="section"><h3>Invoices</h3><div class="list"><table>${data.invoices.map(i => `<tr><td>${new Date(String(i.month).slice(0, 10) + "T12:00:00Z").toLocaleString([], {month: "long", year: "numeric", timeZone: "UTC"})}</td><td class="n">${money(i.amount_usd)}</td><td class="n">${i.hosted_url ? `<a href="${esc(i.hosted_url)}" target="_blank" rel="noopener">${esc(label(i.status))}</a>` : esc(label(i.status))}</td></tr>`).join("")}</table></div></div>`;
     if (data.admin) {
       const margin = bill.reduce((t, l) => t + l.amount_usd - (l.our_cost_usd || 0), 0);
-      h += `<div class="card" id="pricing"><b>Pricing for ${esc(data.business.name)}</b><div class="meta">Only you see this box. Your margin this month: <b>${money(margin)}</b></div>
-        <label class="meta">Markup on AI usage (%)<input data-p="markup_pct" type="number" min="0" step="1" value="${esc(data.business.markup_pct)}"></label>
-        <label class="meta">Monthly platform fee ($)<input data-p="platform_fee_usd" type="number" min="0" step="1" value="${esc(data.business.platform_fee_usd)}"></label>
-        <label class="meta">Monthly AI budget ($, blank = none; the team pauses when reached)<input data-p="monthly_budget_usd" type="number" min="0" step="1" value="${esc(data.business.monthly_budget_usd ?? "")}"></label>
-        <div class="row"><button class="primary" data-pact="save">Save pricing</button></div>
-        <b>Other charges</b>
-        ${(data.charges || []).map(c => `<div class="item" style="cursor:default"><span class="num">${esc(c.kind)}</span><span class="name">${esc(c.description)} · ${money(c.amount_usd)}${c.recurring ? "/mo" : ""}</span><button class="danger" data-pact="end" data-id="${c.id}">Remove</button></div>`).join("") || `<p class="empty">None.</p>`}
-        <input data-c="description" placeholder="Description, e.g. Gmail setup or Facebook publishing">
-        <div class="row"><select data-c="kind"><option value="integration">integration</option><option value="service">service</option><option value="setup">setup</option><option value="other">other</option></select>
-          <input data-c="amount_usd" type="number" min="0" step="1" placeholder="Amount $" style="width:110px"><label class="meta"><input data-c="recurring" type="checkbox" style="width:auto"> monthly</label></div>
-        <div class="row"><button data-pact="add">Add charge</button></div></div>`;
+      h += `<div class="section"><div class="box" id="pricing"><h4>Pricing for ${esc(b.name)}</h4><p>Only you see this. Your margin this month: <b>${money(margin)}</b></p>
+        <div class="grid2"><label class="field">Markup on AI usage (%)<input data-p="markup_pct" type="number" min="0" step="1" value="${esc(b.markup_pct)}"></label>
+        <label class="field">Monthly platform fee ($)<input data-p="platform_fee_usd" type="number" min="0" step="1" value="${esc(b.platform_fee_usd)}"></label></div>
+        <label class="field">Monthly AI limit ($)<input data-p="monthly_budget_usd" type="number" min="0" step="1" value="${esc(b.monthly_budget_usd ?? "")}"><small>Leave blank for no limit. The team pauses when it's reached.</small></label>
+        <div><button class="btn go" data-pact="save">Save pricing</button></div>
+        <h4 style="margin-top:8px">Other charges</h4>
+        ${(data.charges || []).length ? `<div class="list">${data.charges.map(c => `<div class="row"><div class="grow"><div class="t">${esc(c.description)}</div><div class="s">${esc(label(c.kind))} · ${money(c.amount_usd)}${c.recurring ? " a month" : " once"}</div></div><button class="btn small bad" data-pact="end" data-id="${c.id}">Remove</button></div>`).join("")}</div>` : `<p>None.</p>`}
+        <label class="field">Add a charge<input data-c="description" placeholder="What it's for, e.g. Facebook publishing setup"></label>
+        <div class="grid2"><select data-c="kind" aria-label="Kind"><option value="integration">Integration</option><option value="service">Service</option><option value="setup">Setup</option><option value="other">Other</option></select>
+          <input data-c="amount_usd" type="number" min="0" step="1" placeholder="Amount ($)" aria-label="Amount"></div>
+        <label class="check"><input data-c="recurring" type="checkbox"> Charge it every month</label>
+        <div><button class="btn" data-pact="add">Add charge</button></div></div></div>`;
     }
     return h;
   },
-  people(){
-    if (!["owner","admin"].includes(data.role)) return `<p class="empty">Only owners and admins can manage people.</p>`;
-    if (!people) { call("members").then(r => { people = r.members; renderPane(true); }).catch(e => { $("pane").innerHTML = `<p class="err">${esc(e.message)}</p>`; }); return `<p class="empty">Loading…</p>`; }
-    const roles = ["viewer","operator","admin","owner"].filter(x => ({viewer:1,operator:2,admin:3,owner:4})[x] <= ({viewer:1,operator:2,admin:3,owner:4})[data.role]);
-    return (people.length ? people.map(p => `<div class="item" style="cursor:default"><span class="num">${esc(p.role)}</span><span class="name">${esc(p.email)}</span><button class="danger" data-mact="remove" data-uid="${p.id}">Remove</button></div>`).join("") : `<p class="empty">Nobody else has access yet.</p>`) +
-      `<div class="card" id="invite"><b>Add a person</b><div class="meta">Viewer: can watch. Operator: can post and approve. Admin: can also pause the team and add people. They sign in with a code sent to their email.</div>
-        <input data-i="email" type="email" placeholder="their@email.com"><div class="row"><select data-i="role">${roles.map(x => `<option>${x}</option>`).join("")}</select><button class="primary" data-mact="invite">Add</button></div></div>`;
-  },
-  connections(){
-    if (!conns) { call("integrations").then(r => { conns = r; renderPane(true); }).catch(e => { $("pane").innerHTML = `<p class="err">${esc(e.message)}</p>`; }); return `<p class="empty">Loading…</p>`; }
-    const HOW = {
-      gmail: `<ol><li>Turn on 2-Step Verification for the Gmail account.</li><li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a>, make an app password named "Destiny OS".</li><li>Paste the 16-letter password here.</li></ol>`,
-      resend: `<ol><li>Sign up at <a href="https://resend.com" target="_blank">resend.com</a> and add your domain (they show the DNS records to add).</li><li>Create an API key with "Sending access".</li><li>From = your name and address on that domain, like <i>Acme Roofing &lt;hello@acmeroofing.com&gt;</i>.</li></ol>`,
-      facebook: `<ol><li>In <a href="https://business.facebook.com/settings/system-users" target="_blank">Meta Business Settings → System users</a>, add a system user (Admin) and give it your Page.</li><li>Click "Generate new token", pick your app, and tick <i>pages_manage_posts</i>, <i>pages_read_engagement</i>, <i>pages_show_list</i>.</li><li>Your Page ID is on the Page under About → Page transparency.</li></ol>`,
-    };
-    const LBL = {user:"Gmail address", from_name:"Name people see", from:"From, e.g. Acme &lt;hi@acme.com&gt;", reply_to:"Replies go to (optional)", page_id:"Facebook Page ID", GMAIL_APP_PASSWORD:"App password", RESEND_API_KEY:"Resend API key", FACEBOOK_PAGE_TOKEN:"Page access token"};
-    const pill = (st) => st === "connected" ? `<span class="pill good">connected</span>` : st === "error" ? `<span class="pill bad">not working</span>` : `<span class="pill">not connected</span>`;
-    return `<p class="meta">Connect the accounts your team works through. Passwords and keys are stored encrypted and never shown again. Emails go out through Resend if it's connected, otherwise Gmail.</p>` +
-      conns.integrations.map(i => i.readonly ? `<div class="card"><div class="row" style="justify-content:space-between"><b>${esc(i.label)}</b>${pill(i.status)}</div></div>` :
-      `<div class="card" data-conn="${i.provider}"><div class="row" style="justify-content:space-between;align-items:center"><b>${esc(i.label)}</b>${pill(i.status)}</div>
-        ${i.settings.page_name ? `<div class="meta">Page: ${esc(i.settings.page_name)}</div>` : ""}
-        ${conns.can_edit ? `<details${i.status === "connected" ? "" : " open"}><summary class="meta" style="cursor:pointer">${i.status === "connected" ? "Change" : "Set up"}</summary>
-          <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-          ${i.fields.map(f => f === "check_inbox" ? `<label class="days"><label><input type="checkbox" data-cs="${f}"${i.settings[f] === "true" ? " checked" : ""}> Watch this inbox for replies and put them on the board</label></label>`
-            : `<label class="field">${LBL[f] || f}<input data-cs="${f}" value="${esc(i.settings[f] || "")}"></label>`).join("")}
-          ${i.secrets.map(f => `<label class="field">${LBL[f] || f}<input data-ck="${f}" type="password" autocomplete="off" placeholder="${i.status === "not_connected" ? "" : "saved; paste a new one to replace"}"></label>`).join("")}
-          <div class="howto">${HOW[i.provider] || ""}</div>
-          <div class="row"><button class="primary" data-xact="connect">Save and test</button>${i.status !== "not_connected" ? `<button class="danger" data-xact="disconnect">Disconnect</button>` : ""}</div>
-          </div></details>` : ""}</div>`).join("");
-  },
+
   settings(){
-    if (!settingsData) { call("settings_get").then(r => { settingsData = r; renderPane(true); }).catch(e => { $("pane").innerHTML = `<p class="err">${esc(e.message)}</p>`; }); return `<p class="empty">Loading…</p>`; }
-    const d = settingsData, c = d.config || {}, b = d.business, ro = d.can_edit ? "" : " disabled";
-    const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-    return `<div class="card" id="settingsForm">
-      ${data.business.status !== "live" ? `<div class="meta"><b>Getting started:</b> write the mission and facts below, connect email under Connections${data.admin ? "" : ", add a card on the Costs tab"}, then click <b>Start team</b> at the top.</div>` : ""}
-      <label class="field">Business name<input data-s="name" value="${esc(b.name)}"${ro}></label>
-      <label class="field">What the business does and what the team should achieve<textarea data-s="mission"${ro}>${esc(c.mission || "")}</textarea><small>The team reads this before every piece of work.</small></label>
-      <label class="field">Facts (prices, offers, service area, links) — the team uses these exactly and never adds to them<textarea data-s="facts"${ro}>${esc(c.facts || "")}</textarea></label>
-      <label class="field">Rules the team must follow<textarea data-s="rules"${ro}>${esc(c.rules || "")}</textarea></label>
-      <div class="row"><label class="field" style="flex:1">Owner's name<input data-s="owner_name" value="${esc(c.owner?.name || "")}"${ro}></label>
-        <label class="field" style="flex:1">Owner's email (reports go here)<input data-s="owner_email" value="${esc(c.owner?.email || "")}"${ro}></label></div>
-      <div class="row"><label class="field" style="flex:2">Time zone<input data-s="timezone" value="${esc(b.timezone)}"${ro}></label>
-        <label class="field" style="flex:1">Starts (0–23)<input data-s="shift_start" type="number" min="0" max="23" value="${b.shift_start}"${ro}></label>
-        <label class="field" style="flex:1">Ends (1–24)<input data-s="shift_end" type="number" min="1" max="24" value="${b.shift_end}"${ro}></label></div>
-      <div class="field">Work days<div class="days">${DAYS.map((n, i) => `<label><input type="checkbox" data-day="${i + 1}"${(b.shift_days || []).includes(i + 1) ? " checked" : ""}${ro}> ${n}</label>`).join("")}</div></div>
-      <div class="meta" style="margin-top:6px"><b>The team</b> · switch someone off or give them instructions for this business</div>
-      ${d.agents.map(a => `<details class="agent" data-agent="${a.slot}"><summary><input type="checkbox" data-a="enabled"${a.enabled ? " checked" : ""}${ro}> <span style="color:var(--c-${a.slot})">${esc(a.name)}</span> <span class="meta">${esc(a.role)}</span></summary>
-        <label class="field" style="margin-top:8px">Instructions for ${esc(a.name)} at this business<textarea data-a="role_instructions"${ro}>${esc(a.role_instructions || "")}</textarea></label></details>`).join("")}
-      ${d.advanced ? `<details><summary class="meta" style="cursor:pointer">Advanced (platform owner): full settings JSON</summary><textarea data-s="raw_config" style="min-height:200px;font-family:var(--f-mono);font-size:12px">${esc(JSON.stringify(c, null, 2))}</textarea><small class="meta">Edit only if you know what you're changing. Mission, facts, rules and owner above still apply on top.</small></details>` : ""}
-      ${d.can_edit ? `<div class="row"><button class="primary" data-sact="save">Save settings</button></div>` : `<p class="meta">Only admins can change settings.</p>`}
-    </div>
-    <div class="meta">Saved versions (restore any time)</div>
-    ${d.versions.map(v => `<div class="item" style="cursor:default"><span class="num">v${v.version}</span><span class="name">${new Date(v.created_at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})} · ${esc(v.created_by || "")} · ${esc(v.note || "")}</span>${v.active ? `<span class="pill hot">current</span>` : d.can_edit ? `<button data-sact="restore" data-v="${v.version}">Restore</button>` : "<span></span>"}</div>`).join("")}`;
+    const seg = `<div class="seg" role="group">${[["business", "Business & team"], ["connections", "Connections"], ["people", "People"]].map(([k, n]) => `<button data-st="${k}" aria-pressed="${setTab === k}">${n}</button>`).join("")}</div>`;
+    return seg + ({business: setBusiness, connections: setConnections, people: setPeople})[setTab]();
   },
+
   new(){
-    return `<div class="card" id="newBiz"><b>Add a business</b><div class="meta">Creates its own team of six, its own data and billing, and emails the owner a sign-in link. The team stays off until someone clicks Start team.</div>
+    return `<form class="box form" id="newBiz" onsubmit="return false"><h4 style="font-size:20px">Add a business</h4><p>This gives them their own team of six, their own data and billing, and emails the owner a sign-in link. The team stays off until someone clicks Start team.</p>
       <label class="field">Business name<input data-n="name"></label>
-      <div class="row"><label class="field" style="flex:1">Owner's name<input data-n="owner_name"></label><label class="field" style="flex:1">Owner's email<input data-n="owner_email" type="email"></label></div>
-      <label class="field">What they do and what the team should achieve<textarea data-n="mission" placeholder="e.g. Acme Roofing is a South Jersey roofer. Find homeowners who need roof work and book estimates."></textarea></label>
-      <label class="field">Facts (prices, offers, service area, links)<textarea data-n="facts"></textarea></label>
-      <label class="field">Rules<textarea data-n="rules"></textarea></label>
-      <div class="row"><label class="field" style="flex:2">Time zone<input data-n="timezone" value="America/New_York"></label>
-        <label class="field" style="flex:1">Platform fee $/mo<input data-n="platform_fee_usd" type="number" min="0" value="650"></label>
-        <label class="field" style="flex:1">AI markup %<input data-n="markup_pct" type="number" min="0" value="30"></label>
-        <label class="field" style="flex:1">AI budget $/mo<input data-n="monthly_budget_usd" type="number" min="0" value="200"></label></div>
-      <div class="row"><button class="primary" data-nact="create">Create business</button><button data-nact="cancel">Cancel</button></div></div>`;
-  },
-  activity(){
-    return (data.activity || []).map(a => `<div class="item" style="cursor:default"><span class="num">${new Date(a.at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})}</span><span class="name">${esc(teamBy()[a.actor]?.name || a.actor)} · ${esc(a.action)}${a.target ? " · " + esc(a.target) : ""}</span><span></span></div>`).join("") || `<p class="empty">No activity yet.</p>`;
+      <div class="grid2"><label class="field">Owner's name<input data-n="owner_name"></label><label class="field">Owner's email<input data-n="owner_email" type="email"></label></div>
+      <label class="field">What they do and what the team should achieve<textarea data-n="mission" rows="4" placeholder="e.g. Acme Roofing is a South Jersey roofer. Find homeowners who need roof work and book estimates."></textarea></label>
+      <label class="field">Facts the team can use (prices, offers, service area, links)<textarea data-n="facts" rows="4"></textarea></label>
+      <label class="field">Rules the team must follow<textarea data-n="rules" rows="3"></textarea></label>
+      <div class="grid2"><label class="field">Time zone<input data-n="timezone" value="America/New_York"></label><label class="field">Platform fee ($ a month)<input data-n="platform_fee_usd" type="number" min="0" value="650"></label>
+        <label class="field">Markup on AI usage (%)<input data-n="markup_pct" type="number" min="0" value="30"></label><label class="field">AI limit ($ a month)<input data-n="monthly_budget_usd" type="number" min="0" value="200"></label></div>
+      <div class="acts"><button class="btn go" data-nact="create">Create business</button><button class="btn quiet" data-nact="cancel">Cancel</button></div></form>`;
   },
 };
+const firstLine = (s) => String(s || "").split("\n").find(x => x.trim()) || "";
 
-function renderPane(force){
-  if (!data || (editing.size && !force)) return;
-  if (STATIC.has(tab) && paneFor === tab + biz && !force) { counts(); return; }
-  paneFor = tab + biz;
-  $("pane").innerHTML = PANES[tab]();
-  counts();
+function setupSteps(){
+  if (!settingsData) call("settings_get").then(r => { settingsData = r; render(true); }).catch(() => {});
+  if (!conns) call("integrations").then(r => { conns = r; render(true); }).catch(() => {});
+  const told = !!settingsData?.config?.mission, mail = !!conns?.integrations?.some(i => ["gmail", "resend"].includes(i.provider) && i.status === "connected");
+  const card = data.business.billing_status === "active" || data.admin;
+  const can = ["owner", "admin"].includes(data.role);
+  return `<div class="list"><ol class="steps">
+    <li class="${told ? "done" : ""}"><div class="grow"><div class="t">Tell the team about the business</div><div class="s">What you do, your facts and your rules</div></div>${told ? "" : `<button class="btn small" data-go="settings" data-st="business">Open</button>`}</li>
+    <li class="${mail ? "done" : ""}"><div class="grow"><div class="t">Connect your email</div><div class="s">So the team can send what you approve</div></div>${mail ? "" : `<button class="btn small" data-go="settings" data-st="connections">Connect</button>`}</li>
+    ${data.admin ? "" : `<li class="${card ? "done" : ""}"><div class="grow"><div class="t">Add a card</div><div class="s">Billed on the 1st for the month before</div></div>${card ? "" : `<button class="btn small" data-go="money">Add card</button>`}</li>`}
+    <li><div class="grow"><div class="t">Start the team</div><div class="s">They begin on their next work hour</div></div>${can ? `<button class="btn small go" data-start>Start team</button>` : ""}</li>
+  </ol></div>`;
+}
+
+function billing(){
+  const st = data.business.billing_status, can = ["owner", "admin"].includes(data.role);
+  const text = {active: "Card on file. Invoices are charged automatically on the 1st.", card_needed: "No card on file yet. Invoices are emailed with a payment link until you add one.", past_due: "A payment didn't go through. The team is on hold until it's paid.", none: "Billing isn't set up for this business."}[st] || "";
+  return `<div class="box${st === "past_due" ? " alert" : ""}"><h4>Payment</h4><p>${esc(text)} Adding a card means you agree to the <a href="/terms" target="_blank">Terms</a>.</p>
+    ${can && st !== "none" ? `<div><button class="btn ${st === "active" ? "" : "go"}" data-bact="card">${st === "active" ? "Update card" : "Add a card"}</button></div>` : ""}</div>`;
+}
+
+function setBusiness(){
+  if (!settingsData) { call("settings_get").then(r => { settingsData = r; render(true); }).catch(e => showErr(e)); return `<p class="s">Loading…</p>`; }
+  const d = settingsData, c = d.config || {}, b = d.business, ro = d.can_edit ? "" : " disabled", DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  return `<div class="form" id="settingsForm">
+    <div class="box form"><h4>The business</h4>
+      <label class="field">Business name<input data-s="name" value="${esc(b.name)}"${ro}></label>
+      <label class="field">What the business does and what the team should achieve<textarea data-s="mission" rows="5"${ro}>${esc(c.mission || "")}</textarea><small>The team reads this before every piece of work.</small></label>
+      <label class="field">Facts<textarea data-s="facts" rows="6"${ro}>${esc(c.facts || "")}</textarea><small>Prices, offers, service area, links. The team uses these exactly and never adds to them.</small></label>
+      <label class="field">Rules the team must follow<textarea data-s="rules" rows="6"${ro}>${esc(c.rules || "")}</textarea></label>
+      <div class="grid2"><label class="field">Owner's name<input data-s="owner_name" value="${esc(c.owner?.name || "")}"${ro}></label>
+        <label class="field">Owner's email<input data-s="owner_email" value="${esc(c.owner?.email || "")}"${ro}><small>Reports and alerts go here.</small></label></div></div>
+    <div class="box form"><h4>Work hours</h4>
+      <div class="grid2"><label class="field">Starts at (hour, 0–23)<input data-s="shift_start" type="number" min="0" max="23" value="${b.shift_start}"${ro}></label>
+        <label class="field">Ends at (hour, 1–24)<input data-s="shift_end" type="number" min="1" max="24" value="${b.shift_end}"${ro}></label></div>
+      <div class="field">Work days<div class="days">${DAYS.map((n, i) => `<label><input type="checkbox" data-day="${i + 1}"${(b.shift_days || []).includes(i + 1) ? " checked" : ""}${ro}>${n}</label>`).join("")}</div></div>
+      <label class="field">Time zone<input data-s="timezone" value="${esc(b.timezone)}"${ro}></label></div>
+    <div><h3 style="font-size:17px;margin:8px 0 4px">The team</h3><p class="s" style="color:var(--muted);margin:0 0 12px">Untick someone to switch them off. Open a teammate to give them instructions for this business.</p>
+    <div class="list">${d.agents.map(a => `<details class="agent" data-agent="${a.slot}" data-k="a${a.slot}"><summary><input type="checkbox" data-a="enabled"${a.enabled ? " checked" : ""}${ro} aria-label="${esc(a.name)} is on">${av(a.slot, a.name)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${esc(a.role)}</div></div></summary>
+      <div class="inner"><label class="field">Instructions for ${esc(a.name)}<textarea data-a="role_instructions" rows="5"${ro}>${esc(a.role_instructions || "")}</textarea></label></div></details>`).join("")}</div></div>
+    ${d.advanced ? `<details class="box"><summary style="cursor:pointer;font-weight:600">Advanced settings (only you see this)</summary><textarea data-s="raw_config" style="min-height:240px;margin-top:12px;font-family:ui-monospace,Menlo,monospace;font-size:13px">${esc(JSON.stringify(c, null, 2))}</textarea><p style="margin-top:8px">Edit only if you know what you're changing. The fields above still apply on top.</p></details>` : ""}
+    ${d.can_edit ? `<div><button class="btn go" data-sact="save">Save settings</button></div>` : `<p class="s">Only admins can change settings.</p>`}
+    <div><h3 style="font-size:17px;margin:8px 0 12px">Saved versions</h3><div class="list">${d.versions.map(v => `<div class="row"><div class="grow"><div class="t">${esc(v.note || "Saved")}</div><div class="s">${esc(when(v.created_at))} · ${esc(v.created_by || "")}</div></div>${v.active ? `<span class="pill go">Current</span>` : d.can_edit ? `<button class="btn small" data-sact="restore" data-v="${v.version}">Restore</button>` : ""}</div>`).join("")}</div></div>
+  </div>`;
+}
+
+function setConnections(){
+  if (!conns) { call("integrations").then(r => { conns = r; render(true); }).catch(e => showErr(e)); return `<p class="s">Loading…</p>`; }
+  const HOW = {
+    gmail: `<ol><li>Turn on 2-Step Verification for the Gmail account.</li><li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a> and make an app password named "Destiny OS".</li><li>Paste the 16-letter password here.</li></ol>`,
+    resend: `<ol><li>Sign up at <a href="https://resend.com" target="_blank">resend.com</a> and add your domain. Resend shows the DNS records to add.</li><li>Create an API key with "Sending access".</li><li>For From, use your name and an address on that domain, like <i>Acme Roofing &lt;hello@acmeroofing.com&gt;</i>.</li></ol>`,
+    facebook: `<ol><li>In <a href="https://business.facebook.com/settings/system-users" target="_blank">Meta Business Settings, System users</a>, add a system user (Admin) and give it your Page.</li><li>Click "Generate new token", pick your app, and tick <i>pages_manage_posts</i>, <i>pages_read_engagement</i> and <i>pages_show_list</i>.</li><li>Your Page ID is on the Page under About, Page transparency.</li></ol>`,
+  };
+  const LBL = {user: "Gmail address", from_name: "Name people see", from: "From, e.g. Acme &lt;hi@acme.com&gt;", reply_to: "Replies go to (optional)", page_id: "Facebook Page ID", GMAIL_APP_PASSWORD: "App password", RESEND_API_KEY: "Resend API key", FACEBOOK_PAGE_TOKEN: "Page access token"};
+  const pill = (st) => st === "connected" ? `<span class="pill go">Connected</span>` : st === "error" ? `<span class="pill bad">Not working</span>` : `<span class="pill">Not connected</span>`;
+  return `<p style="color:var(--muted);margin:0 0 16px">Connect the accounts your team works through. Passwords and keys are stored encrypted and never shown again. Emails go out through Resend if it's connected, otherwise Gmail.</p>` +
+    conns.integrations.map(i => i.readonly ? `<div class="box" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center"><h4>${esc(i.label)}</h4>${pill(i.status)}</div></div>` :
+    `<div class="box" data-conn="${i.provider}" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h4>${esc(i.label)}</h4>${pill(i.status)}</div>
+      ${i.settings.page_name ? `<p>Page: ${esc(i.settings.page_name)}</p>` : ""}
+      ${conns.can_edit ? `<details${i.status === "connected" ? "" : " open"}><summary style="cursor:pointer;font-weight:600;color:var(--go)">${i.status === "connected" ? "Change" : "Set up"}</summary>
+        <div class="form" style="margin-top:14px">
+        ${i.fields.map(f => f === "check_inbox" ? `<label class="check"><input type="checkbox" data-cs="${f}"${i.settings[f] === "true" ? " checked" : ""}> Watch this inbox for replies and put them in Team chat</label>`
+          : `<label class="field">${LBL[f] || f}<input data-cs="${f}" value="${esc(i.settings[f] || "")}"></label>`).join("")}
+        ${i.secrets.map(f => `<label class="field">${LBL[f] || f}<input data-ck="${f}" type="password" autocomplete="off" placeholder="${i.status === "not_connected" ? "" : "Saved. Paste a new one to replace it."}"></label>`).join("")}
+        <div class="howto">How to get these:${HOW[i.provider] || ""}</div>
+        <div class="acts"><button class="btn go" data-xact="connect">Save and test</button>${i.status !== "not_connected" ? `<button class="btn bad" data-xact="disconnect">Disconnect</button>` : ""}</div>
+        </div></details>` : ""}</div>`).join("");
+}
+
+function setPeople(){
+  if (!["owner", "admin"].includes(data.role)) return `<div class="empty"><b>Only owners and admins can manage people.</b></div>`;
+  if (!people) { call("members").then(r => { people = r.members; render(true); }).catch(e => showErr(e)); return `<p class="s">Loading…</p>`; }
+  const R = {viewer: 1, operator: 2, admin: 3, owner: 4}, roles = Object.keys(R).filter(x => R[x] <= R[data.role]);
+  const RL = {viewer: "Can watch", operator: "Can post and approve", admin: "Can also pause the team and add people", owner: "Full control"};
+  return (people.length ? `<div class="list">${people.map(p => `<div class="row"><div class="grow"><div class="t">${esc(p.email)}</div><div class="s">${esc(label(p.role))} · ${esc(RL[p.role] || "")}</div></div><button class="btn small bad" data-mact="remove" data-uid="${p.id}">Remove</button></div>`).join("")}</div>` : `<div class="empty"><b>Nobody else has access yet.</b>Add a partner, an assistant or the business owner below.</div>`) +
+    `<div class="box form" id="invite" style="margin-top:16px"><h4>Add a person</h4><p>They sign in with a code sent to their email.</p>
+      <label class="field">Email<input data-i="email" type="email" placeholder="their@email.com"></label>
+      <label class="field">What they can do<select data-i="role">${roles.map(x => `<option value="${x}">${label(x)}: ${RL[x]}</option>`).join("")}</select></label>
+      <div><button class="btn go" data-mact="invite">Add person</button></div></div>`;
+}
+function showErr(e){ $("view").insertAdjacentHTML("beforeend", `<p class="err">${esc(e.message)}</p>`); }
+
+// ---------- rendering ----------
+function render(force){
+  if (!data) return;
+  counts(); topbar();
+  if (editing.size && !force) return;
+  const key = view + "|" + biz + "|" + workTab + "|" + setTab;
+  if (SLOW.has(view) && rendered === key && !force) return;
+  if (view === "chat" && rendered === key && !force) { appendNew(); return; }
+  const el = $("view");
+  el.className = "view" + (view === "chat" ? " wide" : "");
+  el.style.padding = view === "chat" ? "0" : "";
+  const html = VIEWS[view]();
+  if (rendered === key && html === lastHtml) return;
+  const open = [...el.querySelectorAll("details[open]")].map(x => x.dataset.k).filter(Boolean);
+  el.innerHTML = html; lastHtml = html;
+  open.forEach(k => el.querySelector(`details[data-k="${k}"]`)?.setAttribute("open", ""));
+  rendered = key;
+  if (view === "chat") { drawFeed(); $("draft")?.focus({preventScroll: true}); }
 }
 function counts(){
-  $("nAp").textContent = data.approvals.filter(a => a.status === "pending" || a.status === "failed").length;
-  $("nCt").textContent = data.content.filter(c => ["pending","needs_manual","failed"].includes(c.status)).length;
+  const n = waiting().n;
+  document.querySelectorAll("[data-count]").forEach(b => { b.textContent = n; b.hidden = !n; });
 }
-$("tabs").addEventListener("click", e => { const t = e.target.closest("button")?.dataset.t; if (!t) return; tab = t; people = null; conns = null; settingsData = null; paneFor = ""; editing.clear(); [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); renderPane(); });
-$("pane").addEventListener("click", async e => {
-  const act = e.target.dataset?.mact; if (!act) return;
-  e.target.disabled = true;
-  try {
-    if (act === "invite") { const box = $("invite"); await call("invite", {email: box.querySelector('[data-i="email"]').value.trim(), role: box.querySelector('[data-i="role"]').value}); }
-    if (act === "remove") await call("remove_member", {user_id: e.target.dataset.uid});
-    editing.delete("invite"); people = null; renderPane(true);
-  } catch(err) { e.target.disabled = false; e.target.closest(".card,.item").insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+function topbar(){
+  const b = data.business, can = ["owner", "admin"].includes(data.role);
+  $("title").textContent = TITLES[view] || "";
+  const st = $("state");
+  st.className = "state " + (b.status === "live" ? "live" : b.status === "paused" ? "paused" : "");
+  st.textContent = b.status === "live" ? (data.working?.length ? "Working now" : "Team on") : b.status === "paused" ? "Paused" : "Not started";
+  $("pauseBtn").hidden = !can;
+  $("pauseBtn").textContent = b.status === "live" ? "Pause team" : "Start team";
+  $("pauseBtn").classList.toggle("go", b.status !== "live");
+  document.querySelectorAll("[data-v]").forEach(x => x.setAttribute("aria-current", x.dataset.v === view ? "page" : "false"));
+}
+let feedDrawn = 0;
+function msgHtml(m, prev){
+  const T = teamBy(), a = T[m.sender], you = isYou(m.sender);
+  const dayChange = !prev || new Date(prev.created_at).toDateString() !== new Date(m.created_at).toDateString();
+  const day = dayChange ? `<div class="day">${new Date(m.created_at).toLocaleDateString([], {weekday: "long", month: "short", day: "numeric"})}</div>` : "";
+  if (!a && !you) return day + `<div class="msg sys">${fmtBody(m.body)}</div>`;
+  return day + `<div class="msg${you ? " you" : ""}" style="--c:var(--c-${a ? m.sender : "system"})">${you ? "" : av(m.sender, a.name)}<div style="min-width:0"><div class="who">${you ? esc(m.sender_name && m.sender_name !== "Owner" ? m.sender_name : "You") : esc(a.name)}<time>${clock(m.created_at)}</time></div><div class="body">${fmtBody(m.body)}</div></div></div>`;
+}
+function drawFeed(){
+  const f = $("feed"); if (!f) return;
+  f.innerHTML = msgs.length ? msgs.map((m, i) => msgHtml(m, msgs[i - 1])).join("") : `<div class="empty" style="margin:auto"><b>It's quiet in here.</b>Say hi to the team, or ask what they're working on.</div>`;
+  feedDrawn = msgs.length; f.scrollTop = f.scrollHeight;
+}
+function appendNew(){
+  const f = $("feed"); if (!f || feedDrawn >= msgs.length) return;
+  const atBottom = f.scrollHeight - f.scrollTop - f.clientHeight < 120;
+  if (!feedDrawn) f.innerHTML = "";
+  f.insertAdjacentHTML("beforeend", msgs.slice(feedDrawn).map((m, i) => msgHtml(m, msgs[feedDrawn + i - 1])).join(""));
+  feedDrawn = msgs.length;
+  if (atBottom) f.scrollTop = f.scrollHeight;
+}
+function go(v, opts = {}){
+  view = v; if (opts.st) setTab = opts.st;
+  editing.clear(); people = null; conns = null; settingsData = null; rendered = "";
+  render(true); window.scrollTo(0, 0);
+}
+
+// ---------- events ----------
+document.addEventListener("click", e => {
+  const nav = e.target.closest("[data-v]"); if (nav && nav.id !== "outBtn") { e.preventDefault(); go(nav.dataset.v); return; }
+  const g = e.target.closest("[data-go]"); if (g) { go(g.dataset.go, {st: g.dataset.st}); return; }
+  const wt = e.target.closest("[data-wt]"); if (wt) { workTab = wt.dataset.wt; rendered = ""; render(true); return; }
+  const stb = e.target.closest("[data-st]"); if (stb && view === "settings") { setTab = stb.dataset.st; editing.clear(); people = null; conns = null; settingsData = null; rendered = ""; render(true); return; }
+  if (e.target.closest("[data-start]")) $("pauseBtn").click();
 });
-$("pane").addEventListener("click", async e => {
-  if (e.target.dataset?.bact !== "card") return;
-  e.target.disabled = true;
-  try { const r = await call("billing_link"); location.href = r.url; }
-  catch(err) { e.target.disabled = false; e.target.closest(".card").insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+const V = $("view");
+V.addEventListener("submit", async e => {
+  if (e.target.id === "askForm") {
+    e.preventDefault(); const t = $("askInput").value.trim(); if (!t) return;
+    try { await call("post", {body: t}); go("chat"); tick(); } catch (err) { showErr(err); }
+  }
+  if (e.target.id === "compose") {
+    e.preventDefault(); const t = $("draft").value.trim(); if (!t) return;
+    $("draft").value = ""; try { await call("post", {body: t}); tick(); } catch (err) { $("draft").value = t; showErr(err); }
+  }
 });
-$("pane").addEventListener("click", async e => {
-  const act = e.target.dataset?.xact; if (!act) return;
-  const box = e.target.closest("[data-conn]"), provider = box.dataset.conn;
-  e.target.disabled = true; box.querySelectorAll(".err,.ok").forEach(x => x.remove());
-  try {
-    if (act === "connect") {
-      const settings = {}, secrets = {};
-      box.querySelectorAll("[data-cs]").forEach(i => settings[i.dataset.cs] = i.type === "checkbox" ? String(i.checked) : i.value.trim());
-      box.querySelectorAll("[data-ck]").forEach(i => secrets[i.dataset.ck] = i.value.trim());
-      const r = await call("connect", {provider, settings, secrets});
-      conns = null; editing.delete("conn"); renderPane(true);
-      setTimeout(() => $("pane").querySelector(`[data-conn="${provider}"]`)?.insertAdjacentHTML("beforeend", `<p class="${r.ok ? "ok" : "err"}">${esc(r.detail)}</p>`), 900);
-    }
-    if (act === "disconnect") { await call("disconnect", {provider}); conns = null; editing.delete("conn"); renderPane(true); }
-  } catch(err) { e.target.disabled = false; box.insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+V.addEventListener("keydown", e => {
+  if (e.target.id === "draft" && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("compose").requestSubmit(); }
 });
-$("pane").addEventListener("click", async e => {
-  const act = e.target.dataset?.sact; if (!act) return;
-  const f = $("settingsForm"); e.target.disabled = true;
-  try {
-    if (act === "save") {
-      const v = (k) => f.querySelector(`[data-s="${k}"]`)?.value ?? "";
-      const agents = [...f.querySelectorAll("[data-agent]")].map(a => ({slot: a.dataset.agent, enabled: a.querySelector('[data-a="enabled"]').checked, role_instructions: a.querySelector('[data-a="role_instructions"]').value}));
-      await call("settings_save", {name: v("name"), mission: v("mission"), facts: v("facts"), rules: v("rules"), owner_name: v("owner_name"), owner_email: v("owner_email"),
-        timezone: v("timezone"), shift_start: v("shift_start"), shift_end: v("shift_end"), shift_days: [...f.querySelectorAll("[data-day]:checked")].map(x => Number(x.dataset.day)),
-        agents, raw_config: f.querySelector('[data-s="raw_config"]') && editing.has("raw") ? v("raw_config") : undefined});
-    }
-    if (act === "restore") await call("settings_restore", {version: Number(e.target.dataset.v)});
-    editing.clear(); settingsData = null; renderPane(true); tick();
-    setTimeout(() => $("settingsForm")?.insertAdjacentHTML("afterbegin", `<p class="ok">Saved.</p>`), 900);
-  } catch(err) { e.target.disabled = false; (f || $("pane")).insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+V.addEventListener("input", e => {
+  if (e.target.id === "draft") { e.target.style.height = "auto"; e.target.style.height = Math.min(180, e.target.scrollHeight) + "px"; return; }
+  if (e.target.id === "askInput") { editing.add("ask"); return; }
+  const c = e.target.closest("[data-ap],[data-ct]"); if (c) editing.add(c.dataset.ap || "c" + c.dataset.ct);
+  if (e.target.closest("#pricing")) editing.add("pricing");
+  if (e.target.closest("[data-conn]")) editing.add("conn");
+  if (e.target.closest("#invite")) editing.add("invite");
+  if (e.target.closest("#settingsForm")) editing.add("settings");
+  if (e.target.dataset?.s === "raw_config") editing.add("raw");
 });
-$("pane").addEventListener("click", async e => {
-  const act = e.target.dataset?.nact; if (!act) return;
-  if (act === "cancel") { editing.clear(); tab = "approvals"; selectTab(); return; }
-  const f = $("newBiz"), v = (k) => f.querySelector(`[data-n="${k}"]`).value.trim(); e.target.disabled = true;
-  try {
-    const r = await call("create_business", {name: v("name"), owner_name: v("owner_name"), owner_email: v("owner_email"), mission: v("mission"), facts: v("facts"), rules: v("rules"),
-      timezone: v("timezone"), platform_fee_usd: v("platform_fee_usd"), markup_pct: v("markup_pct"), monthly_budget_usd: v("monthly_budget_usd")});
-    editing.clear(); try { localStorage.setItem("osBiz", r.business_id); } catch {}
-    tab = "settings"; await start();
-  } catch(err) { e.target.disabled = false; f.insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
-});
-$("pane").addEventListener("click", async e => {
-  const act = e.target.dataset?.cact; if (!act) return;
-  const c = e.target.closest("[data-cm]"), item = data.content.find(x => String(x.id) === c.dataset.cm);
-  if (act === "copy") { try { await navigator.clipboard.writeText([item.title, item.body].filter(Boolean).join("\n\n")); e.target.textContent = "Copied"; } catch { e.target.textContent = "Select and copy the text above"; } return; }
-  e.target.disabled = true;
-  try { await call("content_done", {id: item.id}); c.remove(); tick(); } catch(err) { e.target.disabled = false; c.insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
-});
-$("pane").addEventListener("input", e => { if (e.target.closest("[data-conn]")) editing.add("conn"); if (e.target.closest("#settingsForm")) editing.add("settings"); if (e.target.dataset?.s === "raw_config") editing.add("raw"); if (e.target.closest("#newBiz")) editing.add("new"); });
-function selectTab(){ [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === tab)); paneFor = ""; renderPane(true); }
-$("newBizBtn").addEventListener("click", () => { tab = "new"; editing.clear(); selectTab(); });
-$("pane").addEventListener("input", e => { if (e.target.closest("#invite")) editing.add("invite"); });
-$("pane").addEventListener("input", e => { const c = e.target.closest("[data-ap],[data-ct]"); if (c) editing.add(c.dataset.ap || "c" + c.dataset.ct); if (e.target.closest("#pricing")) editing.add("pricing"); });
-$("pane").addEventListener("click", async e => {
-  const act = e.target.dataset?.pact; if (!act) return;
-  const box = $("pricing"), v = (sel) => box.querySelector(sel);
-  e.target.disabled = true;
-  try {
-    if (act === "save") await call("set_pricing", {markup_pct: v('[data-p="markup_pct"]').value, platform_fee_usd: v('[data-p="platform_fee_usd"]').value, monthly_budget_usd: v('[data-p="monthly_budget_usd"]').value});
-    if (act === "add") await call("add_charge", {description: v('[data-c="description"]').value.trim(), kind: v('[data-c="kind"]').value, amount_usd: v('[data-c="amount_usd"]').value, recurring: v('[data-c="recurring"]').checked});
-    if (act === "end") await call("end_charge", {id: Number(e.target.dataset.id)});
-    editing.delete("pricing"); tick();
-  } catch(err) { e.target.disabled = false; box.insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
-});
-$("pane").addEventListener("click", async e => {
-  const act = e.target.dataset?.act; if (!act) return;
-  const c = e.target.closest("[data-ap],[data-ct]"), f = (n) => c.querySelector(`[data-f="${n}"]`)?.value;
-  e.target.disabled = true;
-  try {
-    if (c.dataset.ap) {
-      const a = data.approvals.find(x => String(x.id) === c.dataset.ap);
-      let payload = a.payload;
-      if (a.kind === "email") payload = {...a.payload, to: f("to"), subject: f("subject"), body: f("body")};
-      else { try { payload = JSON.parse(f("json")); } catch { throw new Error("Details must stay valid JSON."); } }
-      await call("decide", {id: a.id, decision: act, payload, note: f("note") || undefined});
-      editing.delete(c.dataset.ap);
-    } else {
-      await call("decide_content", {id: Number(c.dataset.ct), decision: act, body: f("body"), note: f("note") || undefined});
-      editing.delete("c" + c.dataset.ct);
-    }
-    c.remove(); tick();
-  } catch(err) { e.target.disabled = false; c.querySelector(".meta").insertAdjacentHTML("beforeend", ` · <span style="color:var(--bad)">${esc(err.message)}</span>`); }
+V.addEventListener("focusout", e => { if (e.target.id === "askInput" && !e.target.value) editing.delete("ask"); });
+function fail(btn, box, err){ btn.disabled = false; box.insertAdjacentHTML("beforeend", `<p class="err">${esc(err.message)}</p>`); }
+
+V.addEventListener("click", async e => {
+  const t = e.target.closest("button"); if (!t) return;
+  const d = t.dataset;
+
+  if (d.act) { // approvals and posts
+    const c = t.closest("[data-ap],[data-ct]"), f = (n) => c.querySelector(`[data-f="${n}"]`)?.value;
+    t.disabled = true; c.querySelectorAll(".err").forEach(x => x.remove());
+    try {
+      if (c.dataset.ap) {
+        const a = data.approvals.find(x => String(x.id) === c.dataset.ap);
+        let payload = a.payload;
+        if (a.kind === "email") payload = {...a.payload, to: f("to"), subject: f("subject"), body: f("body")};
+        else { try { payload = JSON.parse(f("json")); } catch { throw new Error("The details have a typo in them. Check the brackets and quotes, then try again."); } }
+        await call("decide", {id: a.id, decision: d.act, payload, note: f("note") || undefined});
+        editing.delete(c.dataset.ap);
+      } else {
+        await call("decide_content", {id: Number(c.dataset.ct), decision: d.act, body: f("body"), note: f("note") || undefined});
+        editing.delete("c" + c.dataset.ct);
+      }
+      c.remove(); tick();
+    } catch (err) { fail(t, c, err); }
+  }
+  if (d.cact) { // post by hand
+    const c = t.closest("[data-cm]"), item = data.content.find(x => String(x.id) === c.dataset.cm);
+    if (d.cact === "copy") { try { await navigator.clipboard.writeText([item.title, item.body].filter(Boolean).join("\n\n")); t.textContent = "Copied"; } catch { t.textContent = "Select the text above and copy it"; } return; }
+    t.disabled = true;
+    try { await call("content_done", {id: item.id}); c.remove(); tick(); } catch (err) { fail(t, c, err); }
+  }
+  if (d.bact === "card") {
+    t.disabled = true;
+    try { const r = await call("billing_link"); location.href = r.url; } catch (err) { fail(t, t.closest(".box"), err); }
+  }
+  if (d.pact) { // pricing
+    const box = $("pricing"), v = (sel) => box.querySelector(sel); t.disabled = true;
+    try {
+      if (d.pact === "save") await call("set_pricing", {markup_pct: v('[data-p="markup_pct"]').value, platform_fee_usd: v('[data-p="platform_fee_usd"]').value, monthly_budget_usd: v('[data-p="monthly_budget_usd"]').value});
+      if (d.pact === "add") await call("add_charge", {description: v('[data-c="description"]').value.trim(), kind: v('[data-c="kind"]').value, amount_usd: v('[data-c="amount_usd"]').value, recurring: v('[data-c="recurring"]').checked});
+      if (d.pact === "end") await call("end_charge", {id: Number(d.id)});
+      editing.delete("pricing"); rendered = ""; await tick();
+    } catch (err) { fail(t, box, err); }
+  }
+  if (d.mact) { // people
+    t.disabled = true;
+    try {
+      if (d.mact === "invite") { const box = $("invite"); await call("invite", {email: box.querySelector('[data-i="email"]').value.trim(), role: box.querySelector('[data-i="role"]').value}); }
+      if (d.mact === "remove") await call("remove_member", {user_id: d.uid});
+      editing.delete("invite"); people = null; render(true);
+    } catch (err) { fail(t, t.closest(".box,.row"), err); }
+  }
+  if (d.xact) { // connections
+    const box = t.closest("[data-conn]"), provider = box.dataset.conn;
+    t.disabled = true; box.querySelectorAll(".err,.ok").forEach(x => x.remove());
+    try {
+      if (d.xact === "connect") {
+        const settings = {}, secrets = {};
+        box.querySelectorAll("[data-cs]").forEach(i => settings[i.dataset.cs] = i.type === "checkbox" ? String(i.checked) : i.value.trim());
+        box.querySelectorAll("[data-ck]").forEach(i => secrets[i.dataset.ck] = i.value.trim());
+        const r = await call("connect", {provider, settings, secrets});
+        conns = null; editing.delete("conn"); render(true);
+        setTimeout(() => $("view").querySelector(`[data-conn="${provider}"]`)?.insertAdjacentHTML("beforeend", `<p class="${r.ok ? "ok" : "err"}">${esc(r.detail)}</p>`), 900);
+      }
+      if (d.xact === "disconnect") { await call("disconnect", {provider}); conns = null; editing.delete("conn"); render(true); }
+    } catch (err) { fail(t, box, err); }
+  }
+  if (d.sact) { // settings
+    const f = $("settingsForm"); t.disabled = true;
+    try {
+      if (d.sact === "save") {
+        const v = (k) => f.querySelector(`[data-s="${k}"]`)?.value ?? "";
+        const agents = [...f.querySelectorAll("[data-agent]")].map(a => ({slot: a.dataset.agent, enabled: a.querySelector('[data-a="enabled"]').checked, role_instructions: a.querySelector('[data-a="role_instructions"]').value}));
+        await call("settings_save", {name: v("name"), mission: v("mission"), facts: v("facts"), rules: v("rules"), owner_name: v("owner_name"), owner_email: v("owner_email"),
+          timezone: v("timezone"), shift_start: v("shift_start"), shift_end: v("shift_end"), shift_days: [...f.querySelectorAll("[data-day]:checked")].map(x => Number(x.dataset.day)),
+          agents, raw_config: f.querySelector('[data-s="raw_config"]') && editing.has("raw") ? v("raw_config") : undefined});
+      }
+      if (d.sact === "restore") await call("settings_restore", {version: Number(d.v)});
+      editing.clear(); settingsData = null; render(true); tick();
+      setTimeout(() => $("settingsForm")?.insertAdjacentHTML("afterbegin", `<p class="ok">Saved.</p>`), 900);
+    } catch (err) { fail(t, f || V, err); }
+  }
+  if (d.nact) { // new business
+    if (d.nact === "cancel") { go("home"); return; }
+    const f = $("newBiz"), v = (k) => f.querySelector(`[data-n="${k}"]`).value.trim(); t.disabled = true;
+    try {
+      const r = await call("create_business", {name: v("name"), owner_name: v("owner_name"), owner_email: v("owner_email"), mission: v("mission"), facts: v("facts"), rules: v("rules"),
+        timezone: v("timezone"), platform_fee_usd: v("platform_fee_usd"), markup_pct: v("markup_pct"), monthly_budget_usd: v("monthly_budget_usd")});
+      editing.clear(); try { localStorage.setItem("osBiz", r.business_id); } catch {}
+      view = "home"; await start();
+    } catch (err) { fail(t, f, err); }
+  }
 });
 
+// ---------- data loop ----------
 async function tick(){
   if (!biz) return;
   try {
     const d = await call("feed", {since_id: lastId});
-    const first = lastId === 0, atBottom = $("feed").scrollHeight - $("feed").scrollTop - $("feed").clientHeight < 80;
-    data = d;
-    if (first) { $("feed").innerHTML = ""; if (!d.messages.length) $("feed").innerHTML = `<p class="empty" id="feedEmpty" style="margin:auto;text-align:center">The board is quiet. Say hi to the team.</p>`; }
-    if (d.messages.length) $("feedEmpty")?.remove();
-    d.messages.forEach(m => { addMsg(m); lastId = Math.max(lastId, m.id); });
-    if (first || (atBottom && d.messages.length)) $("feed").scrollTop = $("feed").scrollHeight;
-    renderTeam(); renderPane();
-    const paused = d.business.status === "paused";
-    $("pauseBtn").textContent = d.business.status === "live" ? "Pause team" : "Start team";
-    $("pauseBtn").hidden = !["owner","admin"].includes(d.role);
-    $("liveDot").className = "dot" + (d.business.status === "live" ? "" : " off");
-    $("liveText").textContent = {live:"Live", paused:"Paused", setup:"Setup"}[d.business.status] || d.business.status;
-  } catch(e) { if (e.status === 401) return showGate("Please sign in again."); $("liveDot").className = "dot off"; $("liveText").textContent = "Reconnecting…"; }
+    if (lastId === 0) msgs = [];
+    d.messages.forEach(m => { if (m.id > lastId) { msgs.push(m); lastId = m.id; } });
+    if (msgs.length > 400) { msgs = msgs.slice(-300); feedDrawn = 0; if (view === "chat") rendered = ""; }
+    data = d; render();
+  } catch (e) {
+    if (e.status === 401) return showGate("Please sign in again.");
+    const st = $("state"); st.className = "state paused"; st.textContent = "Reconnecting…";
+  }
 }
-
 async function start(){
   const me = await call("me");
   isAdmin = !!me.admin; $("newBizBtn").hidden = !isAdmin;
-  if (!me.businesses.length && isAdmin) { $("gate").hidden = true; $("app").hidden = false; tab = "new"; data = {team: [], working: [], approvals: [], content: [], business: {}}; selectTab(); return; }
-  if (!me.businesses.length) return showGate("You're signed in, but you haven't been added to a business yet.");
-  $("bizSel").innerHTML = me.businesses.map(b => `<option value="${b.id}">${esc(b.name)}${b.status !== "live" ? " (" + esc(b.status) + ")" : ""}</option>`).join("");
+  if (!me.businesses.length && isAdmin) { $("gate").hidden = true; $("app").hidden = false; view = "new"; data = {team: [], working: [], approvals: [], content: [], records: [], tasks: [], business: {status: "setup"}, role: "owner"}; render(true); return; }
+  if (!me.businesses.length) return showGate("You're signed in, but nobody has added you to a business yet. Ask the business owner to add you under Settings, People.");
+  const opts = me.businesses.map(b => `<option value="${b.id}">${esc(b.name)}${b.status === "live" ? "" : b.status === "paused" ? " (paused)" : " (not started)"}</option>`).join("");
+  $("bizSel").innerHTML = opts; $("bizSelM").innerHTML = opts;
   let saved = ""; try { saved = localStorage.getItem("osBiz") || ""; } catch {}
   biz = me.businesses.some(b => b.id === saved) ? saved : me.businesses[0].id;
-  $("bizSel").value = biz;
+  $("bizSel").value = biz; $("bizSelM").value = biz;
   $("gate").hidden = true; $("app").hidden = false;
-  lastId = 0; paneFor = ""; [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === tab)); tick(); clearInterval(timer); timer = setInterval(tick, 3000);
+  lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
+  await tick(); clearInterval(timer); timer = setInterval(tick, 3000);
 }
-$("bizSel").addEventListener("change", () => { people = null; conns = null; settingsData = null; paneFor = ""; biz = $("bizSel").value; try { localStorage.setItem("osBiz", biz); } catch {} lastId = 0; data = null; editing.clear(); $("feed").innerHTML = ""; tick(); });
-$("pauseBtn").addEventListener("click", async () => { try { await call("pause", {paused: data.business.status === "live"}); } catch(err) { alert(err.message); } tick(); });
-$("outBtn").addEventListener("click", () => showGate(""));
-$("compose").addEventListener("submit", async e => {
-  e.preventDefault(); const t = $("draft").value.trim(); if (!t) return;
-  $("draft").value = ""; try { await call("post", {body: t}); tick(); } catch(err) { $("draft").value = t; alert(err.message); }
+function switchBiz(id){
+  biz = id; $("bizSel").value = id; $("bizSelM").value = id; try { localStorage.setItem("osBiz", biz); } catch {}
+  people = null; conns = null; settingsData = null; editing.clear(); lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null; tick();
+}
+$("bizSel").addEventListener("change", e => switchBiz(e.target.value));
+$("bizSelM").addEventListener("change", e => switchBiz(e.target.value));
+$("pauseBtn").addEventListener("click", async () => {
+  const b = $("pauseBtn"); b.disabled = true;
+  try { await call("pause", {paused: data.business.status === "live"}); rendered = ""; await tick(); } catch (err) { showErr(err); } finally { b.disabled = false; }
 });
-$("draft").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("compose").requestSubmit(); } });
+$("outBtn").addEventListener("click", () => showGate(""));
 
+// ---------- sign in ----------
 function showGate(msg){ clearInterval(timer); $("app").hidden = true; $("gate").hidden = false; $("gateErr").textContent = msg || ""; token = ""; try { localStorage.removeItem("osToken"); } catch {} setStep("email"); }
 let step = "email";
 function setStep(s){ step = s; $("stepEmail").hidden = s !== "email"; $("stepCode").hidden = s !== "code"; $("backBtn").hidden = s !== "code"; $("gateBtn").textContent = s === "email" ? "Email me a code" : "Sign in"; if (s === "code") $("code").focus(); }
@@ -508,16 +844,16 @@ $("gateForm").addEventListener("submit", async e => {
     if (step === "email") {
       if (!email) { $("gateErr").textContent = "Type your email."; return; }
       await call("request_code", {email}); setStep("code");
-      $("gateErr").textContent = "If that email has access, a code is on its way. Check spam if it's not there in a minute.";
+      $("gateSub").textContent = "If that email has access, a code is on its way. Check spam if it isn't there in a minute.";
     } else {
       const r = await call("verify_code", {email, code: $("code").value});
       token = r.token; try { localStorage.setItem("osToken", token); } catch {}
       await start();
     }
-  } catch(err) { $("gateErr").textContent = err.message; } finally { $("gateBtn").disabled = false; }
+  } catch (err) { $("gateErr").textContent = err.message; } finally { $("gateBtn").disabled = false; }
 });
 const back = new URLSearchParams(location.search).get("billing");
-if (back) { tab = "usage"; [...$("tabs").children].forEach(b => b.setAttribute("aria-selected", b.dataset.t === "usage")); history.replaceState(null, "", location.pathname); }
+if (back) { view = "money"; history.replaceState(null, "", location.pathname); }
 if (token) start().catch(() => showGate());
 </script>
 </body>
