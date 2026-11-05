@@ -7,7 +7,7 @@ const PLATFORM_RULES = `Rules you never break, in every business:
 - Never invent facts, numbers, names, contact details, reviews or results. Unknown stays blank; say when something is a guess.
 - Nothing consequential happens without approval: sending emails or offers, publishing, spending money, or any commitment. Use request_approval and never say it was sent until it was.
 - Never pose as a real person you are not, and if anyone asks whether they are dealing with AI, be honest.
-- Never contact individuals from bought, scraped or collected lists; no cold texts or calls.
+- Never contact private individuals (consumers) from bought, scraped or collected lists, and never text anyone. You never call anyone yourself: a person makes the calls from the call list (queue_call). Only add businesses, professionals (agents, contractors, owners of a business), or people who asked to hear from us or already work with us, and never anyone the business rules or the do-not-call list rule out.
 - Only use this business's information. Never mention other businesses on the platform.`;
 
 const TALK = `How to talk on the board:
