@@ -83,6 +83,12 @@ h1{font-size:56px;line-height:1.03;letter-spacing:-.03em;font-weight:800;margin:
 .mock .foot{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:14px}
 .mock .cap{margin:-4px 0 0;color:var(--muted);font-size:13px;text-align:center}
 
+.demo{padding:8px 0 80px}
+.demo-head{text-align:center;margin-bottom:28px}
+.player{max-width:960px;margin:0 auto;border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);background:#18222d;aspect-ratio:16/9}
+.player video{display:block;width:100%;height:100%}
+.demo-note{text-align:center;color:var(--muted);font-size:14px;margin:14px auto 0;max-width:40em}
+
 /* sections */
 section.band{padding:80px 0}
 section.alt{background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -162,6 +168,7 @@ footer a{color:var(--muted)}
 }
 @media (max-width:640px){
   .hero{padding:36px 0 48px}
+  .demo{padding:0 0 56px}
   h1{font-size:38px}
   .lede{font-size:18px}
   h2{font-size:31px}
@@ -180,7 +187,7 @@ footer a{color:var(--muted)}
   <div class="in bar">
     <a class="mark" href="/" aria-label="Destiny OS home"><i>D</i>Destiny OS</a>
     <nav class="links" aria-label="Sections">
-      <a href="#how">How it works</a><a href="#team">The team</a><a href="#pricing">Pricing</a><a href="#faq">Questions</a><a href="#talk">Talk to us</a>
+      <a href="#demo">Demo</a><a href="#how">How it works</a><a href="#team">The team</a><a href="#pricing">Pricing</a><a href="#faq">Questions</a><a href="#talk">Talk to us</a>
     </nav>
     <div class="end">
       <a class="btn quiet signin" href="/login">Sign in</a>
@@ -213,6 +220,15 @@ footer a{color:var(--muted)}
         </div><span>Your team, working now</span></div>
         <p class="cap">An example of your Home screen</p>
       </div>
+    </div>
+  </section>
+
+  <section class="demo" id="demo">
+    <div class="in">
+      <div class="demo-head"><p class="kicker">See it in action</p><h2>One minute with a sample business.</h2></div>
+      <div class="player"><video controls preload="none" playsinline poster="/demo-poster.jpg" aria-label="A one-minute walkthrough of Destiny OS">
+        <source src="/demo.mp4" type="video/mp4"></video></div>
+      <p class="demo-note">A walkthrough using a made-up roofing company. The names, leads and numbers are examples, not real customer data.</p>
     </div>
   </section>
 
