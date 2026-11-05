@@ -2,6 +2,7 @@
 import { audit, Business, BizAgent, config, post, sql } from "./core.ts";
 import { PACKS, sendEmail } from "./integrations.ts";
 import { e164 } from "./twilio.ts";
+import { previewBlocks } from "./storage.ts";
 
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required });
 const S = { type: "string" }, I = { type: "integer" };
@@ -29,8 +30,10 @@ export const TOOL_DEFS: Record<string, Record<string, unknown>> = {
   report_to_owner: { name: "report_to_owner", description: "Send the owner a report or a decision only they can make. Use sparingly: end-of-day report, a reply from a prospect, urgent decisions.", input_schema: obj({ subject: S, body: S }, ["subject", "body"]) },
   save_content: { name: "save_content", description: "Save a piece of content (post, ad, reel, video script, graphic brief, page) for approval. To post photos or a video from the media library, give their ids in media_ids (find them with find_media): up to 10 photos, or exactly one video. kind 'reel' = one vertical video posted as a Facebook Reel; body is its caption.",
     input_schema: obj({ kind: { type: "string", enum: ["post", "ad", "reel", "video_script", "graphic_brief", "page", "email", "other"] }, channel: S, audience: S, title: S, body: S, media_ids: { type: "array", items: I } }, ["kind", "body"]) },
-  find_media: { name: "find_media", description: "Look through the business's media library: photos (e.g. contractors' before and after shots), videos (finished reels) and music the owner uploaded. Filter by tag (before, after, job, reel, music, brand, other), kind (photo, video, audio), or words in the contractor, trade, job, title or notes. You can't see the files, so go by these labels. Only files the owner cleared for public use are listed.",
+  find_media: { name: "find_media", description: "Look through the business's media library: photos (e.g. contractors' before and after shots), videos (finished reels) and music the owner uploaded. Filter by tag (before, after, job, reel, music, brand, other), kind (photo, video, audio), or words in the labels or in 'seen' (a description of what is actually in the picture). Only files the owner cleared for public use are listed. Use view_media to look at the ones you're considering.",
     input_schema: obj({ tag: S, kind: S, query: S }) },
+  view_media: { name: "view_media", description: "Look at up to 4 library items yourself: a photo's preview, or frames from a video in order. Do this before you write a post around a photo, so the words match what it actually shows.",
+    input_schema: obj({ ids: { type: "array", items: I } }, ["ids"]) },
   queue_call: { name: "queue_call", description: "Put someone on the call list for the business's caller (a person makes the calls). Give the record id (its data.phone is used) or a phone number, and say why to call and what to cover. Only for people the business rules allow calling.",
     input_schema: obj({ record_id: I, phone: S, reason: S }, ["reason"]) },
   schedule_content: { name: "schedule_content", description: "Schedule APPROVED content for publishing (ISO date-time).", input_schema: obj({ id: I, when: S }, ["id", "when"]) },
@@ -66,7 +69,7 @@ export async function execute(b: Business, ap: any): Promise<string> {
   return "approved; nothing to carry out automatically for this kind";
 }
 
-export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent, name: string, input: any, ctx: { recordId?: number; saved: number; depth: number }): Promise<string> {
+export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent, name: string, input: any, ctx: { recordId?: number; saved: number; depth: number }): Promise<string | any[]> {
   const allowed = (a.tools ?? a.default_tools).includes(name) || (cfg.tool_packs ?? []).some((p: string) => PACKS[p]?.tools.some((t) => (t.def as any).name === name && t.agents.includes(a.slot)));
   if (!allowed) return `error: ${name} isn't one of your tools`;
   await audit(b.id, "agent", a.slot, `tool:${name}`, input?.id ? String(input.id) : null, input);
@@ -183,17 +186,33 @@ export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent
     }
     case "find_media": {
       const words = String(input?.query ?? "").toLowerCase().split(/[^a-z0-9&]+/).filter((w) => w.length > 1).slice(0, 6);
-      const rows = await sql`select id, kind, tag, contractor, trade, job, title, notes, created_at::date as added from os.media
+      const rows = await sql`select id, kind, tag, contractor, trade, job, title, notes, ai_notes as seen, created_at::date as added from os.media
         where business_id = ${b.id} and status = 'ready' and permission
         ${input?.tag ? sql`and tag = ${String(input.tag)}` : sql``}
         ${input?.kind ? sql`and kind = ${String(input.kind)}` : sql``}
-        ${words.length ? sql`and concat_ws(' ', contractor, trade, job, title, notes) ilike all(${sql.array(words.map((w) => `%${w}%`))})` : sql``}
+        ${words.length ? sql`and concat_ws(' ', contractor, trade, job, title, notes, ai_notes) ilike all(${sql.array(words.map((w) => `%${w}%`))})` : sql``}
         order by created_at desc limit 40`;
       if (!rows.length) {
         const [n] = await sql`select count(*)::int as n from os.media where business_id = ${b.id} and status = 'ready' and not permission`;
         return `nothing matches${n.n ? ` (${n.n} file${n.n > 1 ? "s are" : " is"} in the library but not cleared for public use yet)` : ""}. Ask the owner to upload what you need in the Media tab.`;
       }
       return JSON.stringify(rows);
+    }
+    case "view_media": {
+      const ids = (Array.isArray(input.ids) ? input.ids : []).map(Number).filter((n: number) => n > 0).slice(0, 4);
+      if (!ids.length) return "error: give the ids to look at (from find_media).";
+      const rows = await sql`select id, kind, tag, contractor, trade, job, frames from os.media
+        where business_id = ${b.id} and status = 'ready' and permission and id = any(${sql.array(ids)}::bigint[]) order by id`;
+      if (!rows.length) return "none of those are in the library (or cleared for use).";
+      const blocks: any[] = [];
+      for (const m of rows) {
+        const what = `#${m.id} ${m.kind}: ${[m.tag, m.trade, m.contractor, m.job].filter(Boolean).join(", ")}`;
+        if (!m.frames?.length) { blocks.push({ type: "text", text: `${what}. No preview to look at (e.g. an iPhone HEIC photo); go by its labels.` }); continue; }
+        const show = m.frames.slice(0, m.kind === "video" ? 4 : 1);
+        blocks.push({ type: "text", text: m.kind === "video" ? `${what}. ${show.length} frames, in order:` : `${what}:` });
+        blocks.push(...(await previewBlocks(show)));
+      }
+      return blocks;
     }
     case "recall": {
       const words = String(input?.query ?? "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2).slice(0, 6);

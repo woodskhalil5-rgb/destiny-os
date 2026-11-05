@@ -57,6 +57,17 @@ export async function removeObjects(paths: string[]) {
   await st(`object/${BUCKET}`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ prefixes: paths }) });
 }
 
+export function b64(bytes: Uint8Array) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+/** The previews (JPEG) of library items as image blocks a model can look at. */
+export async function previewBlocks(paths: string[]) {
+  return await Promise.all(paths.map(async (p) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64(await download(p)) } })));
+}
+
 /** Library items attached to a post, in the order given, with links. Only this business's ready files. */
 export async function mediaFor(bid: string, ids: number[], expiresIn = 3600) {
   if (!ids?.length) return [];

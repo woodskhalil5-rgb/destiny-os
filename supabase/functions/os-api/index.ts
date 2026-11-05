@@ -7,6 +7,7 @@ import { appUrl, platformMail } from "../_core/mail.ts";
 import { sendEmail } from "../_core/integrations.ts";
 import { e164, identityFor, recordForPhone, twilio, twilioCreds, voiceToken } from "../_core/twilio.ts";
 import { MAX_BYTES, MIME, mediaFor, objectInfo, removeObjects, signedUrls, uploadUrl } from "../_core/storage.ts";
+import { describeMedia } from "../_core/vision.ts";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, authorization, apikey, x-os-token", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, "content-type": "application/json" } });
@@ -494,7 +495,7 @@ Deno.serve(async (req) => {
 
   // ---- Media library: photos, videos and music the team can use in posts ----
   if (action === "media_list") {
-    const rows = await sql`select id, kind, path, mime, bytes, tag, contractor, trade, job, title, notes, permission, uploaded_by, created_at
+    const rows = await sql`select id, kind, path, mime, bytes, tag, contractor, trade, job, title, notes, permission, uploaded_by, created_at, ai_notes, cardinality(frames) as previews
       from os.media where business_id = ${bid} and status = 'ready' order by created_at desc limit 300`;
     const urls = await signedUrls(rows.map((m: any) => m.path), 3 * 3600);
     return json({ media: rows.map((m: any) => ({ ...m, path: undefined, url: urls[m.path] ?? null })) });
@@ -530,20 +531,29 @@ Deno.serve(async (req) => {
     if (!info) return json({ error: "The upload didn't finish. Try that file again." }, 400);
     const kind = MIME[info.mime] ?? MIME[String(body.mime ?? "")];
     if (!kind) { await removeObjects([path]); return json({ error: "That file type isn't supported." }, 400); }
-    const [m] = await sql`insert into os.media (business_id, kind, path, mime, bytes, tag, contractor, trade, job, title, notes, permission, uploaded_by)
-      values (${bid}, ${kind}, ${path}, ${info.mime || body.mime}, ${info.bytes}, ${f.tag}, ${f.contractor}, ${f.trade}, ${f.job}, ${f.title}, ${f.notes}, ${f.permission}, ${user.email})
+    // Previews the browser made (JPEG): a downsized photo or frames from a video, so the team can see it.
+    const frames: string[] = [];
+    for (const fp of (Array.isArray(body.frames) ? body.frames : []).slice(0, 6).map(String)) {
+      if (!fp.startsWith(`${bid}/`) || fp.includes("..")) continue;
+      const fi = await objectInfo(fp);
+      if (fi && fi.mime === "image/jpeg" && fi.bytes < 3_000_000) frames.push(fp);
+    }
+    const [m] = await sql`insert into os.media (business_id, kind, path, mime, bytes, tag, contractor, trade, job, title, notes, permission, uploaded_by, frames)
+      values (${bid}, ${kind}, ${path}, ${info.mime || body.mime}, ${info.bytes}, ${f.tag}, ${f.contractor}, ${f.trade}, ${f.job}, ${f.title}, ${f.notes}, ${f.permission}, ${user.email}, ${sql.array(frames)}::text[])
       on conflict (path) do nothing returning id`;
     if (!m) return json({ error: "Already saved." }, 409);
-    await audit(bid, "user", user.email, "media:upload", String(m.id), { kind, tag: f.tag });
+    await audit(bid, "user", user.email, "media:upload", String(m.id), { kind, tag: f.tag, previews: frames.length });
+    // @ts-ignore EdgeRuntime is provided by Supabase
+    if (frames.length) EdgeRuntime.waitUntil(describeMedia(bid, Number(m.id)).catch((e) => console.error("describe", (e as Error).message)));
     return json({ ok: true, id: m.id });
   }
   if (action === "media_delete") {
     if (!need("operator")) return json({ error: "Viewers can't delete." }, 403);
     const [inUse] = await sql`select id from os.content where business_id = ${bid} and ${Number(body.id)}::bigint = any(media_ids) and status in ('pending','approved','scheduled') limit 1`;
     if (inUse) return json({ error: `Post #${inUse.id} is waiting to go out with this file. Send that post back first.` }, 409);
-    const [m] = await sql`update os.media set status = 'deleted' where id = ${body.id} and business_id = ${bid} and status = 'ready' returning path`;
+    const [m] = await sql`update os.media set status = 'deleted' where id = ${body.id} and business_id = ${bid} and status = 'ready' returning path, frames`;
     if (!m) return json({ error: "Not found." }, 404);
-    await removeObjects([m.path]);
+    await removeObjects([m.path, ...(m.frames ?? [])]);
     await audit(bid, "user", user.email, "media:delete", String(body.id));
     return json({ ok: true });
   }
