@@ -3,6 +3,8 @@ import { audit, Business, BizAgent, config, post, sql } from "./core.ts";
 import { PACKS, sendEmail } from "./integrations.ts";
 import { e164 } from "./twilio.ts";
 import { previewBlocks } from "./storage.ts";
+import { execute } from "./execute.ts";
+export { execute };
 
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required });
 const S = { type: "string" }, I = { type: "integer" };
@@ -53,22 +55,6 @@ async function ownerDecisions(bid: string, kind: string) {
 }
 
 /** Carry out an approved action. Returns what happened. */
-export async function execute(b: Business, ap: any): Promise<string> {
-  if (ap.kind === "email") {
-    const p = ap.payload ?? {};
-    if (!p.to || !p.subject || !p.body) throw new Error("email approval is missing to, subject or body");
-    // The sender can depend on who it's to: config.email_from maps a record type to a From address
-    // (e.g. JHP: homeowners see hello@, everyone else team@).
-    const [rec] = ap.record_id ? await sql`select type from os.records where id = ${ap.record_id} and business_id = ${b.id}` : [];
-    const from = rec ? (await config(b.id)).email_from?.[rec.type] : undefined;
-    await sendEmail(b, { to: p.to, subject: p.subject, text: p.body, from });
-    await sql`update os.approvals set status = 'done' where id = ${ap.id}`;
-    if (ap.record_id) await sql`update os.records set status = 'contacted', next_step = 'wait for reply, follow up if none', next_step_due = (now() + interval '4 days')::date, updated_at = now() where id = ${ap.record_id} and business_id = ${b.id}`;
-    return `email sent to ${p.to}`;
-  }
-  return "approved; nothing to carry out automatically for this kind";
-}
-
 export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent, name: string, input: any, ctx: { recordId?: number; saved: number; depth: number }): Promise<string | any[]> {
   const allowed = (a.tools ?? a.default_tools).includes(name) || (cfg.tool_packs ?? []).some((p: string) => PACKS[p]?.tools.some((t) => (t.def as any).name === name && t.agents.includes(a.slot)));
   if (!allowed) return `error: ${name} isn't one of your tools`;

@@ -4,7 +4,7 @@
 //  3. Watches each business's connected Gmail inbox (when "watch for replies" is on): owner emails go on the board,
 //     replies from records' email addresses mark the record "replied" and wake the team.
 import { audit, post, secret, sql } from "../_core/core.ts";
-import { platformMail } from "../_core/mail.ts";
+import { appUrl, platformMail } from "../_core/mail.ts";
 import { download, mediaFor } from "../_core/storage.ts";
 import { describePending } from "../_core/vision.ts";
 import { ImapFlow } from "npm:imapflow@1";
@@ -23,15 +23,19 @@ async function sendAlerts() {
   await sql`update os.alerts set sent_at = now(), error = coalesce(error, '') || ' (expired)' where sent_at is null and created_at < now() - interval '1 day'`;
   const rows = await sql`select a.*, b.name as biz from os.alerts a left join os.businesses b on b.id = a.business_id where a.sent_at is null order by a.id limit 50`;
   if (!rows.length) return 0;
+  // Items waiting for the owner's OK go out as their own email with one-tap links.
+  const okRows = rows.filter((a: any) => a.kind === "needs_ok");
+  let sent = okRows.length ? await sendOkEmails(okRows) : 0;
+  const rest = rows.filter((a: any) => a.kind !== "needs_ok");
+  if (!rest.length) return sent;
   const platformTo = await secret("OS_OWNER_EMAIL");
   // Group per recipient so a burst becomes one email.
   const groups = new Map<string, any[]>();
-  for (const a of rows) {
+  for (const a of rest) {
     const to = a.audience === "platform" ? platformTo : await ownerEmailFor(a.business_id);
     if (!to) { await sql`update os.alerts set sent_at = now(), error = 'no recipient' where id = ${a.id}`; continue; }
     groups.set(to, [...(groups.get(to) ?? []), a]);
   }
-  let sent = 0;
   for (const [to, list] of groups) {
     const subject = list.length === 1 ? list[0].subject : `Destiny OS: ${list.length} updates`;
     const text = list.map((a) => (list.length > 1 ? `• ${a.subject}\n  ${a.body}` : a.body)).join("\n\n") + "\n\n— Destiny OS";
@@ -42,6 +46,74 @@ async function sendAlerts() {
     try {
       await platformMail(to, subject, text);
       sent += list.length;
+    } catch (e) {
+      await sql`update os.alerts set sent_at = null, error = ${(e as Error).message.slice(0, 300)} where id = any(${ids}::bigint[])`;
+    }
+  }
+  return sent;
+}
+
+const esc = (t: unknown) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
+async function sha256hex(t: string) {
+  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+  return Array.from(new Uint8Array(b)).map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+/** One email per business owner listing what's waiting, each with a link to a page where one tap approves or sends it back. */
+async function sendOkEmails(alerts: any[]) {
+  const names = Object.fromEntries((await sql`select slot, name from os.agents`).map((a: any) => [a.slot, a.name]));
+  const app = await appUrl();
+  const groups = new Map<string, any[]>();
+  for (const a of alerts) groups.set(a.business_id, [...(groups.get(a.business_id) ?? []), a]);
+  let sent = 0;
+  for (const [bid, list] of groups) {
+    const ids = sql.array(list.map((a) => String(a.id)));
+    const marked = await sql`update os.alerts set sent_at = now(), error = null where id = any(${ids}::bigint[]) and sent_at is null returning id`;
+    if (!marked.length) continue;
+    const to = await ownerEmailFor(bid);
+    if (!to) { await sql`update os.alerts set error = 'no recipient' where id = any(${ids}::bigint[])`; continue; }
+    // Only what is still waiting: a teammate may have decided it in the meantime.
+    const items: { kind: string; title: string; from: string; what: string; preview: string; link: string }[] = [];
+    for (const a of list) {
+      const id = Number(a.ref?.id);
+      let it: any = null;
+      if (a.ref?.kind === "approval") {
+        const [ap] = await sql`select summary, kind, payload, requested_by from os.approvals where id = ${id} and business_id = ${bid} and status = 'pending'`;
+        if (ap) it = { kind: "approval", title: ap.summary, from: names[ap.requested_by] ?? "Your team",
+          what: ap.kind === "email" ? `Email to ${ap.payload?.to ?? "a contact"}` : `${String(ap.kind).replace(/_/g, " ")} to approve`,
+          preview: ap.kind === "email" ? `${ap.payload?.subject ?? ""} — ${ap.payload?.body ?? ""}` : "" };
+      } else if (a.ref?.kind === "content") {
+        const [c] = await sql`select title, body, kind, channel, created_by, cardinality(media_ids) as files from os.content where id = ${id} and business_id = ${bid} and status = 'pending'`;
+        if (c) it = { kind: "content", title: c.title || `${c.kind} for ${c.channel ?? "Facebook"}`, from: names[c.created_by] ?? "Your team",
+          what: `${c.kind === "reel" ? "Reel" : "Post"} for ${c.channel ?? "Facebook"}${c.files ? ` · ${c.files} ${c.files > 1 ? "files" : "file"}` : ""}`, preview: c.body ?? "" };
+      }
+      if (!it) continue;
+      const token = Array.from(crypto.getRandomValues(new Uint8Array(24))).map((x) => x.toString(16).padStart(2, "0")).join("");
+      await sql`insert into os.approval_links (token_hash, business_id, item_kind, item_id, expires_at) values (${await sha256hex(token)}, ${bid}, ${it.kind}, ${id}, now() + interval '3 days')`;
+      items.push({ ...it, preview: String(it.preview).replace(/\s+/g, " ").trim().slice(0, 220), link: `${app}/ok?t=${token}` });
+    }
+    if (!items.length) continue;
+    const biz = list[0].biz ?? "your business";
+    const subject = items.length === 1 ? `OK to ${items[0].kind === "content" ? "post" : "send"}? ${items[0].title}`.slice(0, 140) : `${items.length} things need your OK · ${biz}`;
+    const text = `${biz}: ${items.length === 1 ? "this needs" : "these need"} your OK. Tap a link to see it and approve or send it back.\n\n`
+      + items.map((i) => `• ${i.title} (${i.what}, from ${i.from})\n  ${i.link}`).join("\n\n")
+      + `\n\nEach link works for 3 days, for that item only. Or review everything in your dashboard: ${app}/app\n\n— Destiny OS`;
+    const html = `<!doctype html><html><body style="margin:0;background:#f3f5f2;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#18222d">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f5f2;padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
+<tr><td style="padding:0 4px 14px;font-size:14px;color:#68737e"><b style="color:#106b55">Destiny OS</b> · ${esc(biz)}</td></tr>
+<tr><td style="padding:0 4px 18px;font-size:24px;font-weight:800;line-height:1.2">${items.length === 1 ? "1 thing needs your OK" : `${items.length} things need your OK`}</td></tr>
+${items.map((i) => `<tr><td style="padding:0 0 14px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #dfe4de;border-radius:14px"><tr><td style="padding:18px 20px">
+<div style="font-size:13px;color:#68737e;margin-bottom:6px">${esc(i.what)} · from ${esc(i.from)}</div>
+<div style="font-size:17px;font-weight:700;margin-bottom:8px">${esc(i.title)}</div>
+${i.preview ? `<div style="font-size:15px;color:#3c4854;line-height:1.5;margin-bottom:16px">${esc(i.preview)}${i.preview.length >= 220 ? "…" : ""}</div>` : ""}
+<a href="${esc(i.link)}" style="display:inline-block;background:#106b55;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:12px 22px;border-radius:10px">Review and approve</a>
+</td></tr></table></td></tr>`).join("")}
+<tr><td style="padding:6px 4px;font-size:13px;color:#68737e;line-height:1.5">Nothing is sent or posted until you tap Approve on the page. Each link works for 3 days, for that item only.<br><a href="${esc(app)}/app" style="color:#106b55">Open your dashboard</a></td></tr>
+</table></td></tr></table></body></html>`;
+    try {
+      await platformMail(to, subject, text, undefined, html);
+      sent += items.length;
     } catch (e) {
       await sql`update os.alerts set sent_at = null, error = ${(e as Error).message.slice(0, 300)} where id = any(${ids}::bigint[])`;
     }

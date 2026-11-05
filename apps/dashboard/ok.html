@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Approve · Destiny OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f5f2; --surface:#ffffff; --sunk:#eef1ed; --ink:#18222d; --soft:#3c4854; --muted:#68737e; --line:#dfe4de;
+  --go:#106b55; --go-ink:#ffffff; --go-tint:#e3f1ec; --bad:#b42318; --bad-tint:#fbe9e7; --r-sm:10px; --r:14px; --r-lg:18px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171c; --surface:#1a2027; --sunk:#151b21; --ink:#e9edf0; --soft:#c3cbd2; --muted:#93a0ab; --line:#2a323a;
+  --go:#4cc7a3; --go-ink:#06231b; --go-tint:#173229; --bad:#ff8a80; --bad-tint:#3a1f1d;
+}}
+:root[data-theme="dark"]{
+  --bg:#12171c; --surface:#1a2027; --sunk:#151b21; --ink:#e9edf0; --soft:#c3cbd2; --muted:#93a0ab; --line:#2a323a;
+  --go:#4cc7a3; --go-ink:#06231b; --go-tint:#173229; --bad:#ff8a80; --bad-tint:#3a1f1d;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Figtree,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--go)}
+main{max-width:620px;margin:0 auto;padding:20px 16px calc(28px + env(safe-area-inset-bottom))}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.mark{display:inline-flex;align-items:center;gap:9px;font-weight:800;font-size:17px;color:var(--ink);text-decoration:none}
+.mark i{width:26px;height:26px;border-radius:8px;background:var(--go);display:grid;place-items:center;color:var(--go-ink);font-style:normal;font-size:14px}
+.biz{color:var(--muted);font-size:14px;font-weight:600;text-align:right}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;display:flex;flex-direction:column;gap:14px}
+.meta{color:var(--muted);font-size:14px}
+h1{margin:0;font-size:22px;line-height:1.25;letter-spacing:-.01em}
+.mail{border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.mail .h{padding:10px 14px;border-bottom:1px solid var(--line);font-size:14px;color:var(--soft);display:flex;gap:8px}
+.mail .h b{color:var(--muted);font-weight:600;min-width:56px}
+.text{white-space:pre-wrap;word-wrap:break-word;padding:14px;font-size:16px;color:var(--ink);background:var(--bg)}
+.mail .text{background:transparent}
+.post{border-radius:var(--r)}
+.media{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.media.one{grid-template-columns:1fr}
+.media img,.media video{width:100%;border-radius:var(--r-sm);display:block;background:var(--sunk);aspect-ratio:4/3;object-fit:cover}
+.media video{aspect-ratio:9/16;max-height:70vh;object-fit:contain;background:#000}
+.details{font-size:14px;color:var(--soft);display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
+.details dt{color:var(--muted)}
+.details dd{margin:0;word-break:break-word}
+.acts{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.btn{font:inherit;font-weight:700;font-size:17px;border:1px solid transparent;border-radius:12px;padding:15px 18px;cursor:pointer;width:100%}
+.btn.go{background:var(--go);color:var(--go-ink)}
+.btn.line{background:var(--surface);color:var(--ink);border-color:var(--line)}
+.btn:disabled{opacity:.6;cursor:default}
+.btn:focus-visible,textarea:focus-visible{outline:2px solid var(--go);outline-offset:2px}
+textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px;width:100%;min-height:90px;resize:vertical}
+label{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;color:var(--soft)}
+.err{color:var(--bad);background:var(--bad-tint);border-radius:var(--r-sm);padding:12px 14px;font-size:15px}
+.err:empty{display:none}
+.done{text-align:center;padding:30px 20px}
+.done .tick{width:56px;height:56px;border-radius:50%;background:var(--go);color:var(--go-ink);display:grid;place-items:center;font-size:28px;font-weight:800;margin:0 auto 14px}
+.done.back .tick{background:var(--sunk);color:var(--soft)}
+.done h1{margin-bottom:6px}
+.done p{margin:0;color:var(--soft)}
+.fine{color:var(--muted);font-size:14px;text-align:center;margin:16px 0 0}
+.skel{height:220px;border-radius:var(--r-lg);background:linear-gradient(90deg,var(--surface),var(--sunk),var(--surface));background-size:200% 100%;animation:sh 1.2s infinite}
+@keyframes sh{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+</style>
+</head>
+<body>
+<main>
+  <div class="top"><a class="mark" href="/app"><i>D</i>Destiny OS</a><span class="biz" id="biz"></span></div>
+  <div id="view"><div class="skel"></div></div>
+  <p class="fine">Nothing is sent or posted until you tap Approve.<br><a href="/app">Open your dashboard</a></p>
+</main>
+<script>
+const API = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-approve";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const t = new URLSearchParams(location.search).get("t") || "";
+let item = null;
+
+async function call(extra){
+  const r = await fetch(API, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({t, ...extra})});
+  const j = await r.json().catch(() => ({error: "Something went wrong. Try again."}));
+  if (!r.ok) throw Object.assign(new Error(j.error || "Something went wrong. Try again."), {data: j});
+  return j;
+}
+const STATUS = {done: "This was already sent.", approved: "This was already approved.", scheduled: "This was already approved and scheduled.", published: "This was already posted.",
+  rejected: "This was already sent back to the team.", publishing: "This is being posted right now.", needs_manual: "This was approved and is ready to post by hand.", failed: "This was approved but didn't go through. Open your dashboard to fix it."};
+
+function render(){
+  const i = item, email = i.email, waiting = i.status === "pending" || (i.kind === "approval" && i.status === "failed");
+  const what = i.kind === "content" ? `${i.type === "reel" ? "Reel" : "Post"} for ${esc(i.channel)}` : email ? `Email to ${esc(email.to)}` : esc(String(i.type).replace(/_/g, " "));
+  let h = `<article class="card"><div class="meta">${what} · from ${esc(i.from)}</div><h1>${esc(i.title || (i.kind === "content" ? "New post" : "Something to approve"))}</h1>`;
+  if (email) h += `<div class="mail"><div class="h"><b>To</b><span>${esc(email.to)}</span></div><div class="h"><b>Subject</b><span>${esc(email.subject)}</span></div><div class="text">${esc(email.body)}</div></div>`;
+  else if (i.kind === "content") {
+    if (i.media?.length) h += `<div class="media${i.media.length === 1 ? " one" : ""}">${i.media.map(m => m.kind === "video" ? `<video src="${esc(m.url)}" controls playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="${esc(m.tag || "Photo")}" loading="lazy">`).join("")}</div>`;
+    h += `<div class="text post">${esc(i.body)}</div>`;
+  } else if (i.details) h += `<dl class="details">${Object.entries(i.details).map(([k, v]) => `<dt>${esc(k.replace(/_/g, " "))}</dt><dd>${esc(typeof v === "string" ? v : JSON.stringify(v))}</dd>`).join("")}</dl>`;
+  if (waiting) {
+    h += `<div class="err" id="err" role="alert"></div><div class="acts" id="acts">
+      <button class="btn go" id="yes">${email ? "Approve and send" : "Approve"}</button>
+      <button class="btn line" id="no">Send back</button></div>
+      <div class="acts" id="backBox" hidden><label>What should change? <span style="font-weight:400;color:var(--muted)">(optional; the team learns from it)</span><textarea id="note" placeholder="e.g. Too long. Mention our free estimates."></textarea></label>
+      <button class="btn go" id="noSend">Send it back</button><button class="btn line" id="noCancel">Cancel</button></div>
+      <p class="meta" style="margin:0;text-align:center">Want to change the wording first? <a href="/app">Edit it in your dashboard</a>.</p>`;
+  } else h += `<div class="err" style="color:var(--soft);background:var(--sunk)">${esc(STATUS[i.status] || "This isn't waiting for you anymore.")}</div>`;
+  $("view").innerHTML = h + `</article>`;
+  if (!waiting) return;
+  $("yes").onclick = () => decide("approve");
+  $("no").onclick = () => { $("acts").hidden = true; $("backBox").hidden = false; $("note").focus(); };
+  $("noCancel").onclick = () => { $("acts").hidden = false; $("backBox").hidden = true; };
+  $("noSend").onclick = () => decide("reject");
+}
+
+async function decide(decision){
+  document.querySelectorAll(".btn").forEach(b => b.disabled = true); $("err").textContent = "";
+  try {
+    const r = await call({action: "decide", decision, note: decision === "reject" ? $("note").value : undefined});
+    const back = decision === "reject";
+    $("view").innerHTML = `<article class="card done${back ? " back" : ""}"><div class="tick">${back ? "↩" : "✓"}</div><h1>${back ? "Sent back" : "Approved"}</h1><p>${esc(r.result)}</p></article>`;
+  } catch (e) {
+    if (e.data?.item) { item = e.data.item; render(); }
+    const el = $("err"); if (el) el.textContent = e.message;
+    document.querySelectorAll(".btn").forEach(b => b.disabled = false);
+  }
+}
+
+(async () => {
+  if (!t) { $("view").innerHTML = `<div class="err">This link isn't complete. Open it again from the email.</div>`; return; }
+  try { const r = await call({action: "view"}); item = r.item; $("biz").textContent = r.business; render(); }
+  catch (e) { $("view").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>
