@@ -5,6 +5,7 @@
 //     replies from records' email addresses mark the record "replied" and wake the team.
 import { audit, post, secret, sql } from "../_core/core.ts";
 import { platformMail } from "../_core/mail.ts";
+import { download, mediaFor } from "../_core/storage.ts";
 import { ImapFlow } from "npm:imapflow@1";
 import { simpleParser } from "npm:mailparser@3";
 
@@ -45,6 +46,9 @@ async function sendAlerts() {
 }
 
 async function publishDue() {
+  // A post stuck mid-upload (the run timed out) is marked failed so the owner hears about it instead of it vanishing.
+  await sql`update os.content set status = 'failed', note = 'Facebook: the upload timed out. Check the Page before posting again.'
+    where status = 'publishing' and scheduled_for < now() - interval '20 minutes'`;
   const due = await sql`select c.*, b.slug, b.name as biz from os.content c join os.businesses b on b.id = c.business_id
     where c.status = 'scheduled' and c.scheduled_for <= now() and b.status <> 'archived' order by c.scheduled_for limit 20`;
   let done = 0;
@@ -61,26 +65,84 @@ async function publishDue() {
     }
     const message = [c.title && !c.body?.startsWith(c.title) ? c.title : null, c.body].filter(Boolean).join("\n\n");
     // A system-user or user token can't post as the Page itself; trade it for the Page's own token when possible.
-    const pg = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(fb.settings.page_id)}?fields=access_token&access_token=${encodeURIComponent(tok.v)}`, { signal: AbortSignal.timeout(15_000) })
+    const pg = await fetch(`${FB}/${encodeURIComponent(fb.settings.page_id)}?fields=access_token&access_token=${encodeURIComponent(tok.v)}`, { signal: AbortSignal.timeout(15_000) })
       .then((x) => x.json()).catch(() => ({}));
-    const r = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(fb.settings.page_id)}/feed`, {
-      method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ message, access_token: pg?.access_token ?? tok.v }).toString(), signal: AbortSignal.timeout(20_000),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (r.ok && j.id) {
-      await sql`update os.content set status = 'published', published_at = now(), note = ${"Facebook post " + j.id} where id = ${c.id}`;
-      await post(c.business_id, "system", `Published content #${c.id} to Facebook.`, { status: "handled" });
-      await audit(c.business_id, "system", "publisher", "published", String(c.id), { facebook_post: j.id });
+    const pageTok: string = pg?.access_token ?? tok.v;
+    // Claim it first so a slow upload can't be picked up twice by the next run.
+    const [claimed] = await sql`update os.content set status = 'publishing' where id = ${c.id} and status = 'scheduled' returning id`;
+    if (!claimed) continue;
+    let res: { id?: string; err?: string };
+    try { res = await publishOne(fb.settings.page_id, pageTok, c, message); } catch (e) { res = { err: (e as Error).message }; }
+    if (res.id) {
+      await sql`update os.content set status = 'published', published_at = now(), note = ${"Facebook " + (c.kind === "reel" ? "reel " : "post ") + res.id} where id = ${c.id}`;
+      await post(c.business_id, "system", `Published content #${c.id} to Facebook${c.kind === "reel" ? " as a Reel" : ""}.`, { status: "handled" });
+      await audit(c.business_id, "system", "publisher", "published", String(c.id), { facebook_id: res.id });
       done++;
     } else {
-      const err = j.error?.message ?? `HTTP ${r.status}`;
+      const err = res.err ?? "unknown error";
       await sql`update os.content set status = 'failed', note = ${"Facebook: " + err} where id = ${c.id}`;
       await post(c.business_id, "system", `Couldn't publish content #${c.id} to Facebook: ${err}. @grayson tell the owner; it may need reconnecting.`, { status: "queued" });
       await sql`select os.alert(${c.business_id}, 'business', 'publish_failed', ${"A scheduled post didn't publish"}, ${`Content #${c.id} couldn't be posted to Facebook: ${err}. Check Connections in your dashboard.`}, ${"pf:" + c.id})`;
     }
   }
   return done;
+}
+
+const FB = "https://graph.facebook.com/v24.0";
+async function fbPost(path: string, form: Record<string, string> | FormData, timeout = 60_000) {
+  const body = form instanceof FormData ? form : new URLSearchParams(form);
+  const r = await fetch(`${FB}/${path}`, { method: "POST", body, signal: AbortSignal.timeout(timeout) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) throw new Error(j.error?.message ?? `HTTP ${r.status}`);
+  return j;
+}
+
+/** Posts one piece of content to a Page: text, photos (1-10) or one video (a Reel when kind is 'reel'). Returns the Facebook id. */
+async function publishOne(pageId: string, tok: string, c: any, message: string): Promise<{ id?: string; err?: string }> {
+  const page = encodeURIComponent(pageId);
+  const ids: number[] = (c.media_ids ?? []).map(Number);
+  const media = ids.length ? await mediaFor(c.business_id, ids) : [];
+  if (media.length !== ids.length) return { err: "a photo or video attached to this post was deleted from the library" };
+  const file = async (m: any) => new Blob([await download(m.path)], { type: m.mime || "application/octet-stream" });
+
+  if (!media.length) return { id: (await fbPost(`${page}/feed`, { message, access_token: tok })).id };
+
+  const video = media.find((m) => m.kind === "video");
+  if (video) {
+    const bytes = await download(video.path);
+    if (c.kind === "reel") {
+      // Reels: start an upload session, send the bytes, then publish with the caption.
+      const start = await fbPost(`${page}/video_reels`, { upload_phase: "start", access_token: tok });
+      const up = await fetch(`https://rupload.facebook.com/video-upload/v24.0/${start.video_id}`, {
+        method: "POST", headers: { Authorization: `OAuth ${tok}`, offset: "0", file_size: String(bytes.length) }, body: bytes, signal: AbortSignal.timeout(180_000),
+      });
+      const uj = await up.json().catch(() => ({}));
+      if (!up.ok || !uj.success) return { err: `video upload failed: ${uj.debug_info?.message ?? uj.error?.message ?? up.status}` };
+      await fbPost(`${page}/video_reels`, { upload_phase: "finish", video_id: start.video_id, video_state: "PUBLISHED", description: message, access_token: tok });
+      return { id: String(start.video_id) };
+    }
+    const fd = new FormData();
+    fd.set("description", message); fd.set("access_token", tok);
+    fd.set("source", new Blob([bytes], { type: video.mime || "video/mp4" }), "video.mp4");
+    return { id: (await fbPost(`${page}/videos`, fd, 180_000)).id };
+  }
+
+  if (media.length === 1) {
+    const fd = new FormData();
+    fd.set("message", message); fd.set("access_token", tok); fd.set("source", await file(media[0]), "photo.jpg");
+    const j = await fbPost(`${page}/photos`, fd);
+    return { id: j.post_id ?? j.id };
+  }
+  // Several photos: upload each unpublished, then one post that carries them all.
+  const fbIds: string[] = [];
+  for (const m of media) {
+    const fd = new FormData();
+    fd.set("published", "false"); fd.set("access_token", tok); fd.set("source", await file(m), "photo.jpg");
+    fbIds.push((await fbPost(`${page}/photos`, fd)).id);
+  }
+  const form: Record<string, string> = { message, access_token: tok };
+  fbIds.forEach((id, i) => form[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id }));
+  return { id: (await fbPost(`${page}/feed`, form)).id };
 }
 
 

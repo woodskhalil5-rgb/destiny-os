@@ -27,8 +27,10 @@ export const TOOL_DEFS: Record<string, Record<string, unknown>> = {
     input_schema: obj({ id: I, decision: { type: "string", enum: ["approve", "reject", "escalate"] }, note: S }, ["id", "decision"]) },
   update_guide: { name: "update_guide", description: "Replace one of your learned guides (e.g. kind 'email' = what the owner approves). Keep it as short rules, under 250 words, everything still true.", input_schema: obj({ kind: S, body: S }, ["kind", "body"]) },
   report_to_owner: { name: "report_to_owner", description: "Send the owner a report or a decision only they can make. Use sparingly: end-of-day report, a reply from a prospect, urgent decisions.", input_schema: obj({ subject: S, body: S }, ["subject", "body"]) },
-  save_content: { name: "save_content", description: "Save a piece of content (post, ad, video script, graphic brief, page) for approval.",
-    input_schema: obj({ kind: { type: "string", enum: ["post", "ad", "video_script", "graphic_brief", "page", "email", "other"] }, channel: S, audience: S, title: S, body: S }, ["kind", "body"]) },
+  save_content: { name: "save_content", description: "Save a piece of content (post, ad, reel, video script, graphic brief, page) for approval. To post photos or a video from the media library, give their ids in media_ids (find them with find_media): up to 10 photos, or exactly one video. kind 'reel' = one vertical video posted as a Facebook Reel; body is its caption.",
+    input_schema: obj({ kind: { type: "string", enum: ["post", "ad", "reel", "video_script", "graphic_brief", "page", "email", "other"] }, channel: S, audience: S, title: S, body: S, media_ids: { type: "array", items: I } }, ["kind", "body"]) },
+  find_media: { name: "find_media", description: "Look through the business's media library: photos (e.g. contractors' before and after shots), videos (finished reels) and music the owner uploaded. Filter by tag (before, after, job, reel, music, brand, other), kind (photo, video, audio), or words in the contractor, trade, job, title or notes. You can't see the files, so go by these labels. Only files the owner cleared for public use are listed.",
+    input_schema: obj({ tag: S, kind: S, query: S }) },
   queue_call: { name: "queue_call", description: "Put someone on the call list for the business's caller (a person makes the calls). Give the record id (its data.phone is used) or a phone number, and say why to call and what to cover. Only for people the business rules allow calling.",
     input_schema: obj({ record_id: I, phone: S, reason: S }, ["reason"]) },
   schedule_content: { name: "schedule_content", description: "Schedule APPROVED content for publishing (ISO date-time).", input_schema: obj({ id: I, when: S }, ["id", "when"]) },
@@ -164,9 +166,34 @@ export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent
       catch (e) { return `posted on the board; email failed: ${(e as Error).message}`; }
     }
     case "save_content": {
-      const [c] = await sql`insert into os.content (business_id, created_by, kind, channel, audience, title, body)
-        values (${b.id}, ${a.slot}, ${input.kind}, ${input.channel ?? null}, ${input.audience ?? null}, ${input.title ?? null}, ${input.body}) returning id`;
-      return `saved as content #${c.id}; it waits for approval.`;
+      const ids: number[] = [...new Set((Array.isArray(input.media_ids) ? input.media_ids : []).map(Number).filter((n: number) => n > 0))] as number[];
+      if (ids.length) {
+        const found = await sql`select id, kind, permission from os.media where business_id = ${b.id} and status = 'ready' and id = any(${sql.array(ids)}::bigint[])`;
+        if (found.length !== ids.length) return "error: some media ids weren't found in this business's library. Use find_media.";
+        if (found.some((m: any) => !m.permission)) return "error: one of those files isn't cleared for public use. Pick another or ask the owner.";
+        const vids = found.filter((m: any) => m.kind === "video"), pics = found.filter((m: any) => m.kind === "photo");
+        if (found.some((m: any) => m.kind === "audio")) return "error: music can't be posted on its own; attach photos or a video.";
+        if (vids.length > 1 || (vids.length && pics.length)) return "error: attach either one video, or up to 10 photos, not both.";
+        if (pics.length > 10) return "error: 10 photos at most per post.";
+        if (input.kind === "reel" && vids.length !== 1) return "error: a reel needs exactly one video from the library.";
+      } else if (input.kind === "reel") return "error: a reel needs one video from the library (media_ids).";
+      const [c] = await sql`insert into os.content (business_id, created_by, kind, channel, audience, title, body, media_ids)
+        values (${b.id}, ${a.slot}, ${input.kind}, ${input.channel ?? null}, ${input.audience ?? null}, ${input.title ?? null}, ${input.body}, ${sql.array(ids)}::bigint[]) returning id`;
+      return `saved as content #${c.id}${ids.length ? ` with ${ids.length} file${ids.length > 1 ? "s" : ""}` : ""}; it waits for approval.`;
+    }
+    case "find_media": {
+      const words = String(input?.query ?? "").toLowerCase().split(/[^a-z0-9&]+/).filter((w) => w.length > 1).slice(0, 6);
+      const rows = await sql`select id, kind, tag, contractor, trade, job, title, notes, created_at::date as added from os.media
+        where business_id = ${b.id} and status = 'ready' and permission
+        ${input?.tag ? sql`and tag = ${String(input.tag)}` : sql``}
+        ${input?.kind ? sql`and kind = ${String(input.kind)}` : sql``}
+        ${words.length ? sql`and concat_ws(' ', contractor, trade, job, title, notes) ilike all(${sql.array(words.map((w) => `%${w}%`))})` : sql``}
+        order by created_at desc limit 40`;
+      if (!rows.length) {
+        const [n] = await sql`select count(*)::int as n from os.media where business_id = ${b.id} and status = 'ready' and not permission`;
+        return `nothing matches${n.n ? ` (${n.n} file${n.n > 1 ? "s are" : " is"} in the library but not cleared for public use yet)` : ""}. Ask the owner to upload what you need in the Media tab.`;
+      }
+      return JSON.stringify(rows);
     }
     case "recall": {
       const words = String(input?.query ?? "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2).slice(0, 6);

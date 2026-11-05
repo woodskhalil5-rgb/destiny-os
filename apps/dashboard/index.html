@@ -218,6 +218,24 @@ details.agent .inner{padding:0 18px 18px}
 .outs button[aria-pressed="true"]{background:var(--go);border-color:var(--go);color:var(--go-ink)}
 .phone-big{font-size:26px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 
+/* ---------- media ---------- */
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-top:16px}
+.mcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.mcard img,.mcard video{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:var(--sunk)}
+.mcard video.tall{aspect-ratio:9/16}
+.mcard .aud{padding:14px 10px 0}
+.mcard .aud audio{width:100%}
+.mcard .mi{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;font-size:14px;min-width:0}
+.mcard .mi .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcard .mi .s{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcard .tags{display:flex;gap:6px;flex-wrap:wrap}
+.mcard select{font-size:13px;padding:5px 8px;min-height:0}
+.mcard .acts{gap:6px}
+.pmedia{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0}
+.pmedia img{width:132px;height:132px;object-fit:cover;border-radius:var(--r-sm);background:var(--sunk)}
+.pmedia video{width:220px;max-height:400px;border-radius:var(--r-sm);background:#000}
+.upnote{font-size:14px;color:var(--soft)}
+
 /* ---------- mobile ---------- */
 .tabbar{display:none}
 @media (max-width:860px){
@@ -268,7 +286,8 @@ details.agent .inner{padding:0 18px 18px}
   <symbol id="i-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/></symbol>
   <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6 8.5 7 8.5-7"/></symbol>
   <symbol id="i-post" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10M7 12h10M7 16h6"/></symbol>
-  <symbol id="i-hand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+  <symbol id="i-hand"viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
 </svg>
 
 <div class="gate" id="gate">
@@ -295,6 +314,7 @@ details.agent .inner{padding:0 18px 18px}
       <button data-v="chat"><svg><use href="#i-chat"/></svg>Team chat</button>
       <button data-v="approve"><svg><use href="#i-check"/></svg>To approve<span class="badge" data-count hidden></span></button>
       <button data-v="work"><svg><use href="#i-work"/></svg>Work</button>
+      <button data-v="media"><svg><use href="#i-image"/></svg>Media</button>
       <button data-v="calls" hidden><svg><use href="#i-phone"/></svg>Calls<span class="badge" data-calls hidden></span></button>
       <button data-v="money"><svg><use href="#i-money"/></svg>Money</button>
     </nav>
@@ -322,6 +342,7 @@ details.agent .inner{padding:0 18px 18px}
     <button data-v="chat"><svg><use href="#i-chat"/></svg>Chat</button>
     <button data-v="approve"><svg><use href="#i-check"/></svg>Approve<span class="badge" data-count hidden></span></button>
     <button data-v="work"><svg><use href="#i-work"/></svg>Work</button>
+    <button data-v="media"><svg><use href="#i-image"/></svg>Media</button>
     <button data-v="calls" hidden><svg><use href="#i-phone"/></svg>Calls<span class="badge" data-calls hidden></span></button>
     <button data-v="money"><svg><use href="#i-money"/></svg>Money</button>
   </nav>
@@ -334,9 +355,19 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&l
 let token = ""; try { token = localStorage.getItem("osToken") || ""; } catch {}
 let biz = null, lastId = 0, data = null, msgs = [], view = "home", workTab = "pipeline", setTab = "business", isAdmin = false, timer;
 let editing = new Set(), people = null, settingsData = null, conns = null, rendered = "", lastHtml = "";
-const SLOW = new Set(["settings", "new"]);
+const SLOW = new Set(["settings", "new", "media"]);
+let mediaData = null, mediaFilter = "all", upBusy = false;
+const urlCache = {};
+const TAGS = [["before", "Before"], ["after", "After"], ["job", "Job photo"], ["reel", "Finished reel / video"], ["music", "Music"], ["brand", "Logo / brand"], ["other", "Other"]];
+const TAGL = Object.fromEntries(TAGS);
+// Links to private files change on every refresh; keep the first one (good for hours) so videos don't restart.
+const murl = (m) => { const c = urlCache[m.id]; if (c && Date.now() - c.t < 7200e3) return c.u; urlCache[m.id] = {u: m.url, t: Date.now()}; return m.url; };
+function mediaHtml(c){
+  if (!c.media?.length) return "";
+  return `<div class="pmedia">${c.media.map(m => m.kind === "video" ? `<video src="${esc(murl(m))}" controls preload="metadata" playsinline></video>` : `<a href="${esc(murl(m))}" target="_blank" rel="noopener"><img src="${esc(murl(m))}" alt="${esc(TAGL[m.tag] || "Photo")}" loading="lazy"></a>`).join("")}</div>`;
+}
 const ROLE = {research: "Research", analysis: "Analysis", production: "Writing", coordination: "Manager", media: "Media", distribution: "Outreach"};
-const TITLES = {home: "Home", chat: "Team chat", approve: "To approve", work: "Work", calls: "Calls", money: "Money", settings: "Settings", new: "Add a business"};
+const TITLES = {home: "Home", chat: "Team chat", approve: "To approve", work: "Work", media: "Media", calls: "Calls", money: "Money", settings: "Settings", new: "Add a business"};
 const CALLER_VIEWS = new Set(["calls", "chat"]);
 const OUTCOMES = [["talked", "Talked"], ["interested", "Interested"], ["callback", "Call back later"], ["no_answer", "No answer"], ["voicemail", "Left a voicemail"], ["not_interested", "Not interested"], ["wrong_number", "Wrong number"], ["do_not_call", "Do not call again"]];
 let callsData = null, callsAt = 0, device = null, deviceBiz = null, active = null, incoming = null, callStart = 0, callWho = "", pending = null, barTimer = null;
@@ -446,12 +477,13 @@ const VIEWS = {
           <input class="note" data-f="note" placeholder="Why? (optional; the team learns from it)"></div></article>`;
     }).join("")
     + w.posts.map(c => `<article class="ap" data-ct="${c.id}">${from(c.created_by)}
-        <h4>${esc(c.title || label(c.kind))}</h4><div class="s">${esc(label(c.kind))}${c.channel ? " for " + esc(c.channel) : ""}${c.audience ? " · " + esc(c.audience) : ""}</div>
+        <h4>${esc(c.title || label(c.kind))}</h4><div class="s">${esc(label(c.kind))}${c.channel ? " for " + esc(c.channel) : ""}${c.audience ? " · " + esc(c.audience) : ""}${c.media?.length ? ` · ${c.kind === "reel" ? "goes up as a Reel" : c.media.length + (c.media[0].kind === "video" ? " video" : c.media.length > 1 ? " photos" : " photo")}` : ""}</div>
+        ${mediaHtml(c)}
         <textarea data-f="body" rows="${Math.min(16, Math.max(5, String(c.body).split("\n").length + 2))}">${esc(c.body)}</textarea>
         <div class="acts"><button class="btn go" data-act="approve">Approve</button><button class="btn" data-act="reject">Send back</button>
           <input class="note" data-f="note" placeholder="Note for the team (optional)"></div></article>`).join("")
     + w.manual.map(c => `<article class="ap warn" data-cm="${c.id}"><div class="from">Ready to post by hand on ${esc(c.channel || "Facebook")}</div>
-        <h4>${esc(c.title || label(c.kind))}</h4>${c.note ? `<div class="s">${esc(c.note)}</div>` : ""}<div class="post">${esc(c.body)}</div>
+        <h4>${esc(c.title || label(c.kind))}</h4>${c.note ? `<div class="s">${esc(c.note)}</div>` : ""}${mediaHtml(c)}<div class="post">${esc(c.body)}</div>
         <div class="acts"><button class="btn" data-cact="copy">Copy text</button><button class="btn go" data-cact="done">I posted it</button></div></article>`).join("");
   },
 
@@ -478,15 +510,46 @@ const VIEWS = {
     }
     function posts(){
       if (!data.content.length) return `<div class="empty"><b>No posts yet.</b>Posts, ads and scripts the team writes show up here.</div>`;
-      const P = {pending: ["Waiting for you", "need"], approved: ["Approved", "go"], scheduled: ["Scheduled", "go"], published: ["Posted", "go"], rejected: ["Sent back", ""], needs_manual: ["Post by hand", "need"], failed: ["Didn't publish", "bad"]};
+      const P = {pending: ["Waiting for you", "need"], approved: ["Approved", "go"], scheduled: ["Scheduled", "go"], publishing: ["Posting now", "go"], published: ["Posted", "go"], rejected: ["Sent back", ""], needs_manual: ["Post by hand", "need"], failed: ["Didn't publish", "bad"]};
       return `<div class="list">${data.content.map(c => `<details class="rec" data-k="c${c.id}"><summary class="row click"><span class="kind" style="background:var(--sunk);color:var(--soft)"><svg><use href="#i-post"/></svg></span><div class="grow"><div class="t">${esc(c.title || firstLine(c.body))}</div><div class="s">${esc(label(c.kind))}${c.channel ? " · " + esc(c.channel) : ""}${c.scheduled_for ? " · " + esc(when(c.scheduled_for)) : ""}</div></div><span class="pill ${(P[c.status] || [])[1] || ""}">${esc((P[c.status] || [label(c.status)])[0])}</span></summary>
-        <div class="post" style="margin:0 18px 16px">${esc(c.body)}</div></details>`).join("")}</div>`;
+        <div style="margin:0 18px 16px">${mediaHtml(c)}<div class="post">${esc(c.body)}</div>${c.note && ["failed", "needs_manual", "published"].includes(c.status) ? `<div class="s" style="margin-top:6px">${esc(c.note)}</div>` : ""}</div></details>`).join("")}</div>`;
     }
     function log(){
       const T = teamBy(), A = {"tool:save_record": "saved a record", "tool:create_task": "created a task", "tool:request_approval": "asked for approval", "tool:save_content": "wrote a post", "tool:web_search": "searched the web", "tool:recall": "checked the team's notes", "tool:save_note": "saved a note", "tool:report_to_owner": "reported to you", "tool:review_approval": "reviewed an approval", "tool:write_notebook": "wrote the notebook", "sign-in": "signed in", resume: "started the team", pause: "paused the team"};
       const rows = (data.activity || []);
       return rows.length ? `<div class="list">${rows.map(a => `<div class="row"><div class="grow"><div class="t" style="font-weight:500">${esc(T[a.actor]?.name || a.actor)} ${esc(A[a.action] || label(a.action.replace(/^tool:/, "")))}</div></div><span class="s">${esc(ago(a.at))}</span></div>`).join("")}</div>` : `<div class="empty"><b>No activity yet.</b></div>`;
     }
+  },
+
+  media(){
+    const can = data.role !== "viewer";
+    if (!mediaData) { call("media_list").then(r => { mediaData = r.media; rendered = ""; render(true); }).catch(e => showErr(e)); return `<p class="s">Loading…</p>`; }
+    let h = "";
+    if (can) h += `<div class="box form" id="upBox"><h4>Add photos, videos or music</h4>
+      <p>Contractors' before-and-after photos, finished reels, music for videos. Grayson can only use files you mark as cleared for public use.</p>
+      <label class="field">Files<input type="file" id="upFiles" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,video/mp4,video/quicktime,.mov,audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,.mp3,.m4a,.wav"><small>Up to 50 MB each. Pick several at once if they're from the same job.</small></label>
+      <div class="grid2"><label class="field">What are they<select data-u="tag">${TAGS.map(([k, n]) => `<option value="${k}">${n}</option>`).join("")}</select></label>
+        <label class="field">Trade<input data-u="trade" placeholder="e.g. Roofing"></label></div>
+      <div class="grid2"><label class="field">Contractor or company<input data-u="contractor" placeholder="Who did the work"></label>
+        <label class="field">Job<input data-u="job" placeholder="e.g. Cherry Hill roof, Oct 2026"><small>Use the same job name for a before and its after.</small></label></div>
+      <label class="field">Notes for the team<input data-u="notes" placeholder="What's in the picture; the team can't see it"></label>
+      <label class="check"><input type="checkbox" data-u="permission"> The contractor said we can use these in our posts and ads</label>
+      <div class="acts"><button class="btn go" data-gact="upload">Upload</button><span class="upnote" id="upProg"></span></div></div>`;
+    const F = {all: ["All", () => true], ba: ["Before & after", m => ["before", "after", "job"].includes(m.tag)], video: ["Videos", m => m.kind === "video"], music: ["Music", m => m.kind === "audio"], hold: ["Not cleared", m => !m.permission]};
+    const list = mediaData.filter(F[mediaFilter][1]);
+    h += `<div class="section"><h3>Library <span class="s" style="font-weight:500;color:var(--muted)">${mediaData.length}</span></h3>
+      <div class="seg" role="group">${Object.entries(F).map(([k, [n]]) => `<button data-mf="${k}" aria-pressed="${mediaFilter === k}">${n}</button>`).join("")}</div>`;
+    if (!list.length) h += `<div class="empty"><b>${mediaData.length ? "Nothing in this filter." : "Nothing here yet."}</b>${mediaData.length ? "" : "Upload a contractor's before and after photos to get started."}</div>`;
+    else h += `<div class="mgrid">${list.map(m => `<div class="mcard" data-mid="${m.id}">
+      ${m.kind === "photo" ? `<a href="${esc(murl(m))}" target="_blank" rel="noopener"><img src="${esc(murl(m))}" alt="${esc(m.title || TAGL[m.tag])}" loading="lazy"></a>`
+        : m.kind === "video" ? `<video class="tall" src="${esc(murl(m))}" controls preload="metadata" playsinline></video>`
+        : `<div class="aud"><audio src="${esc(murl(m))}" controls preload="none"></audio></div>`}
+      <div class="mi"><div class="tags">${can ? `<select data-gtag aria-label="What it is">${TAGS.map(([k, n]) => `<option value="${k}"${k === m.tag ? " selected" : ""}>${n}</option>`).join("")}</select>` : `<span class="pill">${esc(TAGL[m.tag])}</span>`}
+        ${m.permission ? "" : `<span class="pill bad">Not cleared</span>`}</div>
+        <div class="t">${esc(m.contractor || m.title || m.job || "Untitled")}</div>
+        <div class="s">${esc([m.trade, m.job && m.contractor ? m.job : null].filter(Boolean).join(" · ") || ago(m.created_at))}</div>
+        ${can ? `<div class="acts">${m.permission ? "" : `<button class="btn small go" data-gact="clear">Cleared to use</button>`}<button class="btn small bad" data-gact="del">Delete</button></div>` : ""}</div></div>`).join("")}</div>`;
+    return h + `</div>`;
   },
 
   money(){
@@ -787,7 +850,7 @@ function topbar(){
   document.querySelectorAll("[data-v]").forEach(x => {
     x.setAttribute("aria-current", x.dataset.v === view ? "page" : "false");
     const v = x.dataset.v;
-    if (["home", "approve", "work", "money"].includes(v)) x.hidden = caller;
+    if (["home", "approve", "work", "media", "money"].includes(v)) x.hidden = caller;
     if (v === "calls") x.hidden = !showCalls;
     if (v === "settings") x.hidden = caller;
   });
@@ -819,6 +882,7 @@ function go(v, opts = {}){
   view = v; if (opts.st) setTab = opts.st;
   editing.clear(); people = null; conns = null; settingsData = null; rendered = "";
   if (v === "calls") { callsData = null; }
+  if (v === "media") { mediaData = null; }
   render(true); window.scrollTo(0, 0);
 }
 
@@ -869,6 +933,7 @@ V.addEventListener("input", e => {
   if (e.target.closest("#phoneSet")) editing.add("phone");
   if (e.target.closest("#twBox,#buyBox")) editing.add("tw");
   if (e.target.closest("[data-conn]")) editing.add("conn");
+  if (e.target.closest("#upBox")) editing.add("upload");
   if (e.target.closest("#invite")) editing.add("invite");
   if (e.target.closest("#settingsForm")) editing.add("settings");
   if (e.target.dataset?.s === "raw_config") editing.add("raw");
@@ -931,6 +996,28 @@ V.addEventListener("click", async e => {
       if (k === "twsave") { await call("twilio_setup", {account_sid: $("twAcc").value, auth_token: $("twTok").value, api_key_sid: $("twKey").value, api_key_secret: $("twSec").value}); editing.delete("tw"); }
       await loadCalls(false); rendered = ""; render(true);
     } catch (err) { fail(t, t.closest(".box,.row,.section") || V, err); }
+    return;
+  }
+  if (d.mf) { mediaFilter = d.mf; rendered = ""; render(true); return; }
+  if (d.gact) { // media library
+    if (d.gact === "upload") {
+      if (upBusy) return;
+      upBusy = true; t.disabled = true; $("upBox").querySelectorAll(".err,.ok").forEach(x => x.remove());
+      try {
+        const n = await uploadFiles();
+        editing.delete("upload"); mediaData = null; rendered = ""; render(true);
+        setTimeout(() => $("upBox")?.insertAdjacentHTML("beforeend", `<p class="ok">${n} file${n === 1 ? "" : "s"} added.</p>`), 900);
+      } catch (err) { fail(t, $("upBox"), err); } finally { upBusy = false; }
+      return;
+    }
+    const card = t.closest("[data-mid]"), m = mediaData.find(x => String(x.id) === card.dataset.mid);
+    if (d.gact === "del" && !confirmDel(t)) return;
+    t.disabled = true; card.querySelectorAll(".err").forEach(x => x.remove());
+    try {
+      if (d.gact === "del") { await call("media_delete", {id: m.id}); mediaData = mediaData.filter(x => x !== m); }
+      if (d.gact === "clear") { await call("media_update", {...m, permission: true}); m.permission = true; }
+      rendered = ""; render(true);
+    } catch (err) { fail(t, card.querySelector(".mi"), err); }
     return;
   }
   if (d.bact === "card") {
@@ -996,6 +1083,42 @@ V.addEventListener("click", async e => {
   }
 });
 
+// ---------- media uploads ----------
+const EXT_MIME = {jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic", heif: "image/heif", mp4: "video/mp4", mov: "video/quicktime", mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav"};
+// Delete asks twice: the first click turns the button into "Sure?" for a few seconds.
+function confirmDel(btn){
+  if (btn.dataset.sure) return true;
+  btn.dataset.sure = "1"; btn.textContent = "Sure? Delete";
+  setTimeout(() => { if (btn.isConnected) { delete btn.dataset.sure; btn.textContent = "Delete"; } }, 4000);
+  return false;
+}
+async function uploadFiles(){
+  const box = $("upBox"), files = [...($("upFiles").files || [])], prog = $("upProg"), v = (k) => box.querySelector(`[data-u="${k}"]`);
+  if (!files.length) throw new Error("Pick at least one file first.");
+  const meta = {tag: v("tag").value, trade: v("trade").value, contractor: v("contractor").value, job: v("job").value, notes: v("notes").value, permission: v("permission").checked};
+  let done = 0; const errs = [];
+  for (const [i, f] of files.entries()) {
+    prog.textContent = `Uploading ${i + 1} of ${files.length}…`;
+    try {
+      const mime = (f.type || EXT_MIME[f.name.split(".").pop().toLowerCase()] || "").toLowerCase();
+      const tag = mime.startsWith("audio/") && ["before", "after", "job"].includes(meta.tag) ? "music" : meta.tag;
+      const u = await call("media_upload", {name: f.name, mime, bytes: f.size});
+      const r = await fetch(u.url, {method: "PUT", headers: {"content-type": mime}, body: f});
+      if (!r.ok) throw new Error(`${f.name} didn't upload (${r.status}). Try it again.`);
+      await call("media_save", {path: u.path, mime, ...meta, tag, title: f.name.replace(/\.[^.]+$/, "").slice(0, 160)});
+      done++;
+    } catch (e) { errs.push(e.message); }
+  }
+  prog.textContent = "";
+  if (errs.length) throw new Error((done ? `${done} uploaded. ` : "") + errs.join(" "));
+  return done;
+}
+V.addEventListener("change", async e => {
+  const s = e.target.closest("[data-gtag]"); if (!s) return;
+  const card = s.closest("[data-mid]"), m = mediaData?.find(x => String(x.id) === card.dataset.mid); if (!m) return;
+  try { await call("media_update", {...m, tag: s.value}); m.tag = s.value; } catch (err) { s.value = m.tag; fail(s, card.querySelector(".mi"), err); }
+});
+
 // ---------- data loop ----------
 async function tick(){
   if (!biz) return;
@@ -1028,7 +1151,7 @@ async function start(){
 }
 function switchBiz(id){
   biz = id; $("bizSel").value = id; $("bizSelM").value = id; try { localStorage.setItem("osBiz", biz); } catch {}
-  people = null; conns = null; settingsData = null; callsData = null; pending = null; editing.clear(); lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
+  people = null; conns = null; settingsData = null; callsData = null; mediaData = null; pending = null; editing.clear(); lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
   if (device && !active) { try { device.destroy(); } catch {} device = null; deviceBiz = null; }
   tick();
 }

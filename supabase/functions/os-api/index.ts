@@ -6,6 +6,7 @@ import { ensureCustomer, stripe } from "../_core/stripe.ts";
 import { appUrl, platformMail } from "../_core/mail.ts";
 import { sendEmail } from "../_core/integrations.ts";
 import { e164, identityFor, recordForPhone, twilio, twilioCreds, voiceToken } from "../_core/twilio.ts";
+import { MAX_BYTES, MIME, mediaFor, objectInfo, removeObjects, signedUrls, uploadUrl } from "../_core/storage.ts";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, authorization, apikey, x-os-token", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, "content-type": "application/json" } });
@@ -191,6 +192,13 @@ Deno.serve(async (req) => {
     const team = await sql`select a.slot, a.name, a.handle, ba.enabled from os.agents a join os.business_agents ba on ba.slot = a.slot and ba.business_id = ${bid} order by a.sort`;
     const approvals = await sql`select * from os.approvals where business_id = ${bid} order by id desc limit 60`;
     const content = await sql`select * from os.content where business_id = ${bid} order by id desc limit 60`;
+    // Posts with photos or a video: attach short-lived links so the owner sees exactly what goes out.
+    const withMedia = content.filter((c: any) => c.media_ids?.length && ["pending", "approved", "scheduled", "published", "needs_manual", "failed"].includes(c.status));
+    if (withMedia.length) {
+      const all = await mediaFor(bid, [...new Set(withMedia.flatMap((c: any) => c.media_ids.map(Number)))] as number[], 3 * 3600);
+      const byId = new Map(all.map((m: any) => [Number(m.id), { id: m.id, kind: m.kind, tag: m.tag, url: m.url }]));
+      for (const c of withMedia as any[]) c.media = c.media_ids.map((i: any) => byId.get(Number(i))).filter(Boolean);
+    }
     const records = await sql`select id, type, status, title, data, next_step, next_step_due, updated_at from os.records where business_id = ${bid} order by updated_at desc limit 200`;
     const tasks = await sql`select t.*, a.name as assignee from os.tasks t left join os.agents a on a.slot = t.assignee_slot where t.business_id = ${bid} and t.status in ('open','in_progress','blocked') order by t.id desc limit 60`;
     const [usage] = await sql`select coalesce(sum(billed_usd),0) as usd, count(*)::int as calls, coalesce(sum(input_tokens+output_tokens),0)::bigint as tokens from os.usage_events where business_id = ${bid} and at >= date_trunc('month', now())`;
@@ -481,6 +489,62 @@ Deno.serve(async (req) => {
     await audit(bid, "user", user.email, `content:${approve ? "approve" : "reject"}`, String(c.id), { note });
     await post(bid, "system", approve ? `The owner approved content #${c.id}${text !== c.body ? " with edits" : ""}.${note ? " " + note : ""} @grayson schedule it.`
       : `The owner rejected content #${c.id}.${note ? " Why: " + note : ""} @grayson redo it if it's worth saving.`);
+    return json({ ok: true });
+  }
+
+  // ---- Media library: photos, videos and music the team can use in posts ----
+  if (action === "media_list") {
+    const rows = await sql`select id, kind, path, mime, bytes, tag, contractor, trade, job, title, notes, permission, uploaded_by, created_at
+      from os.media where business_id = ${bid} and status = 'ready' order by created_at desc limit 300`;
+    const urls = await signedUrls(rows.map((m: any) => m.path), 3 * 3600);
+    return json({ media: rows.map((m: any) => ({ ...m, path: undefined, url: urls[m.path] ?? null })) });
+  }
+  if (action === "media_upload") {
+    if (!need("operator")) return json({ error: "Viewers can't upload." }, 403);
+    const mime = String(body.mime ?? "").toLowerCase(), bytes = Number(body.bytes ?? 0);
+    if (!MIME[mime]) return json({ error: `${body.name || "That file"} isn't a photo (JPG, PNG, WEBP, HEIC), video (MP4, MOV) or audio (MP3, M4A, WAV) file.` }, 400);
+    if (!(bytes > 0) || bytes > MAX_BYTES) return json({ error: `${body.name || "That file"} is over 50 MB. Shrink it and try again.` }, 400);
+    const ext = (String(body.name ?? "").match(/\.([a-z0-9]{2,5})$/i)?.[1] ?? mime.split("/")[1]).toLowerCase();
+    const path = `${bid}/${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}.${ext}`;
+    try { return json({ path, url: await uploadUrl(path) }); } catch (e) { return json({ error: (e as Error).message }, 502); }
+  }
+  if (action === "media_save" || action === "media_update") {
+    if (!need("operator")) return json({ error: "Viewers can't change the library." }, 403);
+    const TAGS = ["before", "after", "job", "reel", "music", "brand", "other"];
+    const clip = (v: unknown, n: number) => (v == null || v === "" ? null : String(v).trim().slice(0, n) || null);
+    const f = {
+      tag: TAGS.includes(body.tag) ? body.tag : "other",
+      contractor: clip(body.contractor, 120), trade: clip(body.trade, 60), job: clip(body.job, 160),
+      title: clip(body.title, 160), notes: clip(body.notes, 1000), permission: !!body.permission,
+    };
+    if (action === "media_update") {
+      const [m] = await sql`update os.media set tag = ${f.tag}, contractor = ${f.contractor}, trade = ${f.trade}, job = ${f.job}, title = ${f.title}, notes = ${f.notes}, permission = ${f.permission}
+        where id = ${body.id} and business_id = ${bid} and status = 'ready' returning id`;
+      if (!m) return json({ error: "Not found." }, 404);
+      await audit(bid, "user", user.email, "media:update", String(m.id), f);
+      return json({ ok: true });
+    }
+    const path = String(body.path ?? "");
+    if (!path.startsWith(`${bid}/`) || path.includes("..")) return json({ error: "Bad file." }, 400);
+    const info = await objectInfo(path);
+    if (!info) return json({ error: "The upload didn't finish. Try that file again." }, 400);
+    const kind = MIME[info.mime] ?? MIME[String(body.mime ?? "")];
+    if (!kind) { await removeObjects([path]); return json({ error: "That file type isn't supported." }, 400); }
+    const [m] = await sql`insert into os.media (business_id, kind, path, mime, bytes, tag, contractor, trade, job, title, notes, permission, uploaded_by)
+      values (${bid}, ${kind}, ${path}, ${info.mime || body.mime}, ${info.bytes}, ${f.tag}, ${f.contractor}, ${f.trade}, ${f.job}, ${f.title}, ${f.notes}, ${f.permission}, ${user.email})
+      on conflict (path) do nothing returning id`;
+    if (!m) return json({ error: "Already saved." }, 409);
+    await audit(bid, "user", user.email, "media:upload", String(m.id), { kind, tag: f.tag });
+    return json({ ok: true, id: m.id });
+  }
+  if (action === "media_delete") {
+    if (!need("operator")) return json({ error: "Viewers can't delete." }, 403);
+    const [inUse] = await sql`select id from os.content where business_id = ${bid} and ${Number(body.id)}::bigint = any(media_ids) and status in ('pending','approved','scheduled') limit 1`;
+    if (inUse) return json({ error: `Post #${inUse.id} is waiting to go out with this file. Send that post back first.` }, 409);
+    const [m] = await sql`update os.media set status = 'deleted' where id = ${body.id} and business_id = ${bid} and status = 'ready' returning path`;
+    if (!m) return json({ error: "Not found." }, 404);
+    await removeObjects([m.path]);
+    await audit(bid, "user", user.email, "media:delete", String(body.id));
     return json({ ok: true });
   }
 
