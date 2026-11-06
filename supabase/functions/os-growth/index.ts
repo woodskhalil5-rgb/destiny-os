@@ -1,10 +1,11 @@
 // os-growth: the Customers screen. Quotes the owner logs (followed up at 2, 5 and 10 days), wins, past customers,
 // seasonal emails to them, review-request settings, and the public unsubscribe link.
 // Signed-in calls use the dashboard's session token (x-os-token); 'unsub' is public and checks a signed link.
-import { audit, post, sql } from "../_core/core.ts";
+import { audit, post, secret, sql } from "../_core/core.ts";
 import { unsubToken } from "../_core/unsub.ts";
 import { pushTo, vapidPublic } from "../_core/push.ts";
 import { stripe, stripeAccount } from "../_core/stripe.ts";
+import { platformMail } from "../_core/mail.ts";
 
 // Never touch these Stripe accounts from here (same list as os-billing).
 const FORBIDDEN_ACCOUNTS = ["acct_1UWNu2ISquyuV0hE"];
@@ -31,6 +32,46 @@ async function recipients(bid: string) {
     where r.business_id = ${bid} and r.type = 'customer' and coalesce(r.data->>'email', '') <> ''
       and not exists (select 1 from os.optouts o where o.business_id = r.business_id and o.email = lower(r.data->>'email'))`;
   return r.n as number;
+}
+
+// The monthly "how to make Destiny OS better" report: last month's numbers in, plain recommendations out.
+// Nothing changes on its own: build changes go to Claude in a session, pricing and business calls stay the owner's.
+async function monthlyReport(current: boolean) {
+  const [d] = current ? await sql`select date_trunc('month', now())::date as m` : await sql`select (date_trunc('month', now()) - interval '1 month')::date as m`;
+  const m = d.m as string;
+  if (!current) { const [have] = await sql`select 1 from os.platform_reports where month = ${m}`; if (have) return { ok: true, skipped: "already written" }; }
+  const [x] = await sql`select os.platform_metrics(${m}::date) as j`;
+  const [prev] = await sql`select left(body, 3000) as body from os.platform_reports where month < ${m} order by month desc limit 1`;
+  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!key) throw new Error("No Anthropic key.");
+  const model = "claude-opus-5-5";
+  const system = `You write the monthly improvement report for Destiny OS, for its owner. Destiny OS is a SaaS that gives a small local business (mostly home services) an AI marketing team of six: James (research), Emily (analysis), Kole (writing), DeMarcus (coordination), Grayson (social media), Benjamin (distribution). It answers inquiries, follows up quotes on day 2, 5 and 10, asks for reviews, emails past customers seasonal offers, posts to Facebook, has a phone dialer with a virtual assistant, a weekly recap email, and phone notifications. Everything that goes out waits for the business owner's OK.
+How it earns: a monthly platform fee (standard $650), AI usage billed at cost plus a markup (standard 30%), calls at cost plus a per-minute fee, a monthly fee per phone number, and one-off charges. 14-day free trial. Billed on the 1st. "internal" businesses belong to the owner (they cost money but don't pay).
+
+Write a plain-text email (no markdown symbols like # or **), short and direct, in this order:
+1. The month in numbers: 5 to 8 lines (revenue, our cost, margin, paying businesses, trials started and converted, AI cost and which teammate costs most, anything unusual).
+2. What's working (2 to 4 lines).
+3. What isn't (2 to 4 lines).
+4. Recommended changes: up to 6, ranked by impact. For each: the change; why (the number behind it); the expected effect; and who does it, either "Tell Claude: <one-line instruction>" for changes to the product, its prompts, models or workflow, or "Your call" for prices, offers and business decisions.
+5. Watch next month: 2 or 3 things.
+Rules: reason only from the numbers given. If there's too little data to judge something, say so and say what to measure instead. Don't present outside benchmarks as fact. Never recommend anything that drops the owner-approval step, mixes businesses' data, calls or texts people without consent, or emails without an unsubscribe link. If last month's report is included, say briefly which of its recommendations the numbers show were acted on.`;
+  const user = `Numbers for ${String(m).slice(0, 7)}${current ? " (month so far)" : ""}:\n${JSON.stringify(x.j)}${prev ? `\n\nLast month's report:\n${prev.body}` : ""}`;
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST", signal: AbortSignal.timeout(110_000),
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model, max_tokens: 3000, system, messages: [{ role: "user", content: user }] }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`Claude API ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
+  const body = (j.content ?? []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("").trim();
+  const [p] = await sql`select * from os.model_prices where model = ${model}`;
+  const cost = p ? ((j.usage?.input_tokens ?? 0) * Number(p.input_per_mtok) + (j.usage?.output_tokens ?? 0) * Number(p.output_per_mtok)) / 1e6 : null;
+  await sql`insert into os.platform_reports (month, body, metrics, cost_usd) values (${m}, ${body}, ${sql.json(x.j)}, ${cost})
+    on conflict (month) do update set body = excluded.body, metrics = excluded.metrics, cost_usd = excluded.cost_usd, created_at = now()`;
+  const to = await secret("OS_OWNER_EMAIL");
+  const label = new Date(String(m).slice(0, 10) + "T12:00:00Z").toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  if (to) await platformMail(to, `Destiny OS: how to improve, ${label}${current ? " (so far)" : ""}`, body + `\n\nAll reports are under All businesses in your dashboard.\n\n— Destiny OS`);
+  return { ok: true, month: m, cost_usd: cost };
 }
 
 Deno.serve(async (req) => {
@@ -78,8 +119,25 @@ Deno.serve(async (req) => {
     return json({ ok: true, business: b.name });
   }
 
+  // On the 1st (pg_cron, with the invoke key): write last month's improvement report.
+  if (action === "monthly_report") {
+    const key = await secret("OS_INVOKE_KEY");
+    if (!key || req.headers.get("authorization") !== `Bearer ${key}`) return json({ error: "forbidden" }, 403);
+    try { return json(await monthlyReport(false)); } catch (e) { return json({ error: (e as Error).message }, 500); }
+  }
+
   const user = await who(req);
   if (!user) return json({ error: "Please sign in." }, 401);
+
+  // The platform owner's view across every business (counts and money only, never their messages or records).
+  if (action === "platform_overview" || action === "report_now") {
+    const [adm] = await sql`select 1 from os.platform_admins where user_id = ${user.id}`;
+    if (!adm) return json({ error: "Only the platform owner sees this." }, 403);
+    if (action === "report_now") { try { return json(await monthlyReport(true)); } catch (e) { return json({ error: (e as Error).message }, 502); } }
+    const [o] = await sql`select os.platform_overview() as b`;
+    const reports = await sql`select id, month, body, created_at from os.platform_reports order by month desc limit 6`;
+    return json({ businesses: o.b, reports });
+  }
   const bid = String(body.business_id ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(bid)) return json({ error: "Pick a business." }, 400);
   const [isAdmin] = await sql`select 1 from os.platform_admins where user_id = ${user.id}`;
