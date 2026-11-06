@@ -6,6 +6,7 @@
 import { audit, business, post, secret, sql } from "../_core/core.ts";
 import { sendEmail } from "../_core/integrations.ts";
 import { unsubLink } from "../_core/unsub.ts";
+import { pushTo, pushUsersFor } from "../_core/push.ts";
 import { appUrl, platformMail } from "../_core/mail.ts";
 import { download, mediaFor } from "../_core/storage.ts";
 import { describePending } from "../_core/vision.ts";
@@ -48,6 +49,11 @@ async function sendAlerts() {
     try {
       await platformMail(to, subject, text);
       sent += list.length;
+      // Same news on their phone, for anyone who turned notifications on. Never holds up the email.
+      try {
+        const audience = list[0].audience, bid = audience === "platform" ? null : list[0].business_id;
+        await pushTo(await pushUsersFor(bid, audience), { title: subject.slice(0, 80), body: list.map((a) => a.subject).join(" · ").slice(0, 160), url: "/app", tag: "alerts" });
+      } catch (e) { console.error("push", (e as Error).message); }
     } catch (e) {
       await sql`update os.alerts set sent_at = null, error = ${(e as Error).message.slice(0, 300)} where id = any(${ids}::bigint[])`;
     }
@@ -116,6 +122,10 @@ ${i.preview ? `<div style="font-size:15px;color:#3c4854;line-height:1.5;margin-b
     try {
       await platformMail(to, subject, text, undefined, html);
       sent += items.length;
+      try {
+        await pushTo(await pushUsersFor(bid, "business"), { title: items.length === 1 ? "Needs your OK" : `${items.length} things need your OK`,
+          body: items.map((i) => i.title).join(" · ").slice(0, 160), url: items.length === 1 ? items[0].link : `${app}/app`, tag: "ok" });
+      } catch (e) { console.error("push", (e as Error).message); }
     } catch (e) {
       await sql`update os.alerts set sent_at = null, error = ${(e as Error).message.slice(0, 300)} where id = any(${ids}::bigint[])`;
     }

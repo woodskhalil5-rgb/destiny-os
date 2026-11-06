@@ -3,6 +3,7 @@
 // Signed-in calls use the dashboard's session token (x-os-token); 'unsub' is public and checks a signed link.
 import { audit, post, sql } from "../_core/core.ts";
 import { unsubToken } from "../_core/unsub.ts";
+import { pushTo, vapidPublic } from "../_core/push.ts";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, x-os-token", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, "content-type": "application/json" } });
@@ -43,6 +44,36 @@ Deno.serve(async (req) => {
     return json({ ok: true, business: b.name });
   }
 
+  // Public inquiry form (/ask/<slug>): a customer asks for help; the owner hears right away and the team drafts a reply.
+  if (action === "form_info" || action === "inquiry") {
+    const slug = clip(body.slug, 60).toLowerCase();
+    const [b] = await sql`select b.id, b.name, b.status, c.config->'owner'->>'email' as owner from os.businesses b
+      left join os.business_config c on c.business_id = b.id and c.active where b.slug = ${slug} and b.status <> 'archived'`;
+    if (!b) return json({ error: "This form isn't available." }, 404);
+    if (action === "form_info") return json({ business: b.name });
+    if (body.website) return json({ ok: true }); // honeypot
+    const d = { name: clip(body.name, 100), email: clip(body.email, 200).toLowerCase(), phone: clip(body.phone, 40), message: clip(body.message, 3000),
+      consent_calls: body.consent_calls === true, consent_text: body.consent_calls === true ? "Agreed on the inquiry form that the business may call or text about this request, including with an automated assistant." : undefined };
+    if (d.name.length < 2) return json({ error: "Add your name." }, 400);
+    if (!d.email && d.phone.replace(/\D/g, "").length < 7) return json({ error: "Add an email or a phone number so they can get back to you." }, 400);
+    if (d.email && !EMAIL.test(d.email)) return json({ error: "That email doesn't look right." }, 400);
+    if (d.message.length < 5) return json({ error: "Tell them what you need." }, 400);
+    const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+    const [lim] = await sql`select
+      (select count(*)::int from os.records where business_id = ${b.id} and type = 'inquiry' and data->>'ip' = ${ip} and created_at > now() - interval '1 hour') as by_ip,
+      (select count(*)::int from os.records where business_id = ${b.id} and type = 'inquiry' and created_at > now() - interval '1 day') as today`;
+    if (lim.by_ip >= 5 || lim.today >= 200) return json({ error: "Too many messages right now. Please try again later." }, 429);
+    const [r] = await sql`insert into os.records (business_id, type, status, title, data, created_by, next_step, next_step_due)
+      values (${b.id}, 'inquiry', 'new', ${d.name}, ${sql.json({ ...d, ip, source: "inquiry form", received_at: new Date().toISOString() })}, 'form',
+        'answer today', current_date) returning id`;
+    const contact = [d.email, d.phone].filter(Boolean).join(" · ");
+    await sql`select os.alert(${b.id}, 'business', 'inquiry', ${"New inquiry: " + d.name}, ${`${d.name} (${contact}) wrote:\n\n${d.message}\n\n${d.email ? "Kole is drafting a reply for your OK. " : ""}${d.phone ? `Fastest: call them now at ${d.phone}. ` : ""}The first business to answer usually wins the job.`}, ${"inq:" + r.id})`;
+    await post(b.id, "system", d.email
+      ? `@kole New inquiry #${r.id} from ${d.name} (${contact}): "${d.message.slice(0, 1500)}" Draft a short, friendly reply to ${d.email} now and queue it with request_approval (kind email, record_id ${r.id}). Answer only from our facts, and offer the next step (a quick call or an estimate visit). @demarcus make sure it's answered today.`
+      : `@demarcus New inquiry #${r.id} from ${d.name}, phone only (${d.phone}): "${d.message.slice(0, 1500)}" Remind the owner to call them back today.`);
+    return json({ ok: true, business: b.name });
+  }
+
   const user = await who(req);
   if (!user) return json({ error: "Please sign in." }, 401);
   const bid = String(body.business_id ?? "");
@@ -54,6 +85,22 @@ Deno.serve(async (req) => {
   const canEdit = role !== "viewer";
   if (action !== "summary" && !canEdit) return json({ error: "Viewers can't change this." }, 403);
 
+  // Phone notifications for this person (not tied to one business, but asked from the dashboard).
+  if (action === "push_key") return json({ key: await vapidPublic() });
+  if (action === "push_subscribe") {
+    const sub = body.sub ?? {};
+    const endpoint = clip(sub.endpoint, 1000), p256dh = clip(sub.keys?.p256dh, 200), auth = clip(sub.keys?.auth, 100);
+    if (!/^https:\/\//.test(endpoint) || !p256dh || !auth) return json({ error: "Your browser didn't give a usable notification address." }, 400);
+    await sql`insert into os.push_subs (user_id, endpoint, keys, user_agent) values (${user.id}, ${endpoint}, ${sql.json({ p256dh, auth })}, ${clip(req.headers.get("user-agent"), 300)})
+      on conflict (endpoint) do update set user_id = excluded.user_id, keys = excluded.keys, fails = 0`;
+    const sent = await pushTo([user.id], { title: "Notifications are on", body: "You'll get a note here when something needs you.", url: "/app" });
+    return json({ ok: true, sent });
+  }
+  if (action === "push_unsubscribe") {
+    await sql`delete from os.push_subs where user_id = ${user.id} and endpoint = ${clip(body.endpoint, 1000)}`;
+    return json({ ok: true });
+  }
+
   if (action === "summary") {
     const wins = await sql`select kind, count(*)::int as n, coalesce(sum(value_usd), 0)::float as usd from os.wins
       where business_id = ${bid} and at >= date_trunc('month', now()) group by kind`;
@@ -62,9 +109,12 @@ Deno.serve(async (req) => {
     const [c] = await sql`select count(*)::int as n from os.records where business_id = ${bid} and type = 'customer'`;
     const [o] = await sql`select count(*)::int as n from os.optouts where business_id = ${bid}`;
     const [s] = await sql`select review_link, sender_name, follow_ups, review_asks from os.growth_settings where business_id = ${bid}`;
+    const inquiries = await sql`select id, title, status, data - 'ip' as data, created_at from os.records
+      where business_id = ${bid} and type = 'inquiry' order by (status = 'new') desc, created_at desc limit 40`;
+    const [biz] = await sql`select slug from os.businesses where id = ${bid}`;
     const campaigns = await sql`select id, status, summary, payload->>'subject' as subject, note, created_at, decided_at from os.approvals
       where business_id = ${bid} and kind = 'campaign' order by id desc limit 5`;
-    return json({ wins, quotes, customers: c.n, reachable: await recipients(bid), optouts: o.n, settings: s ?? { review_link: null, sender_name: null, follow_ups: true, review_asks: true }, campaigns, can_edit: canEdit });
+    return json({ wins, quotes, customers: c.n, reachable: await recipients(bid), optouts: o.n, settings: s ?? { review_link: null, sender_name: null, follow_ups: true, review_asks: true }, campaigns, inquiries, slug: biz?.slug, can_edit: canEdit });
   }
 
   if (action === "quote_add") {
@@ -93,6 +143,13 @@ Deno.serve(async (req) => {
     if (status !== "sent") await sql`update os.approvals set status = 'rejected', note = 'Quote was marked ' || ${status} || '; follow-up not needed.', decided_at = now(), decided_by = 'system'
       where business_id = ${bid} and status = 'pending' and payload->>'ref_record' = ${String(id)} and summary like 'Follow-up%'`;
     await audit(bid, "user", user.email, `quote_${status}`, String(id), { amount: amount || undefined });
+    return json({ ok: true });
+  }
+
+  if (action === "inquiry_done") {
+    const [r] = await sql`update os.records set status = 'handled', next_step = null, next_step_due = null, updated_at = now()
+      where id = ${Number(body.id)} and business_id = ${bid} and type = 'inquiry' returning id`;
+    if (!r) return json({ error: "Not found." }, 404);
     return json({ ok: true });
   }
 

@@ -3,6 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta name="theme-color" content="#106b55">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Destiny OS">
 <title>Destiny OS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -408,6 +415,32 @@ async function loadTrial(){
   if (id === biz) { rendered = ""; render(true); }
 }
 let aiDown = false, statusTimer = null;
+// Phone notifications: one card on Home until they're on (or dismissed on this device).
+const PUSH_OK = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent), STANDALONE = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch {} return null; };
+if (PUSH_OK) navigator.serviceWorker.register("/sw.js").catch(() => {});
+function pushCard(){
+  if (ls("osPushHide") === "1") return "";
+  if (PUSH_OK && Notification.permission === "granted" && ls("osPushOn") === "1") return "";
+  let inner;
+  if (IOS && !STANDALONE) inner = `<p style="margin:0;color:var(--ink)"><b>Get a notification when something needs you.</b> On iPhone: tap the Share button <span aria-hidden="true">⎋</span>, then <b>Add to Home Screen</b>. Open Destiny OS from your home screen and turn notifications on there.</p>`;
+  else if (!PUSH_OK) return "";
+  else if (Notification.permission === "denied") inner = `<p style="margin:0;color:var(--ink)"><b>Notifications are blocked for this site.</b> Allow them in your browser's site settings, then come back here.</p>`;
+  else inner = `<p style="margin:0;color:var(--ink)"><b>Get a notification on this device when something needs you.</b> New inquiries, things to approve, anything that needs fixing.</p><button class="btn small go" data-push="on">Turn on</button>`;
+  return `<div class="box" id="pushCard" style="margin-bottom:20px;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">${inner}<button class="btn small quiet" data-push="hide">Not now</button></div>`;
+}
+async function pushOn(){
+  const reg = await navigator.serviceWorker.register("/sw.js");
+  await navigator.serviceWorker.ready;
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") throw new Error("Notifications weren't allowed. You can allow them in your browser's site settings.");
+  const { key } = await gCall("push_key");
+  const raw = Uint8Array.from(atob(key.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((key.length + 3) % 4)), c => c.charCodeAt(0));
+  const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: raw });
+  await gCall("push_subscribe", { sub: sub.toJSON() });
+  ls("osPushOn", "1");
+}
 function trialBanner(){
   const pause = aiDown ? `<div class="box alert" style="margin-bottom:20px"><p style="margin:0;color:var(--ink)"><b>Your team is paused for a moment.</b> Our AI service is having trouble, so the team is waiting rather than making mistakes. Anything you send is saved, and they pick back up on their own as soon as it's fixed.</p></div>` : "";
   const t = trialInfo[biz];
@@ -466,7 +499,7 @@ const VIEWS = {
     else if (working.length) head = `${working.map(s => T[s]?.name).filter(Boolean).join(" and ").replace(/ and (?=.* and )/g, ", ")} ${working.length === 1 ? "is" : "are"} working right now.`;
     else if (b.status === "paused") head = "The team is paused.";
     else head = "Nothing needs you right now.";
-    let out = trialBanner() + `<p class="hello">${greet}</p><h1 class="headline">${esc(head)}</h1>`;
+    let out = trialBanner() + pushCard() + `<p class="hello">${greet}</p><h1 class="headline">${esc(head)}</h1>`;
 
     out += setupSteps();
 
@@ -615,6 +648,16 @@ const VIEWS = {
         <div class="fig"><b>${reps.n}</b><span>replies from leads</span></div>
         <div class="fig"><b>${rev.n}</b><span>review requests</span></div>
         <div class="fig"><b>${rpt.n}</b><span>repeat jobs${rpt.usd ? " · " + usd0(rpt.usd) : ""}</span></div></div>`;
+
+    // Inquiries from the business's own form
+    const formUrl = `${location.origin}/ask/${g.slug}`, inq = g.inquiries || [], fresh = inq.filter(i => i.status === "new");
+    h += `<div class="section"><h3>New inquiries <span class="s" style="font-weight:500;color:var(--muted)">${fresh.length} waiting</span></h3>
+      <p class="s" style="margin:-4px 0 12px">Your inquiry form. Put this link on your website, your Facebook Page button and your Google profile. When someone fills it in, you get an email right away and Kole drafts a reply for your OK. The first business to answer usually wins the job.</p>
+      <div class="box" style="flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap"><code style="flex:1;min-width:200px;word-break:break-all;font-size:14px">${esc(formUrl)}</code><button class="btn small" data-copy="${esc(formUrl)}">Copy link</button><a class="btn small" href="${esc(formUrl)}" target="_blank" rel="noopener">Open</a></div>
+      ${inq.length ? `<div class="list" style="margin-top:12px">${inq.slice(0, 12).map(i => { const d = i.data || {};
+        return `<div class="row" data-iid="${i.id}"><div class="grow"><div class="t">${esc(i.title)} <span class="s" style="font-weight:400">· ${esc(when(i.created_at))}</span></div>
+          <div class="s">${esc(String(d.message || "").slice(0, 160))}</div><div class="s">${[d.email ? esc(d.email) : null, d.phone ? `<a href="tel:${esc(d.phone)}">${esc(d.phone)}</a>` : null, d.consent_calls ? "OK to call or text" : null].filter(Boolean).join(" · ")}</div></div>
+          ${i.status === "new" && can ? `<button class="btn small" data-gr="inq_done">Done</button>` : `<span class="pill">${esc(i.status === "new" ? "New" : label(i.status))}</span>`}</div>`; }).join("")}</div>` : ""}</div>`;
 
     // Quotes
     const open = g.quotes.filter(q => ["sent", "following up"].includes(q.status)), closed = g.quotes.filter(q => !["sent", "following up"].includes(q.status)).slice(0, 15);
@@ -1070,6 +1113,9 @@ V.addEventListener("click", async e => {
   const t = e.target.closest("button"); if (!t) return;
   const d = t.dataset;
 
+  if (d.push === "hide") { ls("osPushHide", "1"); rendered = ""; render(true); return; }
+  if (d.push === "on") { t.disabled = true; try { await pushOn(); rendered = ""; render(true); } catch (err) { fail(t, $("pushCard"), err); } return; }
+  if (d.copy) { try { await navigator.clipboard.writeText(d.copy); t.textContent = "Copied"; } catch { t.textContent = "Copy failed"; } setTimeout(() => { t.textContent = "Copy link"; }, 1800); return; }
   if (d.gr) { // Customers screen
     const box = $("grow"), v = (sel) => box.querySelector(sel)?.value?.trim() ?? "", chk = (sel) => !!box.querySelector(sel)?.checked;
     const row = t.closest("[data-qid]"), holder = t.closest(".box, .row, .section") || box;
@@ -1078,6 +1124,7 @@ V.addEventListener("click", async e => {
       let msg = "";
       if (d.gr === "quote_add") await gCall("quote_add", {name: v('[data-q="name"]'), email: v('[data-q="email"]'), phone: v('[data-q="phone"]'), job: v('[data-q="job"]'), amount: v('[data-q="amount"]'), sent_on: v('[data-q="sent_on"]')});
       else if (d.gr === "won" || d.gr === "lost") await gCall("quote_set", {id: Number(row.dataset.qid), status: d.gr});
+      else if (d.gr === "inq_done") await gCall("inquiry_done", {id: Number(t.closest("[data-iid]").dataset.iid)});
       else if (d.gr === "import") { const r = await gCall("customers_import", {text: v('[data-c="text"]')}); msg = `Added ${r.added} customer${r.added === 1 ? "" : "s"}${r.skipped ? ` (${r.skipped} skipped: no email, or already on the list)` : ""}.`; }
       else if (d.gr === "camp_ask") { await gCall("campaign_ask", {idea: v('[data-cp="idea"]')}); msg = "Kole's on it. His draft will show up in To approve."; }
       else if (d.gr === "camp_send") { if (!chk('[data-cp="ok"]')) throw new Error("Tick the box to confirm you want to send it."); const r = await gCall("campaign_create", {subject: v('[data-cp="subject"]'), body: v('[data-cp="body"]')}); msg = `Sending to ${r.recipients} customers over the next few minutes.`; }
