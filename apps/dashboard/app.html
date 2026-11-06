@@ -288,6 +288,7 @@ details.agent .inner{padding:0 18px 18px}
   <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5 11.5 14 16 9"/><rect x="3" y="3" width="18" height="18" rx="4"/></symbol>
   <symbol id="i-work" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></symbol>
   <symbol id="i-money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/></symbol>
   <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
@@ -331,6 +332,7 @@ details.agent .inner{padding:0 18px 18px}
       <button data-v="money"><svg><use href="#i-money"/></svg>Money</button>
     </nav>
     <div class="foot nav">
+      <button data-v="overview" id="ovBtn" hidden><svg><use href="#i-grid"/></svg>All businesses</button>
       <button data-v="new" id="newBizBtn" hidden><svg><use href="#i-plus"/></svg>Add a business</button>
       <button data-v="settings"><svg><use href="#i-gear"/></svg>Settings</button>
       <button id="outBtn" type="button"><svg><use href="#i-out"/></svg>Sign out</button>
@@ -343,6 +345,7 @@ details.agent .inner{padding:0 18px 18px}
       <div class="right">
         <span class="state" id="state">Not started</span>
         <button class="btn small" id="pauseBtn" type="button">Start team</button>
+        <button class="btn quiet small mobile-only" data-v="overview" id="ovBtnM" hidden aria-label="All businesses"><svg width="20" height="20"><use href="#i-grid"/></svg></button>
         <button class="btn quiet small mobile-only" data-v="settings" aria-label="Settings"><svg width="20" height="20"><use href="#i-gear"/></svg></button>
       </div>
     </div>
@@ -368,7 +371,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&l
 let token = ""; try { token = localStorage.getItem("osToken") || ""; } catch {}
 let biz = null, lastId = 0, data = null, msgs = [], view = "home", workTab = "pipeline", setTab = "business", isAdmin = false, timer;
 let editing = new Set(), people = null, settingsData = null, conns = null, rendered = "", lastHtml = "";
-const SLOW = new Set(["settings", "new", "media", "customers"]);
+const SLOW = new Set(["settings", "new", "media", "customers", "overview"]);
 let mediaData = null, mediaFilter = "all", upBusy = false;
 const urlCache = {};
 const TAGS = [["before", "Before"], ["after", "After"], ["job", "Job photo"], ["reel", "Finished reel / video"], ["music", "Music"], ["brand", "Logo / brand"], ["other", "Other"]];
@@ -380,7 +383,7 @@ function mediaHtml(c){
   return `<div class="pmedia">${c.media.map(m => m.kind === "video" ? `<video src="${esc(murl(m))}" controls preload="metadata" playsinline></video>` : `<a href="${esc(murl(m))}" target="_blank" rel="noopener"><img src="${esc(murl(m))}" alt="${esc(TAGL[m.tag] || "Photo")}" loading="lazy"></a>`).join("")}</div>`;
 }
 const ROLE = {research: "Research", analysis: "Analysis", production: "Writing", coordination: "Manager", media: "Media", distribution: "Outreach"};
-const TITLES = {home: "Home", chat: "Team chat", approve: "To approve", work: "Work", media: "Media", calls: "Calls", money: "Money", settings: "Settings", new: "Add a business"};
+const TITLES = {home: "Home", chat: "Team chat", approve: "To approve", work: "Work", media: "Media", calls: "Calls", money: "Money", settings: "Settings", new: "Add a business", overview: "All businesses"};
 const CALLER_VIEWS = new Set(["calls", "chat"]);
 const OUTCOMES = [["talked", "Talked"], ["interested", "Interested"], ["callback", "Call back later"], ["no_answer", "No answer"], ["voicemail", "Left a voicemail"], ["not_interested", "Not interested"], ["wrong_number", "Wrong number"], ["do_not_call", "Do not call again"]];
 let callsData = null, callsAt = 0, device = null, deviceBiz = null, active = null, incoming = null, callStart = 0, callWho = "", pending = null, barTimer = null;
@@ -396,7 +399,7 @@ async function sCall(action, extra = {}) {
   return j;
 }
 const GROWTH = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-growth";
-let growth = null, growthBusy = false, aiPhone = null;
+let growth = null, growthBusy = false, aiPhone = null, ovData = null, ovBusy = false;
 async function gCall(action, extra = {}) {
   const r = await fetch(GROWTH, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
   const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
@@ -798,6 +801,52 @@ const VIEWS = {
     return seg + ({business: setBusiness, connections: setConnections, people: setPeople})[setTab]();
   },
 
+  overview(){
+    if (!isAdmin) return `<div class="empty"><b>Only the platform owner sees this.</b></div>`;
+    if (!ovData) {
+      if (!ovBusy) { ovBusy = true; gCall("platform_overview").then(r => { ovData = r; }).catch(e => { ovData = {error: e.message}; }).finally(() => { ovBusy = false; rendered = ""; render(true); }); }
+      return `<p class="s">Loading…</p>`;
+    }
+    if (ovData.error) return `<div class="err">${esc(ovData.error)}</div>`;
+    const B = ovData.businesses || [], paying = B.filter(b => !b.internal), N = (v) => Number(v || 0);
+    const ago = (d) => { if (!d) return "never"; const h = (Date.now() - new Date(d)) / 36e5; return h < 1 ? "just now" : h < 24 ? Math.round(h) + "h ago" : Math.round(h / 24) + "d ago"; };
+    const rev = paying.reduce((t, b) => t + N(b.revenue), 0), cost = B.reduce((t, b) => t + N(b.cost), 0), intCost = B.filter(b => b.internal).reduce((t, b) => t + N(b.cost), 0);
+    const trials = B.filter(b => b.trial_ends_at && !b.trial_converted && new Date(b.trial_ends_at) > new Date()).length;
+    const payingNow = paying.filter(b => b.billing_status === "active" || b.trial_converted).length;
+    let h = `<div class="month">
+      <div class="fig"><b>${money(rev)}</b><span>billed this month so far</span></div>
+      <div class="fig"><b>${money(rev - (cost - intCost))}</b><span>margin on paying businesses</span></div>
+      <div class="fig"><b>${payingNow} paying · ${trials} on trial</b><span>${B.length} businesses in all</span></div></div>
+      <p class="s" style="color:var(--muted);font-size:14px;margin:10px 2px 0">Your own businesses cost ${money(intCost)} so far this month. Counts and money only: this never shows a business's messages or records.</p>`;
+    const card = (b) => {
+      const trialLeft = b.trial_ends_at && !b.trial_converted ? Math.ceil((new Date(b.trial_ends_at) - Date.now()) / 864e5) : null;
+      const tag = b.internal ? "Yours" : trialLeft != null ? (trialLeft > 0 ? `Trial · ${trialLeft} day${trialLeft === 1 ? "" : "s"} left` : "Trial ended") : b.billing_status === "active" ? "Paying" : label(b.billing_status || "none");
+      const stat = b.status === "live" ? "Team on" : b.status === "paused" ? "Paused" : b.status === "setup" ? "Not started" : label(b.status);
+      const did = [[b.quotes, "quotes"], [b.jobs, `jobs won${N(b.jobs_usd) ? " (" + usd0(b.jobs_usd) + ")" : ""}`], [b.inquiries, "inquiries"], [b.replies, "replies"], [b.sent, "sent"], [b.posts, "posts"], [b.records, "new records"], [b.calls, "calls"]]
+        .filter(([n]) => N(n) > 0).map(([n, w]) => `${n} ${w}`).join(" · ") || "Nothing yet this month";
+      const chip = (on, w) => `<span class="pill${on ? " go" : ""}">${on ? "✓ " : ""}${w}</span>`;
+      return `<div class="box" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div class="t" style="font-size:17px;font-weight:700;flex:1;min-width:0">${esc(b.name)}</div>
+          <span class="pill${b.status === "live" ? " go" : ""}">${esc(stat)}</span><span class="pill${tag === "Paying" ? " go" : trialLeft != null && trialLeft <= 3 ? " need" : ""}">${esc(tag)}</span></div>
+        <div class="s"><b>${money(b.revenue)}</b> billed · ${money(b.cost)} cost${b.internal ? "" : ` · <b>${money(N(b.revenue) - N(b.cost))}</b> margin`}${b.budget ? ` · AI limit ${usd0(b.budget)}` : ""}</div>
+        <div class="s">This month: ${esc(did)}</div>
+        <div class="s">Owner last signed in ${esc(ago(b.owner_seen))} · Team last worked ${esc(ago(b.last_work))}${N(b.waiting) ? ` · <b>${b.waiting} waiting for their OK</b>` : ""}${N(b.errors) ? ` · <span style="color:var(--bad)">${b.errors} errors</span>` : ""}${N(b.rejected) ? ` · ${b.rejected} sent back` : ""}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${chip(b.email_on, "Email")}${chip(b.fb_on, "Facebook")}${chip(b.phone_on, "Phone")}${chip(N(b.customers) > 0, N(b.customers) + " customers")}${chip(N(b.members) > 0, N(b.members) + " people")}</div>
+        <div><button class="btn small" data-ov="open" data-id="${esc(b.id)}">Open</button></div></div>`;
+    };
+    if (paying.length) h += `<div class="section"><h3>Customers' businesses</h3><div style="display:grid;gap:12px">${paying.map(card).join("")}</div></div>`;
+    const mine = B.filter(b => b.internal);
+    if (mine.length) h += `<div class="section"><h3>Your businesses</h3><div style="display:grid;gap:12px">${mine.map(card).join("")}</div></div>`;
+    const R = ovData.reports || [], mo = (m) => new Date(String(m).slice(0, 10) + "T12:00:00Z").toLocaleString([], {month: "long", year: "numeric", timeZone: "UTC"});
+    h += `<div class="section"><h3>Monthly improvement report</h3>
+      <p class="s" style="color:var(--muted);font-size:14px;margin:0 2px 10px">On the 1st, the team reads last month's numbers and emails you what to change, ranked by impact. Each item says "Tell Claude" (a product change) or "Your call" (prices and offers). Nothing changes on its own.</p>
+      ${R.length ? `<div class="box"><div class="s" style="font-weight:700;margin-bottom:8px">${esc(mo(R[0].month))}</div><div style="white-space:pre-wrap;line-height:1.55">${esc(R[0].body)}</div></div>
+        ${R.slice(1).map(r => `<details class="box" style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">${esc(mo(r.month))}</summary><div style="white-space:pre-wrap;line-height:1.55;margin-top:8px">${esc(r.body)}</div></details>`).join("")}`
+        : `<div class="empty"><b>The first report comes on December 1.</b>You can also write one now from this month's numbers so far.</div>`}
+      <div style="margin-top:10px"><button class="btn" data-ov="report">Write a report now (this month so far)</button></div></div>`;
+    return h;
+  },
+
   new(){
     return `<form class="box form" id="newBiz" onsubmit="return false"><h4 style="font-size:20px">Add a business</h4><p>This gives them their own team of six, their own data and billing, and emails the owner a sign-in link. The team stays off until someone clicks Start team.</p>
       <label class="field">Business name<input data-n="name"></label>
@@ -1055,6 +1104,7 @@ function go(v, opts = {}){
   if (v === "calls") { callsData = null; }
   if (v === "media") { mediaData = null; }
   if (v === "customers") { growth = null; editing.delete("grow"); }
+  if (v === "overview") { ovData = null; }
   render(true); window.scrollTo(0, 0);
 }
 
@@ -1222,6 +1272,12 @@ V.addEventListener("click", async e => {
     } catch (err) { fail(t, card.querySelector(".mi"), err); }
     return;
   }
+  if (d.ov === "open") { switchBiz(d.id); go("home"); return; }
+  if (d.ov === "report") {
+    t.disabled = true; t.textContent = "Writing… about a minute";
+    try { await gCall("report_now"); ovData = null; rendered = ""; render(true); } catch (err) { fail(t, t.closest(".section"), err); }
+    return;
+  }
   if (d.bact === "portal") {
     t.disabled = true;
     try { const r = await gCall("billing_portal"); location.href = r.url; } catch (err) { fail(t, t.closest(".box"), err); }
@@ -1378,7 +1434,7 @@ async function tick(){
 }
 async function start(){
   const me = await call("me");
-  isAdmin = !!me.admin; $("newBizBtn").hidden = !isAdmin;
+  isAdmin = !!me.admin; $("newBizBtn").hidden = !isAdmin; $("ovBtn").hidden = !isAdmin; $("ovBtnM").hidden = !isAdmin;
   if (!me.businesses.length && isAdmin) { $("gate").hidden = true; $("app").hidden = false; view = "new"; data = {team: [], working: [], approvals: [], content: [], records: [], tasks: [], business: {status: "setup"}, role: "owner"}; render(true); return; }
   if (!me.businesses.length) return showGate("You're signed in, but nobody has added you to a business yet. Ask the business owner to add you under Settings, People.");
   const opts = me.businesses.map(b => `<option value="${b.id}">${esc(b.name)}${b.status === "live" ? "" : b.status === "paused" ? " (paused)" : " (not started)"}</option>`).join("");

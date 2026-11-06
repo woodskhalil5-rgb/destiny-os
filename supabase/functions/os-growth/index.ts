@@ -37,7 +37,7 @@ async function recipients(bid: string) {
 // The monthly "how to make Destiny OS better" report: last month's numbers in, plain recommendations out.
 // Nothing changes on its own: build changes go to Claude in a session, pricing and business calls stay the owner's.
 async function monthlyReport(current: boolean) {
-  const [d] = current ? await sql`select date_trunc('month', now())::date as m` : await sql`select (date_trunc('month', now()) - interval '1 month')::date as m`;
+  const [d] = current ? await sql`select date_trunc('month', now())::date::text as m` : await sql`select (date_trunc('month', now()) - interval '1 month')::date::text as m`;
   const m = d.m as string;
   if (!current) { const [have] = await sql`select 1 from os.platform_reports where month = ${m}`; if (have) return { ok: true, skipped: "already written" }; }
   const [x] = await sql`select os.platform_metrics(${m}::date) as j`;
