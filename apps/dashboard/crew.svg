@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+<!-- The Destiny OS team as little people. Original artwork. Each symbol is 120x120; show it in a round box (overflow hidden). -->
+
+<!-- James: research. Side-part hair, round glasses, magnifying glass. -->
+<symbol id="p-research" viewBox="0 0 120 120">
+  <circle cx="60" cy="60" r="60" fill="#dce7fa"/>
+  <path d="M14 124 C16 100 36 88 60 88 C84 88 104 100 106 124 Z" fill="#2f5fb3"/>
+  <path d="M50 88 L60 100 L70 88 Z" fill="#ffffff" opacity=".9"/>
+  <rect x="52" y="72" width="16" height="18" rx="6" fill="#e2b48c"/>
+  <circle cx="35" cy="57" r="5.5" fill="#f1c7a1"/><circle cx="85" cy="57" r="5.5" fill="#f1c7a1"/>
+  <ellipse cx="60" cy="54" rx="25" ry="27" fill="#f1c7a1"/>
+  <path d="M34 52 C32 31 45 23 60 23 C77 23 89 32 86 52 C82 41 72 35 59 36 C52 36 47 39 44 43 C42 46 38 49 34 52 Z" fill="#3b2a20"/>
+  <ellipse cx="50" cy="38" rx="7" ry="3" fill="#ffffff" opacity=".15"/>
+  <circle cx="50" cy="56" r="8" fill="#ffffff" fill-opacity=".25" stroke="#22313f" stroke-width="2.2"/>
+  <circle cx="70" cy="56" r="8" fill="#ffffff" fill-opacity=".25" stroke="#22313f" stroke-width="2.2"/>
+  <path d="M58 55 Q60 53 62 55" stroke="#22313f" stroke-width="2.2" fill="none"/>
+  <ellipse cx="50" cy="56.5" rx="2.8" ry="3.6" fill="#1d2430"/><ellipse cx="70" cy="56.5" rx="2.8" ry="3.6" fill="#1d2430"/>
+  <circle cx="51" cy="55" r="1" fill="#fff"/><circle cx="71" cy="55" r="1" fill="#fff"/>
+  <circle cx="44" cy="67" r="4" fill="#ef7f6f" opacity=".3"/><circle cx="76" cy="67" r="4" fill="#ef7f6f" opacity=".3"/>
+  <path d="M53 68 Q60 74 67 68" stroke="#5a2d1e" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <line x1="98" y1="100" x2="110" y2="112" stroke="#5b4636" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="91" cy="93" r="11" fill="#cfe3ff" stroke="#5b4636" stroke-width="4"/>
+  <path d="M85 90 Q88 85 93 85" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+</symbol>
+
+<!-- Emily: analysis. Long auburn hair, a little chart. -->
+<symbol id="p-analysis" viewBox="0 0 120 120">
+  <circle cx="60" cy="60" r="60" fill="#e9e0f8"/>
+  <path d="M31 62 C27 31 43 19 60 19 C79 19 93 32 89 62 C89 80 85 90 81 96 L39 96 C34 88 31 78 31 62 Z" fill="#7a3b22"/>
+  <path d="M14 124 C16 100 36 88 60 88 C84 88 104 100 106 124 Z" fill="#7246b8"/>
+  <path d="M48 88 C52 96 68 96 72 88 Z" fill="#f6d3b8"/>
+  <rect x="52" y="72" width="16" height="18" rx="6" fill="#e8b996"/>
+  <circle cx="35" cy="58" r="5" fill="#f6d3b8"/><circle cx="85" cy="58" r="5" fill="#f6d3b8"/>
+  <ellipse cx="60" cy="55" rx="25" ry="27" fill="#f6d3b8"/>
+  <path d="M35 52 C36 32 49 25 61 26 C75 27 85 36 85 52 C79 42 70 37 61 37 C55 41 46 46 35 52 Z" fill="#8a4428"/>
+  <ellipse cx="68" cy="33" rx="8" ry="3" fill="#ffffff" opacity=".15"/>
+  <ellipse cx="51" cy="57" rx="3" ry="3.8" fill="#1d2430"/><ellipse cx="69" cy="57" rx="3" ry="3.8" fill="#1d2430"/>
+  <circle cx="52" cy="55.6" r="1" fill="#fff"/><circle cx="70" cy="55.6" r="1" fill="#fff"/>
+  <path d="M45.5 50.5 Q49 48.5 53 49.5 M74.5 50.5 Q71 48.5 67 49.5" stroke="#5a2a18" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <circle cx="44" cy="66" r="4.2" fill="#ef7f6f" opacity=".35"/><circle cx="76" cy="66" r="4.2" fill="#ef7f6f" opacity=".35"/>
+  <path d="M53 68 Q60 74.5 67 68" stroke="#7a2e22" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <rect x="80" y="82" width="30" height="26" rx="5" fill="#ffffff" stroke="#5a3596" stroke-width="2.5"/>
+  <rect x="86" y="96" width="4.5" height="7" rx="1" fill="#b597f0"/>
+  <rect x="93" y="91" width="4.5" height="12" rx="1" fill="#9a73e0"/>
+  <rect x="100" y="86" width="4.5" height="17" rx="1" fill="#7246b8"/>
+</symbol>
+
+<!-- Kole: writing. Curly hair, a pencil behind his ear. -->
+<symbol id="p-production" viewBox="0 0 120 120">
+  <circle cx="60" cy="60" r="60" fill="#fbe5d3"/>
+  <path d="M14 124 C16 100 36 88 60 88 C84 88 104 100 106 124 Z" fill="#bb5a17"/>
+  <path d="M52 88 C54 94 66 94 68 88 Z" fill="#a8743f"/>
+  <rect x="52" y="72" width="16" height="18" rx="6" fill="#b47a4c"/>
+  <circle cx="35" cy="58" r="5.5" fill="#c98d5e"/><circle cx="85" cy="58" r="5.5" fill="#c98d5e"/>
+  <ellipse cx="60" cy="55" rx="25" ry="27" fill="#c98d5e"/>
+  <g fill="#1f1611">
+    <circle cx="39" cy="44" r="8"/><circle cx="46" cy="34" r="9"/><circle cx="57" cy="29" r="10"/><circle cx="69" cy="30" r="10"/>
+    <circle cx="79" cy="37" r="9"/><circle cx="83" cy="47" r="7"/><circle cx="37" cy="52" r="5"/><circle cx="62" cy="38" r="7"/><circle cx="50" cy="41" r="6"/><circle cx="73" cy="42" r="6"/>
+  </g>
+  <circle cx="58" cy="26" r="3" fill="#ffffff" opacity=".12"/>
+  <ellipse cx="51" cy="58" rx="3" ry="3.8" fill="#1d2430"/><ellipse cx="69" cy="58" rx="3" ry="3.8" fill="#1d2430"/>
+  <circle cx="52" cy="56.6" r="1" fill="#fff"/><circle cx="70" cy="56.6" r="1" fill="#fff"/>
+  <circle cx="44" cy="67" r="4.2" fill="#d9594a" opacity=".25"/><circle cx="76" cy="67" r="4.2" fill="#d9594a" opacity=".25"/>
+  <path d="M52 68 Q60 76 68 68 Z" fill="#5a2418"/><path d="M55 69.5 Q60 72 65 69.5" stroke="#fff" stroke-width="1.6" fill="none"/>
+  <g transform="rotate(-38 92 46)">
+    <rect x="80" y="43" width="22" height="6" rx="1" fill="#f5c542"/>
+    <polygon points="102,43 109,46 102,49" fill="#f2d3a8"/><polygon points="106.5,45 109,46 106.5,47" fill="#333"/>
+    <rect x="77" y="43" width="4" height="6" rx="1" fill="#e8838a"/>
+  </g>
+</symbol>
+
+<!-- DeMarcus: coordination. Short fade, headset with a mic. -->
+<symbol id="p-coordination" viewBox="0 0 120 120">
+  <circle cx="60" cy="60" r="60" fill="#d4ecea"/>
+  <path d="M14 124 C16 100 36 88 60 88 C84 88 104 100 106 124 Z" fill="#0d6b67"/>
+  <path d="M50 88 L60 99 L70 88 Z" fill="#e9f5f3"/>
+  <rect x="52" y="72" width="16" height="18" rx="6" fill="#6a3f25"/>
+  <circle cx="35" cy="58" r="5.5" fill="#7a4a2c"/><circle cx="85" cy="58" r="5.5" fill="#7a4a2c"/>
+  <ellipse cx="60" cy="55" rx="25" ry="27" fill="#7a4a2c"/>
+  <path d="M36 47 C36 30 48 25 60 25 C73 25 84 31 84 47 C78 40 70 37 60 37 C50 37 42 40 36 47 Z" fill="#17110d"/>
+  <ellipse cx="66" cy="34" rx="7" ry="2.6" fill="#ffffff" opacity=".12"/>
+  <path d="M32 56 C31 24 89 24 88 56" stroke="#2b3440" stroke-width="4.5" fill="none"/>
+  <rect x="27" y="49" width="10" height="15" rx="4" fill="#2b3440"/><rect x="83" y="49" width="10" height="15" rx="4" fill="#2b3440"/>
+  <path d="M33 63 C35 73 43 77 50 76" stroke="#2b3440" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="51" cy="76" r="3.2" fill="#3fb7ad"/>
+  <ellipse cx="51" cy="57" rx="3" ry="3.8" fill="#120c09"/><ellipse cx="69" cy="57" rx="3" ry="3.8" fill="#120c09"/>
+  <circle cx="52" cy="55.6" r="1.1" fill="#fff"/><circle cx="70" cy="55.6" r="1.1" fill="#fff"/>
+  <path d="M46 50 Q50 48 54 50 M66 50 Q70 48 74 50" stroke="#17110d" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M53 67 Q60 73 67 67" stroke="#2e170d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+</symbol>
+
+<!-- Grayson: social media. Beanie, camera. -->
+<symbol id="p-media" viewBox="0 0 120 120">
+  <circle cx="60" cy="60" r="60" fill="#f8dde9"/>
+  <path d="M14 124 C16 100 36 88 60 88 C84 88 104 100 106 124 Z" fill="#b0306a"/>
+  <path d="M50 88 L60 97 L70 88 Z" fill="#f8dde9"/>
+  <rect x="52" y="72" width="16" height="18" rx="6" fill="#e3b796"/>
+  <circle cx="35" cy="59" r="5.5" fill="#f3cfb0"/><circle cx="85" cy="59" r="5.5" fill="#f3cfb0"/>
+  <ellipse cx="60" cy="56" rx="25" ry="27" fill="#f3cfb0"/>
+  <path d="M35 54 C34 48 37 44 40 46 L40 56 Z M85 54 C86 48 83 44 80 46 L80 56 Z" fill="#c89a57"/>
+  <path d="M33 49 C33 27 46 18 60 18 C74 18 87 27 87 49 Z" fill="#8c2453"/>
+  <rect x="31" y="43" width="58" height="11" rx="5" fill="#d14d8a"/>
+  <path d="M38 46 V51 M45 46 V51 M52 46 V51 M59 46 V51 M66 46 V51 M73 46 V51 M80 46 V51" stroke="#b0306a" stroke-width="1.6"/>
+  <circle cx="60" cy="16" r="6.5" fill="#f08cb8"/>
+  <ellipse cx="51" cy="60" rx="3" ry="3.8" fill="#1d2430"/><ellipse cx="69" cy="60" rx="3" ry="3.8" fill="#1d2430"/>
+  <circle cx="52" cy="58.6" r="1" fill="#fff"/><circle cx="70" cy="58.6" r="1" fill="#fff"/>
+  <circle cx="44" cy="68" r="4.2" fill="#ef7f6f" opacity=".35"/><circle cx="76" cy="68" r="4.2" fill="#ef7f6f" opacity=".35"/>
+  <path d="M53 70 Q60 76 67 70" stroke="#7a2e22" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <rect x="78" y="86" width="32" height="22" rx="5" fill="#2b3440"/>
+  <rect x="84" y="82" width="10" height="6" rx="2" fill="#2b3440"/>
+  <circle cx="94" cy="97" r="7.5" fill="#c9d6e3" stroke="#11161c" stroke-width="2.5"/>
+  <circle cx="92" cy="95" r="2" fill="#fff"/>
+  <circle cx="104.5" cy="90.5" r="1.8" fill="#f08cb8"/>
+</symbol>
+
+<!-- Benjamin: distribution. Cap, paper plane. -->
+<symbol id="p-distribution" viewBox="0 0 120 120">
+  <circle cx="60" cy="60" r="60" fill="#e0f0d6"/>
+  <path d="M14 124 C16 100 36 88 60 88 C84 88 104 100 106 124 Z" fill="#3f7d20"/>
+  <path d="M51 88 C53 95 67 95 69 88 Z" fill="#94593a"/>
+  <rect x="52" y="72" width="16" height="18" rx="6" fill="#94593a"/>
+  <circle cx="35" cy="58" r="5.5" fill="#a8683f"/><circle cx="85" cy="58" r="5.5" fill="#a8683f"/>
+  <ellipse cx="60" cy="55" rx="25" ry="27" fill="#a8683f"/>
+  <path d="M36 50 C35 46 37 42 40 42 L41 52 Z M84 50 C85 46 83 42 80 42 L79 52 Z" fill="#2a1c14"/>
+  <path d="M35 45 C35 27 47 21 60 21 C73 21 85 27 85 45 Z" fill="#2f6a18"/>
+  <path d="M57 43 C69 40 86 41 96 46 C88 50 70 50 57 48 Z" fill="#24540f"/>
+  <circle cx="60" cy="21.5" r="2.5" fill="#24540f"/>
+  <path d="M60 22 V44" stroke="#24540f" stroke-width="1.4" opacity=".6"/>
+  <ellipse cx="50" cy="31" rx="7" ry="3" fill="#ffffff" opacity=".15"/>
+  <ellipse cx="51" cy="58" rx="3" ry="3.8" fill="#1d2430"/><ellipse cx="69" cy="58" rx="3" ry="3.8" fill="#1d2430"/>
+  <circle cx="52" cy="56.6" r="1" fill="#fff"/><circle cx="70" cy="56.6" r="1" fill="#fff"/>
+  <circle cx="44" cy="67" r="4.2" fill="#d9594a" opacity=".25"/><circle cx="76" cy="67" r="4.2" fill="#d9594a" opacity=".25"/>
+  <path d="M53 68 Q60 74 67 68" stroke="#3a1a10" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <polygon points="78,98 113,83 97,111 92,101" fill="#ffffff" stroke="#2f6a18" stroke-width="2.2" stroke-linejoin="round"/>
+  <path d="M92 101 L113 83" stroke="#2f6a18" stroke-width="1.8"/>
+  <path d="M72 104 L66 106 M74 110 L68 113" stroke="#8fd16a" stroke-width="2.5" stroke-linecap="round"/>
+</symbol>
+</svg>
