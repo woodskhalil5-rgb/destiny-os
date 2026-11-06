@@ -4,6 +4,10 @@
 import { audit, post, sql } from "../_core/core.ts";
 import { unsubToken } from "../_core/unsub.ts";
 import { pushTo, vapidPublic } from "../_core/push.ts";
+import { stripe, stripeAccount } from "../_core/stripe.ts";
+
+// Never touch these Stripe accounts from here (same list as os-billing).
+const FORBIDDEN_ACCOUNTS = ["acct_1UWNu2ISquyuV0hE"];
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, x-os-token", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, "content-type": "application/json" } });
@@ -96,6 +100,28 @@ Deno.serve(async (req) => {
     const sent = await pushTo([user.id], { title: "Notifications are on", body: "You'll get a note here when something needs you.", url: "/app" });
     return json({ ok: true, sent });
   }
+  // Self-serve billing: Stripe's own page for invoices (past and paid), the card on file and the billing email.
+  if (action === "billing_portal") {
+    if (!isAdmin && !["owner", "admin"].includes(role)) return json({ error: "Only owners and admins can manage billing." }, 403);
+    const [b] = await sql`select stripe_customer_id from os.businesses where id = ${bid}`;
+    if (!b?.stripe_customer_id) return json({ error: "Add a card first. After that, your invoices and card show up here." }, 400);
+    try {
+      const acct = await stripeAccount();
+      if (FORBIDDEN_ACCOUNTS.includes(acct.id) || /destiny marketing group/i.test(acct.name)) return json({ error: "Billing isn't available right now. Please contact us." }, 503);
+      // One portal setup for Destiny OS, created the first time and found again by its tag.
+      const list = await stripe("GET", "billing_portal/configurations", { active: true, limit: 100 });
+      let cfg = (list.data ?? []).find((c: any) => c.metadata?.destiny_os === "1")?.id;
+      if (!cfg) cfg = (await stripe("POST", "billing_portal/configurations", {
+        business_profile: { headline: "Destiny OS: your invoices and card on file" },
+        features: { invoice_history: { enabled: true }, payment_method_update: { enabled: true }, customer_update: { enabled: true, allowed_updates: ["email", "name", "address"] } },
+        metadata: { destiny_os: "1" },
+      }, `portal-cfg-${acct.id}-${acct.mode}`)).id;
+      const [app] = await sql`select decrypted_secret as u from vault.decrypted_secrets where name = 'OS_APP_URL'`;
+      const s = await stripe("POST", "billing_portal/sessions", { customer: b.stripe_customer_id, configuration: cfg, return_url: `${app?.u ?? ""}/app` });
+      await audit(bid, "user", user.email, "billing_portal", null, {});
+      return json({ url: s.url });
+    } catch (e) { return json({ error: `Couldn't open billing: ${(e as Error).message}` }, 502); }
+  }
   if (action === "push_unsubscribe") {
     await sql`delete from os.push_subs where user_id = ${user.id} and endpoint = ${clip(body.endpoint, 1000)}`;
     return json({ ok: true });
@@ -108,13 +134,14 @@ Deno.serve(async (req) => {
       where business_id = ${bid} and type = 'quote' order by (status in ('sent','following up')) desc, updated_at desc limit 150`;
     const [c] = await sql`select count(*)::int as n from os.records where business_id = ${bid} and type = 'customer'`;
     const [o] = await sql`select count(*)::int as n from os.optouts where business_id = ${bid}`;
-    const [s] = await sql`select review_link, sender_name, follow_ups, review_asks from os.growth_settings where business_id = ${bid}`;
+    const [s] = await sql`select review_link, sender_name, follow_ups, review_asks, weekly_recap from os.growth_settings where business_id = ${bid}`;
+    const [playbook] = await sql`select key, label, idea from os.playbook_for(${bid})`;
     const inquiries = await sql`select id, title, status, data - 'ip' as data, created_at from os.records
       where business_id = ${bid} and type = 'inquiry' order by (status = 'new') desc, created_at desc limit 40`;
     const [biz] = await sql`select slug from os.businesses where id = ${bid}`;
     const campaigns = await sql`select id, status, summary, payload->>'subject' as subject, note, created_at, decided_at from os.approvals
       where business_id = ${bid} and kind = 'campaign' order by id desc limit 5`;
-    return json({ wins, quotes, customers: c.n, reachable: await recipients(bid), optouts: o.n, settings: s ?? { review_link: null, sender_name: null, follow_ups: true, review_asks: true }, campaigns, inquiries, slug: biz?.slug, can_edit: canEdit });
+    return json({ wins, quotes, customers: c.n, reachable: await recipients(bid), optouts: o.n, settings: s ?? { review_link: null, sender_name: null, follow_ups: true, review_asks: true, weekly_recap: true }, playbook: playbook ?? null, campaigns, inquiries, slug: biz?.slug, can_edit: canEdit });
   }
 
   if (action === "quote_add") {
@@ -204,10 +231,10 @@ Deno.serve(async (req) => {
   if (action === "settings_set") {
     const link = clip(body.review_link, 400);
     if (link && !/^https:\/\/\S+$/.test(link)) return json({ error: "The review link should start with https://" }, 400);
-    await sql`insert into os.growth_settings (business_id, review_link, sender_name, follow_ups, review_asks, updated_at)
-      values (${bid}, ${link || null}, ${clip(body.sender_name, 80) || null}, ${body.follow_ups !== false}, ${body.review_asks !== false}, now())
+    await sql`insert into os.growth_settings (business_id, review_link, sender_name, follow_ups, review_asks, weekly_recap, updated_at)
+      values (${bid}, ${link || null}, ${clip(body.sender_name, 80) || null}, ${body.follow_ups !== false}, ${body.review_asks !== false}, ${body.weekly_recap !== false}, now())
       on conflict (business_id) do update set review_link = excluded.review_link, sender_name = excluded.sender_name,
-        follow_ups = excluded.follow_ups, review_asks = excluded.review_asks, updated_at = now()`;
+        follow_ups = excluded.follow_ups, review_asks = excluded.review_asks, weekly_recap = excluded.weekly_recap, updated_at = now()`;
     return json({ ok: true });
   }
 

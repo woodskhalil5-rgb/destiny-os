@@ -677,6 +677,9 @@ const VIEWS = {
     // Past customers
     h += `<div class="section"><h3>Past customers <span class="s" style="font-weight:500;color:var(--muted)">${g.customers}</span></h3>
       <p class="s" style="margin:-4px 0 12px">Your own customers are your cheapest work. Send them a seasonal reminder (gutter cleaning before winter, an AC tune-up before summer). ${g.reachable} can be emailed${g.optouts ? `, ${g.optouts} unsubscribed` : ""}. Every email has an unsubscribe link.</p>
+      ${can && g.playbook?.idea ? `<div class="box" id="ideaBox" style="margin-bottom:12px;border-color:var(--go)"><div class="s" style="font-weight:700;color:var(--go)">Idea for ${new Date().toLocaleString("en-US", {month: "long"})}${g.playbook.key !== "general" ? ` · ${esc(g.playbook.label)}` : ""}</div>
+        <div class="t" style="font-size:17px;font-weight:700">${esc(g.playbook.idea)}</div>
+        <div class="acts"><button class="btn small go" data-gr="camp_idea" data-idea="${esc(g.playbook.idea)}">Have Kole write it</button><span class="s">${g.reachable ? `It goes to ${g.reachable} past customer${g.reachable === 1 ? "" : "s"}, only after you OK it.` : "Add your past customers below first, so it has someone to go to."}</span></div></div>` : ""}
       ${can ? `<details class="box form"${g.customers ? "" : " open"}><summary style="cursor:pointer;font-weight:700">Add past customers</summary>
         <label class="field">Paste your list, one customer per line<textarea data-c="text" rows="5" placeholder="Maria Lopez, maria@example.com, 555-123-4567, roof replacement, 2025-09-14&#10;John Park, john@example.com, gutter cleaning"></textarea><small>Name and email are enough. You can copy rows straight from a spreadsheet. Only add people who are actually your customers.</small></label>
         <div class="acts"><button class="btn go" data-gr="import">Add customers</button></div></details>` : ""}
@@ -698,6 +701,7 @@ const VIEWS = {
         <label class="field">Sign emails as<input data-gs="sender_name" value="${esc(st.sender_name || "")}" placeholder="e.g. Alex at Summit Roofing" ${can ? "" : "disabled"}></label>
         <label class="check"><input type="checkbox" data-gs="follow_ups" ${st.follow_ups !== false ? "checked" : ""} ${can ? "" : "disabled"}> Follow up on open quotes (day 2, 5 and 10)</label>
         <label class="check"><input type="checkbox" data-gs="review_asks" ${st.review_asks !== false ? "checked" : ""} ${can ? "" : "disabled"}> Ask for a review after a job is won</label>
+        <label class="check"><input type="checkbox" data-gs="weekly_recap" ${st.weekly_recap !== false ? "checked" : ""} ${can ? "" : "disabled"}> Weekly recap: a short email every Monday with what came in and what went out</label>
         ${can ? `<div class="acts"><button class="btn go" data-gr="settings">Save</button></div>` : ""}</div></div></div>`;
     return h;
   },
@@ -914,7 +918,7 @@ function billing(){
   const st = data.business.billing_status, can = ["owner", "admin"].includes(data.role);
   const text = {active: "Card on file. Invoices are charged automatically on the 1st.", card_needed: "No card on file yet. Invoices are emailed with a payment link until you add one.", past_due: "A payment didn't go through. The team is on hold until it's paid.", none: "Billing isn't set up for this business."}[st] || "";
   return `<div class="box${st === "past_due" ? " alert" : ""}"><h4>Payment</h4><p>${esc(text)} Adding a card means you agree to the <a href="/terms" target="_blank">Terms</a>.</p>
-    ${can && st !== "none" ? `<div><button class="btn ${st === "active" ? "" : "go"}" data-bact="card">${st === "active" ? "Update card" : "Add a card"}</button></div>` : ""}</div>`;
+    ${can && st !== "none" ? `<div class="acts"><button class="btn ${st === "active" ? "" : "go"}" data-bact="card">${st === "active" ? "Update card" : "Add a card"}</button><button class="btn" data-bact="portal">Invoices and receipts</button></div>` : ""}</div>`;
 }
 
 function setBusiness(){
@@ -1126,9 +1130,10 @@ V.addEventListener("click", async e => {
       else if (d.gr === "won" || d.gr === "lost") await gCall("quote_set", {id: Number(row.dataset.qid), status: d.gr});
       else if (d.gr === "inq_done") await gCall("inquiry_done", {id: Number(t.closest("[data-iid]").dataset.iid)});
       else if (d.gr === "import") { const r = await gCall("customers_import", {text: v('[data-c="text"]')}); msg = `Added ${r.added} customer${r.added === 1 ? "" : "s"}${r.skipped ? ` (${r.skipped} skipped: no email, or already on the list)` : ""}.`; }
+      else if (d.gr === "camp_idea") { await gCall("campaign_ask", {idea: d.idea}); msg = "Kole's on it. His draft will show up in To approve."; }
       else if (d.gr === "camp_ask") { await gCall("campaign_ask", {idea: v('[data-cp="idea"]')}); msg = "Kole's on it. His draft will show up in To approve."; }
       else if (d.gr === "camp_send") { if (!chk('[data-cp="ok"]')) throw new Error("Tick the box to confirm you want to send it."); const r = await gCall("campaign_create", {subject: v('[data-cp="subject"]'), body: v('[data-cp="body"]')}); msg = `Sending to ${r.recipients} customers over the next few minutes.`; }
-      else if (d.gr === "settings") { await gCall("settings_set", {review_link: v('[data-gs="review_link"]'), sender_name: v('[data-gs="sender_name"]'), follow_ups: chk('[data-gs="follow_ups"]'), review_asks: chk('[data-gs="review_asks"]')}); msg = "Saved."; }
+      else if (d.gr === "settings") { await gCall("settings_set", {review_link: v('[data-gs="review_link"]'), sender_name: v('[data-gs="sender_name"]'), follow_ups: chk('[data-gs="follow_ups"]'), review_asks: chk('[data-gs="review_asks"]'), weekly_recap: chk('[data-gs="weekly_recap"]')}); msg = "Saved."; }
       editing.delete("grow"); growth = null;
       const r = await gCall("summary"); growth = r; rendered = ""; render(true);
       if (msg) $("grow")?.insertAdjacentHTML("afterbegin", `<p class="okmsg box" style="margin-bottom:16px;color:var(--ink)">${esc(msg)}</p>`);
@@ -1209,6 +1214,11 @@ V.addEventListener("click", async e => {
       if (d.gact === "clear") { await call("media_update", {...m, permission: true}); m.permission = true; }
       rendered = ""; render(true);
     } catch (err) { fail(t, card.querySelector(".mi"), err); }
+    return;
+  }
+  if (d.bact === "portal") {
+    t.disabled = true;
+    try { const r = await gCall("billing_portal"); location.href = r.url; } catch (err) { fail(t, t.closest(".box"), err); }
     return;
   }
   if (d.bact === "card") {
