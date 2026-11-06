@@ -193,6 +193,56 @@ Deno.serve(async (req) => {
     }
     return json({ has_phone: true, on: ph.settings?.ai_answer === "true" });
   }
+  // WhatsApp call sheet (African businesses): the rep's list of roofers to call, each with its call plan,
+  // a one-tap WhatsApp link, and a quick way to log what happened.
+  if (action === "wa_sheet" || action === "wa_log") {
+    const [b] = await sql`select timezone from os.businesses where id = ${bid}`;
+    const cc = ({ "Africa/Lagos": "234", "Africa/Nairobi": "254", "Africa/Accra": "233", "Africa/Johannesburg": "27", "Africa/Kampala": "256", "Africa/Dar_es_Salaam": "255" } as Record<string, string>)[b?.timezone] ?? "";
+    if (!String(b?.timezone ?? "").startsWith("Africa/")) return json({ error: "The WhatsApp call sheet is for African businesses." }, 400);
+    const wa = (raw: unknown) => {
+      let d = String(raw ?? "").replace(/\D/g, "");
+      if (!d) return "";
+      if (d.startsWith("00")) d = d.slice(2);
+      else if (d.startsWith("0") && cc) d = cc + d.slice(1);
+      else if (d.length <= 10 && cc && !d.startsWith(cc)) d = cc + d;
+      return d.length >= 10 ? d : "";
+    };
+    if (action === "wa_sheet") {
+      const rows = await sql`select id, title, status, data, updated_at from os.records where business_id = ${bid}
+        and status in ('call planned', 'called', 'meeting', 'trial') and (data ? 'call_plan' or status <> 'call planned')
+        order by case status when 'call planned' then 0 when 'called' then 1 when 'meeting' then 2 else 3 end,
+          case upper(coalesce(data->>'priority', '')) when 'A' then 0 when 'B' then 1 else 2 end, (data->>'score') desc nulls last, id limit 80`;
+      const done = await sql`select count(*) filter (where started_at > now() - interval '1 day')::int as today, count(*) filter (where started_at > now() - interval '7 days')::int as week
+        from os.calls where business_id = ${bid} and status = 'whatsapp'`;
+      return json({ rows: rows.map((r: any) => {
+        const d = r.data ?? {};
+        return { id: r.id, title: r.title, status: r.status, area: d.area ?? null, priority: d.priority ?? null, score: d.score ?? null,
+          wa: wa(d.whatsapp) || wa(d.phone), phone: d.phone ?? null, gaps: d.gaps ?? null, call_plan: d.call_plan ?? null,
+          follow_up: d.follow_up ?? (typeof d.call_plan === "object" ? d.call_plan?.whatsapp ?? d.call_plan?.follow_up ?? null : null),
+          last: Array.isArray(d.calls) ? d.calls[d.calls.length - 1] : null };
+      }), done: done[0] });
+    }
+    const OUT: Record<string, [string, string | null, boolean]> = {
+      no_answer: ["No answer", "called", false], callback: ["Call back", "called", true], not_interested: ["Not interested", "lost", false],
+      meeting: ["Meeting booked", "meeting", true], trial: ["Started a free trial", "trial", true], signed: ["Signed up", "signed", true], wrong_number: ["Wrong number", "lost", false],
+    };
+    const o = OUT[String(body.outcome)];
+    if (!o) return json({ error: "Pick what happened." }, 400);
+    const note = clip(body.note, 1000), when = /^\d{4}-\d{2}-\d{2}$/.test(String(body.when ?? "")) ? String(body.when) : null;
+    const entry = { at: new Date().toISOString(), by: user.email, outcome: body.outcome, ...(note ? { note } : {}), ...(when ? { when } : {}) };
+    const [r] = await sql`update os.records set status = ${o[1]}, updated_at = now(),
+        next_step = ${body.outcome === "callback" ? `call back${when ? " on " + when : ""}` : body.outcome === "no_answer" ? "try again" : body.outcome === "meeting" ? `meeting${when ? " on " + when : ""}` : null},
+        next_step_due = ${when ?? (body.outcome === "no_answer" ? new Date(Date.now() + 86400000).toISOString().slice(0, 10) : null)},
+        data = jsonb_set(data, '{calls}', coalesce(data->'calls', '[]'::jsonb) || ${sql.json([entry])})
+      where id = ${Number(body.id)} and business_id = ${bid} returning id, title, data->>'phone' as phone, data->>'whatsapp' as whatsapp`;
+    if (!r) return json({ error: "Not found." }, 404);
+    await sql`insert into os.calls (business_id, direction, to_number, record_id, user_id, status, outcome, note, ended_at, duration_sec, minutes, cost_usd, billed_usd)
+      values (${bid}, 'outbound', ${wa(r.whatsapp) || wa(r.phone) || null}, ${r.id}, ${user.id}, 'whatsapp', ${String(body.outcome)}, ${note || null}, now(), 0, 0, 0, 0)`;
+    if (body.outcome === "signed") await sql`insert into os.wins (business_id, kind, record_id, created_by) values (${bid}, 'job', ${r.id}, ${user.email})`;
+    await post(bid, "system", `${o[2] ? "@demarcus " : ""}Call logged (WhatsApp): #${r.id} ${r.title}: ${o[0]}${when ? ` (${when})` : ""}.${note ? ` Notes: ${note}` : ""}`, { status: o[2] ? "queued" : "handled", recordId: r.id });
+    await audit(bid, "user", user.email, "wa_call", String(r.id), { outcome: body.outcome });
+    return json({ ok: true });
+  }
   if (action === "push_unsubscribe") {
     await sql`delete from os.push_subs where user_id = ${user.id} and endpoint = ${clip(body.endpoint, 1000)}`;
     return json({ ok: true });

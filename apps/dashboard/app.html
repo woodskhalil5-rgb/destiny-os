@@ -399,7 +399,7 @@ async function sCall(action, extra = {}) {
   return j;
 }
 const GROWTH = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-growth";
-let growth = null, growthBusy = false, aiPhone = null, ovData = null, ovBusy = false;
+let growth = null, growthBusy = false, aiPhone = null, ovData = null, ovBusy = false, waData = null, waBusy = false, waLog = {};
 async function gCall(action, extra = {}) {
   const r = await fetch(GROWTH, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
   const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
@@ -491,6 +491,46 @@ function waiting(){
 }
 
 // ---------- views ----------
+// WhatsApp call sheet for African businesses: who to call, the plan, one tap to WhatsApp, and log what happened.
+const WA_OUT = [["no_answer", "No answer"], ["callback", "Call back"], ["meeting", "Meeting booked"], ["trial", "Free trial"], ["signed", "Signed up"], ["not_interested", "Not interested"], ["wrong_number", "Wrong number"]];
+function planText(p) {
+  if (!p) return "";
+  if (typeof p === "string") return p;
+  return Object.entries(p).map(([k, v]) => `${label(k)}:\n${Array.isArray(v) ? v.map(x => "• " + (typeof x === "object" ? Object.values(x).join(": ") : x)).join("\n") : typeof v === "object" ? Object.entries(v).map(([a, b]) => `• ${a}: ${b}`).join("\n") : v}`).join("\n\n");
+}
+function waSheet() {
+  if (!waData) {
+    if (!waBusy) { waBusy = true; gCall("wa_sheet").then(r => { waData = r; }).catch(e => { waData = {error: e.message}; }).finally(() => { waBusy = false; rendered = ""; render(true); }); }
+    return `<p class="s">Loading…</p>`;
+  }
+  if (waData.error) return `<div class="err">${esc(waData.error)}</div>`;
+  const R = waData.rows || [];
+  let h = `<div class="month">
+    <div class="fig"><b>${R.filter(r => r.status === "call planned").length}</b><span>ready to call</span></div>
+    <div class="fig"><b>${waData.done?.today ?? 0}</b><span>calls logged today</span></div>
+    <div class="fig"><b>${waData.done?.week ?? 0}</b><span>this week</span></div></div>`;
+  if (!R.length) return h + `<div class="empty" style="margin-top:16px"><b>No one to call yet.</b>The team is finding and auditing businesses. Call plans show up here as soon as they're ready.</div>`;
+  h += `<div style="display:grid;gap:12px;margin-top:16px">` + R.map(r => {
+    const L = waLog[r.id] || {}, plan = planText(r.call_plan), fu = typeof r.follow_up === "string" ? r.follow_up : "";
+    const last = r.last ? `Last call: ${esc((WA_OUT.find(o => o[0] === r.last.outcome) || [0, r.last.outcome])[1])}, ${esc(ago(r.last.at))}${r.last.note ? ` · ${esc(r.last.note)}` : ""}` : "";
+    return `<div class="box" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="t" style="font-size:17px;font-weight:700;flex:1;min-width:0">${esc(r.title)}</div>
+        ${r.priority ? `<span class="pill${String(r.priority).toUpperCase() === "A" ? " go" : ""}">${esc(String(r.priority).toUpperCase())}${r.score != null ? " · " + esc(r.score) + "/10" : ""}</span>` : ""}<span class="pill">${esc(label(r.status))}</span></div>
+      ${r.area || r.gaps ? `<div class="s">${esc([r.area, Array.isArray(r.gaps) ? r.gaps.map(g => typeof g === "object" ? Object.values(g)[0] : g)[0] : r.gaps].filter(Boolean).join(" · ")).slice(0, 220)}</div>` : ""}
+      ${last ? `<div class="s" style="color:var(--muted)">${last}</div>` : ""}
+      <div class="acts">${r.wa ? `<a class="btn go" href="https://wa.me/${esc(r.wa)}" target="_blank" rel="noopener">WhatsApp</a>` : `<span class="s">No WhatsApp number saved${r.phone ? ` · ${esc(r.phone)}` : ""}</span>`}
+        ${r.wa && fu ? `<a class="btn" href="https://wa.me/${esc(r.wa)}?text=${encodeURIComponent(fu)}" target="_blank" rel="noopener">Send follow-up</a>` : ""}
+        <button class="btn" data-wa="open" data-id="${r.id}">${L.open ? "Close" : "Log the call"}</button></div>
+      ${plan ? `<details><summary style="cursor:pointer;font-weight:700">Call plan</summary><div style="white-space:pre-wrap;line-height:1.55;margin-top:8px">${esc(plan)}</div>${fu ? `<div class="s" style="margin-top:10px;white-space:pre-wrap"><b>Follow-up message:</b>\n${esc(fu)}</div>` : ""}</details>` : ""}
+      ${L.open ? `<div class="box form" style="background:var(--bg)"><div class="outs">${WA_OUT.map(([k, n]) => `<button data-wa="out" data-id="${r.id}" data-k="${k}" aria-pressed="${L.outcome === k}">${n}</button>`).join("")}</div>
+        ${["callback", "meeting"].includes(L.outcome) ? `<label class="field">${L.outcome === "meeting" ? "Meeting on" : "Call back on"}<input type="date" id="waWhen${r.id}" value="${esc(L.when || "")}"></label>` : ""}
+        <label class="field">Notes<textarea id="waNote${r.id}" rows="2" placeholder="What did they say?">${esc(L.note || "")}</textarea></label>
+        <div><button class="btn go" data-wa="save" data-id="${r.id}">Save</button></div></div>` : ""}
+    </div>`;
+  }).join("") + `</div>`;
+  return h;
+}
+
 const VIEWS = {
   home(){
     const T = teamBy(), w = waiting(), b = data.business, h = new Date().getHours();
@@ -754,6 +794,7 @@ const VIEWS = {
   },
 
   calls(){
+    if (String(data.business?.timezone || "").startsWith("Africa/")) return waSheet();
     if (!callsData) { loadCalls(true); return `<p class="s">Loading…</p>`; }
     const c = callsData;
     if (!c.platform_ready) return c.can_buy ? twilioSetup() : `<div class="empty"><b>Calling isn't turned on yet.</b>Ask Destiny OS to turn on calling for this business.</div>`;
@@ -1105,6 +1146,7 @@ function go(v, opts = {}){
   if (v === "media") { mediaData = null; }
   if (v === "customers") { growth = null; editing.delete("grow"); }
   if (v === "overview") { ovData = null; }
+  if (v === "calls") { waData = null; }
   render(true); window.scrollTo(0, 0);
 }
 
@@ -1271,6 +1313,20 @@ V.addEventListener("click", async e => {
       rendered = ""; render(true);
     } catch (err) { fail(t, card.querySelector(".mi"), err); }
     return;
+  }
+  if (d.wa) {
+    const id = d.id, L = waLog[id] = waLog[id] || {};
+    const keep = () => { const n = $("waNote" + id), w = $("waWhen" + id); if (n) L.note = n.value; if (w) L.when = w.value; };
+    if (d.wa === "open") { keep(); L.open = !L.open; if (L.open) editing.add("wa"); else if (!Object.values(waLog).some(x => x.open)) editing.delete("wa"); rendered = ""; render(true); return; }
+    if (d.wa === "out") { keep(); L.outcome = d.k; rendered = ""; render(true); return; }
+    if (d.wa === "save") {
+      keep();
+      if (!L.outcome) { fail(t, t.closest(".box"), new Error("Pick what happened first.")); return; }
+      t.disabled = true;
+      try { await gCall("wa_log", {id: Number(id), outcome: L.outcome, note: L.note || "", when: L.when || ""}); delete waLog[id]; if (!Object.values(waLog).some(x => x.open)) editing.delete("wa"); waData = null; rendered = ""; render(true); }
+      catch (err) { fail(t, t.closest(".box"), err); }
+      return;
+    }
   }
   if (d.ov === "open") { switchBiz(d.id); go("home"); return; }
   if (d.ov === "report") {
