@@ -282,6 +282,7 @@ details.agent .inner{padding:0 18px 18px}
   <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5 11.5 14 16 9"/><rect x="3" y="3" width="18" height="18" rx="4"/></symbol>
   <symbol id="i-work" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></symbol>
   <symbol id="i-money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
   <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h3l2 5-2.5 1.5a11 11 0 0 0 7 7L16 14l5 2v3a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
@@ -317,6 +318,7 @@ details.agent .inner{padding:0 18px 18px}
       <button data-v="chat"><svg><use href="#i-chat"/></svg>Team chat</button>
       <button data-v="approve"><svg><use href="#i-check"/></svg>To approve<span class="badge" data-count hidden></span></button>
       <button data-v="work"><svg><use href="#i-work"/></svg>Work</button>
+      <button data-v="customers"><svg><use href="#i-star"/></svg>Customers</button>
       <button data-v="media"><svg><use href="#i-image"/></svg>Media</button>
       <button data-v="calls" hidden><svg><use href="#i-phone"/></svg>Calls<span class="badge" data-calls hidden></span></button>
       <button data-v="money"><svg><use href="#i-money"/></svg>Money</button>
@@ -345,6 +347,7 @@ details.agent .inner{padding:0 18px 18px}
     <button data-v="chat"><svg><use href="#i-chat"/></svg>Chat</button>
     <button data-v="approve"><svg><use href="#i-check"/></svg>Approve<span class="badge" data-count hidden></span></button>
     <button data-v="work"><svg><use href="#i-work"/></svg>Work</button>
+    <button data-v="customers"><svg><use href="#i-star"/></svg>Wins</button>
     <button data-v="media"><svg><use href="#i-image"/></svg>Media</button>
     <button data-v="calls" hidden><svg><use href="#i-phone"/></svg>Calls<span class="badge" data-calls hidden></span></button>
     <button data-v="money"><svg><use href="#i-money"/></svg>Money</button>
@@ -358,7 +361,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&l
 let token = ""; try { token = localStorage.getItem("osToken") || ""; } catch {}
 let biz = null, lastId = 0, data = null, msgs = [], view = "home", workTab = "pipeline", setTab = "business", isAdmin = false, timer;
 let editing = new Set(), people = null, settingsData = null, conns = null, rendered = "", lastHtml = "";
-const SLOW = new Set(["settings", "new", "media"]);
+const SLOW = new Set(["settings", "new", "media", "customers"]);
 let mediaData = null, mediaFilter = "all", upBusy = false;
 const urlCache = {};
 const TAGS = [["before", "Before"], ["after", "After"], ["job", "Job photo"], ["reel", "Finished reel / video"], ["music", "Music"], ["brand", "Logo / brand"], ["other", "Other"]];
@@ -385,6 +388,20 @@ async function sCall(action, extra = {}) {
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
 }
+const GROWTH = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-growth";
+let growth = null, growthBusy = false;
+async function gCall(action, extra = {}) {
+  const r = await fetch(GROWTH, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
+  const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function loadGrowth(){
+  if (growthBusy) return; growthBusy = true; const id = biz;
+  gCall("summary").then(r => { if (id === biz) { growth = r; rendered = ""; render(true); } }).catch(() => {}).finally(() => { growthBusy = false; });
+}
+const usd0 = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("en-US");
+const winOf = (k) => (growth?.wins || []).find(w => w.kind === k) || {n: 0, usd: 0};
 async function loadTrial(){
   const id = biz;
   try { const r = await sCall("trial_status"); trialInfo[id] = r.trial; aiDown = !!r.ai_down; } catch { trialInfo[id] = null; }
@@ -476,9 +493,11 @@ const VIEWS = {
     const bill = data.bill || [], total = bill.reduce((t, l) => t + l.amount_usd, 0), ai = bill.find(l => l.kind === "ai_usage")?.amount_usd || 0;
     const budget = Number(b.monthly_budget_usd || 0), pct = budget ? Math.min(100, ai / budget * 100) : 0;
     const results = (data.results || []).reduce((t, r) => t + r.records_created + r.drafts + r.content, 0);
+    if (!growth) loadGrowth();
+    const jobs = winOf("job"), reps = winOf("reply");
     out += `<div class="section"><h3>This month<button class="btn small quiet" data-go="money">See costs</button></h3><div class="month">
       <div class="fig"><b>${money(ai)}</b><span>AI team so far${budget ? ` of ${money(budget)} limit` : ""}</span>${budget ? `<div class="meter${pct >= 80 ? " hot" : ""}"><i style="width:${pct}%"></i></div>` : ""}</div>
-      <div class="fig"><b>${results}</b><span>new records, drafts and posts</span></div>
+      ${jobs.n || reps.n ? `<div class="fig click" data-go="customers"><b>${jobs.n} won${jobs.usd ? " · " + usd0(jobs.usd) : ""}</b><span>jobs this month · ${reps.n} ${reps.n === 1 ? "reply" : "replies"}</span></div>` : `<div class="fig"><b>${results}</b><span>new records, drafts and posts</span></div>`}
       <div class="fig"><b>${money(total)}</b><span>total bill so far</span></div></div></div>`;
     return out;
   },
@@ -498,13 +517,14 @@ const VIEWS = {
     }
     const from = (slot) => `<div class="from">${av(slot, T[slot]?.name || "S")}<span>From ${esc(T[slot]?.name || slot)}</span></div>`;
     return w.aps.map(a => {
-      const pl = a.payload || {}, isEmail = a.kind === "email";
+      const pl = a.payload || {}, isEmail = a.kind === "email", isCamp = a.kind === "campaign";
       return `<article class="ap${a.status === "failed" ? " warn" : ""}" data-ap="${a.id}">${from(a.requested_by)}
         <h4>${esc(a.summary)}</h4>
         ${a.status === "failed" ? `<div class="note-err">This was approved but didn't go through: ${esc(a.note)}. Fix it and approve again.</div>` : a.note ? `<div class="s">${esc(a.note)}</div>` : ""}
-        ${isEmail ? `<div class="mail"><label>To<input data-f="to" value="${esc(pl.to)}"></label><label>Subject<input data-f="subject" value="${esc(pl.subject)}"></label><textarea data-f="body" aria-label="Email">${esc(pl.body)}</textarea></div>`
+        ${isCamp ? `<div class="mail"><label>To<input value="All past customers (${esc(pl.recipients ?? "everyone who hasn't unsubscribed")})" disabled></label><label>Subject<input data-f="subject" value="${esc(pl.subject)}"></label><textarea data-f="body" aria-label="Email">${esc(pl.body)}</textarea></div>`
+          : isEmail ? `<div class="mail"><label>To<input data-f="to" value="${esc(pl.to)}"></label><label>Subject<input data-f="subject" value="${esc(pl.subject)}"></label><textarea data-f="body" aria-label="Email">${esc(pl.body)}</textarea></div>`
                   : `<label class="field">Details<textarea data-f="json" style="font-family:ui-monospace,Menlo,monospace;font-size:13px;min-height:160px">${esc(JSON.stringify(pl, null, 2))}</textarea></label>`}
-        <div class="acts"><button class="btn go" data-act="approve">${isEmail ? "Approve and send" : "Approve"}</button><button class="btn" data-act="reject">Send back</button>
+        <div class="acts"><button class="btn go" data-act="approve">${isEmail || isCamp ? "Approve and send" : "Approve"}</button><button class="btn" data-act="reject">Send back</button>
           <input class="note" data-f="note" placeholder="Why? (optional; the team learns from it)"></div></article>`;
     }).join("")
     + w.posts.map(c => `<article class="ap" data-ct="${c.id}">${from(c.created_by)}
@@ -582,6 +602,61 @@ const VIEWS = {
         ${m.kind !== "audio" ? `<div class="seen">${m.ai_notes ? `<b>What Grayson sees:</b> ${esc(m.ai_notes)}` : m.previews ? "Grayson is looking at it…" : "Grayson can't see this one (save iPhone photos as JPG); he goes by its labels."}</div>` : ""}
         ${can ? `<div class="acts">${m.permission ? "" : `<button class="btn small go" data-gact="clear">Cleared to use</button>`}<button class="btn small bad" data-gact="del">Delete</button></div>` : ""}</div></div>`).join("")}</div>`;
     return h + `</div>`;
+  },
+
+  customers(){
+    if (!growth) { loadGrowth(); return `<p class="s">Loading…</p>`; }
+    const g = growth, can = g.can_edit, today = new Date().toISOString().slice(0, 10);
+    const jobs = winOf("job"), est = winOf("estimate"), reps = winOf("reply"), rev = winOf("review_ask"), rpt = winOf("repeat");
+    let h = `<div id="grow"><p class="hello">This month</p><h1 class="headline">${jobs.n ? `${jobs.n} ${jobs.n === 1 ? "job" : "jobs"} won${jobs.usd ? ", " + usd0(jobs.usd) : ""}.` : "Every quote followed up. Every customer remembered."}</h1>
+      <div class="month" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+        <div class="fig"><b>${jobs.n}</b><span>jobs won${jobs.usd ? " · " + usd0(jobs.usd) : ""}</span></div>
+        <div class="fig"><b>${est.n}</b><span>quotes sent${est.usd ? " · " + usd0(est.usd) : ""}</span></div>
+        <div class="fig"><b>${reps.n}</b><span>replies from leads</span></div>
+        <div class="fig"><b>${rev.n}</b><span>review requests</span></div>
+        <div class="fig"><b>${rpt.n}</b><span>repeat jobs${rpt.usd ? " · " + usd0(rpt.usd) : ""}</span></div></div>`;
+
+    // Quotes
+    const open = g.quotes.filter(q => ["sent", "following up"].includes(q.status)), closed = g.quotes.filter(q => !["sent", "following up"].includes(q.status)).slice(0, 15);
+    const qrow = (q) => { const d = q.data || {}, isOpen = ["sent", "following up"].includes(q.status);
+      return `<div class="row" data-qid="${q.id}"><div class="grow"><div class="t">${esc(q.title)}</div><div class="s">${[d.amount ? usd0(Number(d.amount)) : null, d.sent_on ? "sent " + esc(d.sent_on) : null, d.email ? null : "no email, so no follow-ups", isOpen && d.email && q.next_step ? "next: " + esc(q.next_step) : null].filter(Boolean).join(" · ")}</div></div>
+        ${isOpen && can ? `<button class="btn small go" data-gr="won">Won it</button><button class="btn small" data-gr="lost">Lost</button>` : `<span class="pill ${q.status === "won" ? "go" : ""}">${esc(label(q.status))}</span>`}</div>`; };
+    h += `<div class="section"><h3>Quotes <span class="s" style="font-weight:500;color:var(--muted)">${open.length} open</span></h3>
+      <p class="s" style="margin:-4px 0 12px">Log every estimate you send. If the customer goes quiet, the team follows up on day 2, 5 and 10. Each follow-up waits for your OK, and it stops the moment you mark the quote won or lost.</p>
+      ${can ? `<details class="box form" id="quoteBox"${g.quotes.length ? "" : " open"}><summary style="cursor:pointer;font-weight:700">Log a quote you sent</summary>
+        <div class="grid2"><label class="field">Customer name<input data-q="name" placeholder="e.g. Maria Lopez"></label><label class="field">Their email<input data-q="email" type="email" placeholder="So the team can follow up"></label></div>
+        <div class="grid2"><label class="field">What's the job<input data-q="job" placeholder="e.g. Roof replacement"></label><label class="field">Amount ($)<input data-q="amount" inputmode="decimal" placeholder="e.g. 12500"></label></div>
+        <div class="grid2"><label class="field">Phone (optional)<input data-q="phone" type="tel"></label><label class="field">Date you sent it<input data-q="sent_on" type="date" value="${today}"></label></div>
+        <div class="acts"><button class="btn go" data-gr="quote_add">Save quote</button></div></details>` : ""}
+      ${open.length ? `<div class="list">${open.map(qrow).join("")}</div>` : `<div class="empty"><b>No open quotes.</b>Log the estimates you send and none of them will slip through the cracks.</div>`}
+      ${closed.length ? `<details style="margin-top:12px"><summary class="s" style="cursor:pointer">Closed quotes (${closed.length})</summary><div class="list" style="margin-top:8px">${closed.map(qrow).join("")}</div></details>` : ""}</div>`;
+
+    // Past customers
+    h += `<div class="section"><h3>Past customers <span class="s" style="font-weight:500;color:var(--muted)">${g.customers}</span></h3>
+      <p class="s" style="margin:-4px 0 12px">Your own customers are your cheapest work. Send them a seasonal reminder (gutter cleaning before winter, an AC tune-up before summer). ${g.reachable} can be emailed${g.optouts ? `, ${g.optouts} unsubscribed` : ""}. Every email has an unsubscribe link.</p>
+      ${can ? `<details class="box form"${g.customers ? "" : " open"}><summary style="cursor:pointer;font-weight:700">Add past customers</summary>
+        <label class="field">Paste your list, one customer per line<textarea data-c="text" rows="5" placeholder="Maria Lopez, maria@example.com, 555-123-4567, roof replacement, 2025-09-14&#10;John Park, john@example.com, gutter cleaning"></textarea><small>Name and email are enough. You can copy rows straight from a spreadsheet. Only add people who are actually your customers.</small></label>
+        <div class="acts"><button class="btn go" data-gr="import">Add customers</button></div></details>` : ""}
+      ${can && g.reachable ? `<div class="box form" style="margin-top:12px"><h4>Send a seasonal email</h4>
+        <label class="field">Ask Kole to write it<input data-cp="idea" placeholder="e.g. Fall gutter cleaning, 10% off if they book by Nov 30"></label>
+        <div class="acts"><button class="btn" data-gr="camp_ask">Ask Kole</button><span class="s">He drafts it and it waits for your OK.</span></div>
+        <details style="margin-top:10px"><summary class="s" style="cursor:pointer">Or write it yourself</summary>
+          <label class="field">Subject<input data-cp="subject" placeholder="Time for your fall gutter cleaning"></label>
+          <label class="field">Message<textarea data-cp="body" rows="6" placeholder="Hi {first_name}, ..."></textarea><small>{first_name} becomes each customer's first name.</small></label>
+          <label class="check"><input type="checkbox" data-cp="ok"> Send this to ${g.reachable} past customer${g.reachable === 1 ? "" : "s"} now</label>
+          <div class="acts"><button class="btn go" data-gr="camp_send">Send</button></div></details></div>` : ""}
+      ${g.campaigns.length ? `<div class="list" style="margin-top:12px">${g.campaigns.map(c => `<div class="row"><div class="grow"><div class="t">${esc(c.subject || c.summary)}</div><div class="s">${esc(c.note || when(c.created_at))}</div></div><span class="pill ${["done", "sending", "approved"].includes(c.status) ? "go" : c.status === "pending" ? "need" : ""}">${esc({pending: "Waiting for you", approved: "Sending soon", sending: "Sending", done: "Sent", rejected: "Sent back", failed: "Didn't send"}[c.status] || label(c.status))}</span></div>`).join("")}</div>` : ""}</div>`;
+
+    // Reviews and settings
+    const st = g.settings || {};
+    h += `<div class="section"><h3>Reviews and follow-ups</h3>
+      <div class="box form">${can ? "" : "<p class=s>Only owners and admins can change these.</p>"}
+        <label class="field">Your Google review link<input data-gs="review_link" value="${esc(st.review_link || "")}" placeholder="https://g.page/r/..." ${can ? "" : "disabled"}><small>Two days after you mark a job won, the team drafts a thank-you that asks for a review with this link. Find it in your Google Business Profile under "Ask for reviews".</small></label>
+        <label class="field">Sign emails as<input data-gs="sender_name" value="${esc(st.sender_name || "")}" placeholder="e.g. Alex at Summit Roofing" ${can ? "" : "disabled"}></label>
+        <label class="check"><input type="checkbox" data-gs="follow_ups" ${st.follow_ups !== false ? "checked" : ""} ${can ? "" : "disabled"}> Follow up on open quotes (day 2, 5 and 10)</label>
+        <label class="check"><input type="checkbox" data-gs="review_asks" ${st.review_asks !== false ? "checked" : ""} ${can ? "" : "disabled"}> Ask for a review after a job is won</label>
+        ${can ? `<div class="acts"><button class="btn go" data-gr="settings">Save</button></div>` : ""}</div></div></div>`;
+    return h;
   },
 
   money(){
@@ -930,6 +1005,7 @@ function go(v, opts = {}){
   editing.clear(); people = null; conns = null; settingsData = null; rendered = "";
   if (v === "calls") { callsData = null; }
   if (v === "media") { mediaData = null; }
+  if (v === "customers") { growth = null; editing.delete("grow"); }
   render(true); window.scrollTo(0, 0);
 }
 
@@ -982,6 +1058,7 @@ V.addEventListener("input", e => {
   if (e.target.closest("#twBox,#buyBox")) editing.add("tw");
   if (e.target.closest("[data-conn]")) editing.add("conn");
   if (e.target.closest("#upBox")) editing.add("upload");
+  if (e.target.closest("#grow")) editing.add("grow");
   if (e.target.closest("#invite")) editing.add("invite");
   if (e.target.closest("#settingsForm")) editing.add("settings");
   if (e.target.dataset?.s === "raw_config") editing.add("raw");
@@ -993,6 +1070,24 @@ V.addEventListener("click", async e => {
   const t = e.target.closest("button"); if (!t) return;
   const d = t.dataset;
 
+  if (d.gr) { // Customers screen
+    const box = $("grow"), v = (sel) => box.querySelector(sel)?.value?.trim() ?? "", chk = (sel) => !!box.querySelector(sel)?.checked;
+    const row = t.closest("[data-qid]"), holder = t.closest(".box, .row, .section") || box;
+    t.disabled = true; holder.querySelectorAll(".err,.okmsg").forEach(x => x.remove());
+    try {
+      let msg = "";
+      if (d.gr === "quote_add") await gCall("quote_add", {name: v('[data-q="name"]'), email: v('[data-q="email"]'), phone: v('[data-q="phone"]'), job: v('[data-q="job"]'), amount: v('[data-q="amount"]'), sent_on: v('[data-q="sent_on"]')});
+      else if (d.gr === "won" || d.gr === "lost") await gCall("quote_set", {id: Number(row.dataset.qid), status: d.gr});
+      else if (d.gr === "import") { const r = await gCall("customers_import", {text: v('[data-c="text"]')}); msg = `Added ${r.added} customer${r.added === 1 ? "" : "s"}${r.skipped ? ` (${r.skipped} skipped: no email, or already on the list)` : ""}.`; }
+      else if (d.gr === "camp_ask") { await gCall("campaign_ask", {idea: v('[data-cp="idea"]')}); msg = "Kole's on it. His draft will show up in To approve."; }
+      else if (d.gr === "camp_send") { if (!chk('[data-cp="ok"]')) throw new Error("Tick the box to confirm you want to send it."); const r = await gCall("campaign_create", {subject: v('[data-cp="subject"]'), body: v('[data-cp="body"]')}); msg = `Sending to ${r.recipients} customers over the next few minutes.`; }
+      else if (d.gr === "settings") { await gCall("settings_set", {review_link: v('[data-gs="review_link"]'), sender_name: v('[data-gs="sender_name"]'), follow_ups: chk('[data-gs="follow_ups"]'), review_asks: chk('[data-gs="review_asks"]')}); msg = "Saved."; }
+      editing.delete("grow"); growth = null;
+      const r = await gCall("summary"); growth = r; rendered = ""; render(true);
+      if (msg) $("grow")?.insertAdjacentHTML("afterbegin", `<p class="okmsg box" style="margin-bottom:16px;color:var(--ink)">${esc(msg)}</p>`);
+    } catch (err) { fail(t, holder, err); }
+    return;
+  }
   if (d.out && pending) { pending.outcome = d.out; pending.note = $("outNote")?.value; pending.cb = $("cbDate")?.value; editing.add("outcome"); rendered = ""; render(true); return; }
   if (d.act) { // approvals and posts
     const c = t.closest("[data-ap],[data-ct]"), f = (n) => c.querySelector(`[data-f="${n}"]`)?.value;
@@ -1002,6 +1097,7 @@ V.addEventListener("click", async e => {
         const a = data.approvals.find(x => String(x.id) === c.dataset.ap);
         let payload = a.payload;
         if (a.kind === "email") payload = {...a.payload, to: f("to"), subject: f("subject"), body: f("body")};
+        else if (a.kind === "campaign") payload = {...a.payload, subject: f("subject"), body: f("body")};
         else { try { payload = JSON.parse(f("json")); } catch { throw new Error("The details have a typo in them. Check the brackets and quotes, then try again."); } }
         await call("decide", {id: a.id, decision: d.act, payload, note: f("note") || undefined});
         editing.delete(c.dataset.ap);
@@ -1234,7 +1330,7 @@ async function start(){
 }
 function switchBiz(id){
   biz = id; $("bizSel").value = id; $("bizSelM").value = id; try { localStorage.setItem("osBiz", biz); } catch {}
-  people = null; conns = null; settingsData = null; callsData = null; mediaData = null; pending = null; editing.clear(); lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
+  people = null; conns = null; settingsData = null; callsData = null; mediaData = null; growth = null; pending = null; editing.clear(); lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
   if (device && !active) { try { device.destroy(); } catch {} device = null; deviceBiz = null; }
   tick(); loadTrial();
 }

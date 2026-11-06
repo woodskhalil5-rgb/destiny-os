@@ -3,7 +3,9 @@
 //  2. Publishes approved content whose scheduled time has come (Facebook Page today; anything else is flagged to post by hand).
 //  3. Watches each business's connected Gmail inbox (when "watch for replies" is on): owner emails go on the board,
 //     replies from records' email addresses mark the record "replied" and wake the team.
-import { audit, post, secret, sql } from "../_core/core.ts";
+import { audit, business, post, secret, sql } from "../_core/core.ts";
+import { sendEmail } from "../_core/integrations.ts";
+import { unsubLink } from "../_core/unsub.ts";
 import { appUrl, platformMail } from "../_core/mail.ts";
 import { download, mediaFor } from "../_core/storage.ts";
 import { describePending } from "../_core/vision.ts";
@@ -287,6 +289,42 @@ async function watchInboxes() {
   return result;
 }
 
+/** Seasonal emails to past customers, after the owner approved them: 40 per run, each person once, with an unsubscribe link. */
+async function sendCampaigns() {
+  const out: Record<string, string> = {};
+  const camps = await sql`select a.* from os.approvals a join os.businesses b on b.id = a.business_id
+    where a.kind = 'campaign' and a.status in ('approved', 'sending') and b.status <> 'archived' order by a.id limit 3`;
+  for (const c of camps) {
+    await sql`update os.approvals set status = 'sending' where id = ${c.id} and status = 'approved'`;
+    const b = await business(c.business_id);
+    if (!b) continue;
+    const app = await appUrl();
+    const todo = await sql`select distinct on (lower(r.data->>'email')) lower(r.data->>'email') as email, r.data->>'name' as name from os.records r
+      where r.business_id = ${c.business_id} and r.type = 'customer' and coalesce(r.data->>'email', '') <> ''
+        and not exists (select 1 from os.optouts o where o.business_id = r.business_id and o.email = lower(r.data->>'email'))
+        and not exists (select 1 from os.campaign_sends s where s.approval_id = ${c.id} and s.email = lower(r.data->>'email'))
+      order by lower(r.data->>'email') limit 40`;
+    let ok = 0, bad = 0;
+    for (const t of todo) {
+      // Claim first: a cut-short batch never emails anyone twice.
+      const [claimed] = await sql`insert into os.campaign_sends (approval_id, email) values (${c.id}, ${t.email}) on conflict do nothing returning email`;
+      if (!claimed) continue;
+      const first = String(t.name ?? "").split(" ")[0];
+      const text = String(c.payload?.body ?? "").replace(/\{first_name\}|\{name\}/gi, first || "there")
+        + `\n\n—\nYou're getting this because you're a customer of ${b.name}. Don't want these emails? Unsubscribe: ${await unsubLink(app, b.id, t.email)}`;
+      try { await sendEmail(b, { to: t.email, subject: String(c.payload?.subject ?? b.name), text }); ok++; }
+      catch (e) { bad++; await sql`update os.campaign_sends set error = ${(e as Error).message.slice(0, 300)} where approval_id = ${c.id} and email = ${t.email}`; }
+    }
+    if (todo.length < 40) {
+      const [n] = await sql`select count(*) filter (where error is null)::int as sent, count(*) filter (where error is not null)::int as failed from os.campaign_sends where approval_id = ${c.id}`;
+      await sql`update os.approvals set status = ${n.sent ? "done" : "failed"}, note = ${`Sent to ${n.sent} past customer${n.sent === 1 ? "" : "s"}${n.failed ? `; ${n.failed} didn't go through` : ""}.`} where id = ${c.id}`;
+      await post(c.business_id, "system", `The seasonal email "${c.payload?.subject}" went to ${n.sent} past customer${n.sent === 1 ? "" : "s"}${n.failed ? ` (${n.failed} didn't go through)` : ""}.`, { status: "handled" });
+    }
+    out[c.id] = `${ok} sent${bad ? `, ${bad} failed` : ""}`;
+  }
+  return out;
+}
+
 /** While the AI service is marked down, try one tiny call; when it works, os.ai_back() restarts the teams. */
 async function checkAi() {
   const [down] = await sql`select 1 from os.platform_state where key = 'ai_down'`;
@@ -311,6 +349,7 @@ Deno.serve(async (req) => {
   try { out.inbox = await watchInboxes(); } catch (e) { out.inbox_error = (e as Error).message; }
   try { out.alerts = await sendAlerts(); } catch (e) { out.alerts_error = (e as Error).message; }
   try { out.published = await publishDue(); } catch (e) { out.publish_error = (e as Error).message; }
+  try { out.campaigns = await sendCampaigns(); } catch (e) { out.campaign_error = (e as Error).message; }
   try { out.described = await describePending(); } catch (e) { out.describe_error = (e as Error).message; }
   return new Response(JSON.stringify(out), { headers: { "content-type": "application/json" } });
 });

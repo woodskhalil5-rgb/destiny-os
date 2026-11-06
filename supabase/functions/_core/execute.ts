@@ -16,5 +16,6 @@ export async function execute(b: Business, ap: any): Promise<string> {
     if (ap.record_id) await sql`update os.records set status = 'contacted', next_step = 'wait for reply, follow up if none', next_step_due = (now() + interval '4 days')::date, updated_at = now() where id = ${ap.record_id} and business_id = ${b.id}`;
     return `email sent to ${p.to}`;
   }
+  if (ap.kind === "campaign") return "approved; it goes out to your past customers within a few minutes";
   return "approved; nothing to carry out automatically for this kind";
 }
