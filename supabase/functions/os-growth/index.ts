@@ -122,6 +122,19 @@ Deno.serve(async (req) => {
       return json({ url: s.url });
     } catch (e) { return json({ error: `Couldn't open billing: ${(e as Error).message}` }, 502); }
   }
+  // The virtual assistant that answers the business line when nobody picks up (owners and admins turn it on or off).
+  if (action === "phone_ai_get" || action === "phone_ai_set") {
+    const [ph] = await sql`select settings from os.integrations where business_id = ${bid} and provider = 'phone' and status = 'connected'`;
+    if (!ph) return json({ has_phone: false, on: false });
+    if (action === "phone_ai_set") {
+      if (!isAdmin && !["owner", "admin"].includes(role)) return json({ error: "Only owners and admins can change this." }, 403);
+      const on = body.on === true;
+      await sql`update os.integrations set settings = settings || ${sql.json({ ai_answer: on ? "true" : "false" })}, updated_at = now() where business_id = ${bid} and provider = 'phone'`;
+      await audit(bid, "user", user.email, "phone_ai", null, { on });
+      return json({ has_phone: true, on });
+    }
+    return json({ has_phone: true, on: ph.settings?.ai_answer === "true" });
+  }
   if (action === "push_unsubscribe") {
     await sql`delete from os.push_subs where user_id = ${user.id} and endpoint = ${clip(body.endpoint, 1000)}`;
     return json({ ok: true });

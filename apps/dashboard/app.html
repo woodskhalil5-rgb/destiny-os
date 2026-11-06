@@ -396,7 +396,7 @@ async function sCall(action, extra = {}) {
   return j;
 }
 const GROWTH = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-growth";
-let growth = null, growthBusy = false;
+let growth = null, growthBusy = false, aiPhone = null;
 async function gCall(action, extra = {}) {
   const r = await fetch(GROWTH, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
   const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
@@ -787,6 +787,8 @@ const VIEWS = {
     if (c.can_manage && c.settings) h += `<div class="section"><div class="box form" id="phoneSet"><h4>Phone settings</h4>
       <label class="field">When someone calls your number, also ring<input id="fwdTo" inputmode="tel" value="${esc(fmtPhone(c.settings.forward_to))}" placeholder="Your cell (optional)"><small>This number and your team's open dashboards ring together. If nobody answers in 20 seconds, the caller gets voicemail.</small></label>
       <label class="check"><input type="checkbox" id="recOn"${c.settings.record ? " checked" : ""}> Record calls (the other person hears "This call may be recorded")</label>
+      ${(() => { if (aiPhone?.biz !== biz) { aiPhone = {biz, on: false, loading: true}; gCall("phone_ai_get").then(r => { aiPhone = {biz, on: !!r.on}; rendered = ""; render(true); }).catch(() => {}); }
+        return `<label class="check"><input type="checkbox" id="aiOn"${aiPhone.on ? " checked" : ""}${aiPhone.loading ? " disabled" : ""}> Virtual assistant: when nobody answers, an AI assistant picks up instead of voicemail. It says it's a virtual assistant, takes the caller's name, what they need and a good time to call back, and sends it to you right away. It never quotes prices or books times. Billed as AI work plus call minutes.</label>`; })()}
       <div><button class="btn" data-kact="psave">Save phone settings</button></div></div></div>`;
     return h;
   },
@@ -1187,7 +1189,11 @@ V.addEventListener("click", async e => {
         await call("call_outcome", {call_sid: pending.sid, call_id: pending.callId, outcome: pending.outcome, note: $("outNote").value, callback_on: $("cbDate")?.value});
         pending = null; editing.delete("outcome");
       }
-      if (k === "psave") { await call("phone_settings", {forward_to: $("fwdTo").value.trim(), record: $("recOn").checked}); editing.delete("phone"); }
+      if (k === "psave") {
+        await call("phone_settings", {forward_to: $("fwdTo").value.trim(), record: $("recOn").checked});
+        if ($("aiOn") && !$("aiOn").disabled) { const r = await gCall("phone_ai_set", {on: $("aiOn").checked}); aiPhone = {biz, on: !!r.on}; }
+        editing.delete("phone");
+      }
       if (k === "buy") { await call("phone_buy", {area_code: $("areaCode").value}); tick(); }
       if (k === "twsave") { await call("twilio_setup", {account_sid: $("twAcc").value, auth_token: $("twTok").value, api_key_sid: $("twKey").value, api_key_secret: $("twSec").value}); editing.delete("tw"); }
       await loadCalls(false); rendered = ""; render(true);

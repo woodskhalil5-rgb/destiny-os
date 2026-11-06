@@ -6,12 +6,18 @@
 //   ?ev=indone    the ring attempt ended: voicemail if nobody answered
 //   ?ev=instatus  the incoming call finished: price it
 //   ?ev=vm / rec  a voicemail or call recording is ready
-import { post, secret, sql } from "../_core/core.ts";
+//   ?ev=ai        the virtual assistant heard the caller (when nobody answered and the owner turned it on)
+//   ?ev=ainone / aiend  the caller went quiet: voicemail at the start, otherwise wrap up with what we have
+import { business, post, secret, sql } from "../_core/core.ts";
 import { canCall, e164, parseIdentity, priceCall, recordForPhone, twilioCreds, twilioSigOk } from "../_core/twilio.ts";
+import { assistantOk, assistantTurn, finishAssistantCall, greeting, MAX_TURNS } from "../_core/receptionist.ts";
 
 const xml = (body: string) => new Response(`<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`, { headers: { "content-type": "text/xml" } });
 const x = (s: unknown) => String(s ?? "").replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" }[c]!));
 const say = (t: string) => `<Say voice="Polly.Joanna">${x(t)}</Say>`;
+// Listen for the caller's answer; if they say nothing, Twilio moves on to the Redirect after it.
+const listen = (prompt: string, action: string, quiet: string) =>
+  `<Gather input="speech" speechTimeout="auto" speechModel="phone_call" language="en-US" timeout="6" action="${action}" method="POST">${say(prompt)}</Gather><Redirect method="POST">${quiet}</Redirect>`;
 
 function localHour(tz: string) {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", hourCycle: "h23" }).format(new Date()));
@@ -29,6 +35,8 @@ Deno.serve(async (req) => {
   const ev = u.searchParams.get("ev");
   const cid = Number(u.searchParams.get("cid") ?? 0);
   const hook = (q: string) => x(`${base}/os-voice?${q}`);
+  const voicemail = (name: string, callId: number, lead: string) => say(`Thanks for calling ${name}. ${lead} Please leave a message after the tone.`)
+    + `<Record maxLength="120" playBeep="true" recordingStatusCallback="${hook(`ev=vm&cid=${callId}`)}" action="${hook("ev=vmdone")}"/>`;
 
   try {
     if (ev === "out") {
@@ -75,14 +83,53 @@ Deno.serve(async (req) => {
     }
     if (ev === "indone" && cid) {
       if (params.DialCallStatus === "completed") return xml("<Hangup/>");
+      const [b] = await sql`select b.*, i.settings as phone from os.calls c join os.businesses b on b.id = c.business_id
+        left join os.integrations i on i.business_id = b.id and i.provider = 'phone' and i.status = 'connected' where c.id = ${cid}`;
+      // Nobody picked up: the virtual assistant answers if the owner turned it on; otherwise voicemail.
+      if (b && await assistantOk(b).catch(() => false)) {
+        const hello = greeting(b.name);
+        await sql`update os.calls set ai_answered = true, ai_transcript = ${sql.json([{ role: "assistant", content: hello }])} where id = ${cid}`;
+        return xml(listen(hello, hook(`ev=ai&cid=${cid}`), hook(`ev=ainone&cid=${cid}`)));
+      }
+      return xml(voicemail(b?.name ?? "us", cid, "Sorry we missed you."));
+    }
+    if (ev === "ainone" && cid) {
+      await sql`update os.calls set ai_done = true where id = ${cid}`; // nothing said yet: the voicemail handles it
       const [b] = await sql`select b.name from os.calls c join os.businesses b on b.id = c.business_id where c.id = ${cid}`;
-      return xml(say(`Thanks for calling ${b?.name ?? "us"}. Sorry we missed you. Please leave a message after the tone.`)
-        + `<Record maxLength="120" playBeep="true" recordingStatusCallback="${hook(`ev=vm&cid=${cid}`)}" action="${hook("ev=vmdone")}"/>`);
+      return xml(voicemail(b?.name ?? "us", cid, "Sorry, I didn't catch that."));
+    }
+    if (ev === "aiend" && cid) {
+      await finishAssistantCall(cid);
+      return xml(say("I'll pass along what you told me, and someone will call you back as soon as they can. Goodbye.") + "<Hangup/>");
+    }
+    if (ev === "ai" && cid) {
+      const [c] = await sql`select * from os.calls where id = ${cid} and ai_answered and not ai_done`;
+      if (!c) return xml("<Hangup/>");
+      const heard = String(params.SpeechResult ?? "").trim().slice(0, 1000);
+      const t = [...(c.ai_transcript ?? [])];
+      if (!heard) return xml(listen("Sorry, I didn't catch that. Could you say that again?", hook(`ev=ai&cid=${cid}`), hook(`ev=aiend&cid=${cid}`)));
+      t.push({ role: "user", content: heard });
+      const turns = t.filter((m: any) => m.role === "user").length;
+      const b = await business(c.business_id);
+      let reply;
+      try { reply = await assistantTurn(b!, c.from_number, t, turns >= MAX_TURNS); }
+      catch (e) {
+        console.error("assistant", (e as Error).message);
+        await sql`update os.calls set ai_transcript = ${sql.json(t)} where id = ${cid}`;
+        await finishAssistantCall(cid);
+        return xml(say("Sorry, I'm having trouble right now. I've passed along your message, and someone will call you back. Goodbye.") + "<Hangup/>");
+      }
+      t.push({ role: "assistant", content: reply.say });
+      await sql`update os.calls set ai_transcript = ${sql.json(t)}, ai_lead = ${sql.json({ ...(c.ai_lead ?? {}), ...Object.fromEntries(Object.entries(reply.lead).filter(([, v]) => v)) })} where id = ${cid}`;
+      if (reply.done) { await finishAssistantCall(cid); return xml(say(reply.say) + "<Hangup/>"); }
+      return xml(listen(reply.say, hook(`ev=ai&cid=${cid}`), hook(`ev=aiend&cid=${cid}`)));
     }
     if (ev === "vmdone") return xml(say("Thank you. Goodbye.") + "<Hangup/>");
     if (ev === "instatus") {
-      const [call] = await sql`update os.calls set status = ${params.CallStatus ?? "completed"}, ended_at = now() where twilio_sid = ${params.CallSid} returning id`;
+      const [call] = await sql`update os.calls set status = ${params.CallStatus ?? "completed"}, ended_at = now() where twilio_sid = ${params.CallSid} returning id, ai_answered, ai_done`;
       if (call) await priceCall(call.id, Number(params.CallDuration ?? 0));
+      // The caller hung up while talking to the assistant: still hand over what they said.
+      if (call?.ai_answered && !call.ai_done) await finishAssistantCall(call.id);
       return xml("");
     }
     if (ev === "vm" && cid) {
