@@ -387,19 +387,21 @@ async function sCall(action, extra = {}) {
 }
 async function loadTrial(){
   const id = biz;
-  try { const r = await sCall("trial_status"); trialInfo[id] = r.trial; } catch { trialInfo[id] = null; }
+  try { const r = await sCall("trial_status"); trialInfo[id] = r.trial; aiDown = !!r.ai_down; } catch { trialInfo[id] = null; }
   if (id === biz) { rendered = ""; render(true); }
 }
+let aiDown = false, statusTimer = null;
 function trialBanner(){
+  const pause = aiDown ? `<div class="box alert" style="margin-bottom:20px"><p style="margin:0;color:var(--ink)"><b>Your team is paused for a moment.</b> Our AI service is having trouble, so the team is waiting rather than making mistakes. Anything you send is saved, and they pick back up on their own as soon as it's fixed.</p></div>` : "";
   const t = trialInfo[biz];
-  if (!t) return "";
+  if (!t) return pause;
   const end = new Date(t.ends_at).toLocaleDateString([], {month: "long", day: "numeric"});
   const left = `${t.days_left} day${t.days_left === 1 ? "" : "s"} left`;
   const msg = t.card_on_file ? `Free trial: ${left}. Your card is on file, so your team keeps working after ${end}.`
     : t.ended ? "Your free trial has ended, so the team is paused. Add a card and it picks up where it left off."
     : `Free trial: ${left} (until ${end}). Add a card to keep your team after that; you're only billed from then on.`;
   const btn = !t.card_on_file && ["owner", "admin"].includes(data.role) ? `<button class="btn go small" data-bact="card">Add a card</button>` : "";
-  return `<div class="box ${t.ended && !t.card_on_file ? "alert" : ""}" style="margin-bottom:20px;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap"><p style="margin:0;color:var(--ink)">${esc(msg)}</p>${btn}</div>`;
+  return pause + `<div class="box ${t.ended && !t.card_on_file ? "alert" : ""}" style="margin-bottom:20px;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap"><p style="margin:0;color:var(--ink)">${esc(msg)}</p>${btn}</div>`;
 }
 
 async function call(action, extra = {}) {
@@ -1228,7 +1230,7 @@ async function start(){
   $("gate").hidden = true; $("app").hidden = false;
   lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
   await tick(); clearInterval(timer); timer = setInterval(tick, 3000);
-  loadTrial();
+  loadTrial(); clearInterval(statusTimer); statusTimer = setInterval(loadTrial, 120000);
 }
 function switchBiz(id){
   biz = id; $("bizSel").value = id; $("bizSelM").value = id; try { localStorage.setItem("osBiz", biz); } catch {}

@@ -287,10 +287,27 @@ async function watchInboxes() {
   return result;
 }
 
+/** While the AI service is marked down, try one tiny call; when it works, os.ai_back() restarts the teams. */
+async function checkAi() {
+  const [down] = await sql`select 1 from os.platform_state where key = 'ai_down'`;
+  if (!down) return "up";
+  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!key) return "down (no key)";
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST", signal: AbortSignal.timeout(20_000),
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: "claude-haiku-5-5", max_tokens: 1, messages: [{ role: "user", content: "ok" }] }),
+  }).catch(() => null);
+  if (!r?.ok) return `down (${r?.status ?? "no answer"})`;
+  const [x] = await sql`select os.ai_back() as n`;
+  return `back (${x.n} resent)`;
+}
+
 Deno.serve(async (req) => {
   const key = await secret("OS_INVOKE_KEY");
   if (!key || (req.headers.get("authorization") ?? "") !== `Bearer ${key}`) return new Response("forbidden", { status: 403 });
   const out: Record<string, unknown> = {};
+  try { out.ai = await checkAi(); } catch (e) { out.ai_error = (e as Error).message; }
   try { out.inbox = await watchInboxes(); } catch (e) { out.inbox_error = (e as Error).message; }
   try { out.alerts = await sendAlerts(); } catch (e) { out.alerts_error = (e as Error).message; }
   try { out.published = await publishDue(); } catch (e) { out.publish_error = (e as Error).message; }

@@ -238,9 +238,10 @@ Deno.serve(async (req) => {
     const [m] = isAdmin ? [{ ok: 1 }] : await sql`select 1 as ok from os.business_members where user_id = ${user.id} and business_id = ${bid}`;
     if (!m) return json({ error: "You don't have access to that business." }, 403);
     const [b] = await sql`select trial_ends_at, trial_converted, billing_status from os.businesses where id = ${bid}`;
-    if (!b?.trial_ends_at || b.trial_converted) return json({ trial: null });
+    const [{ down }] = await sql`select os.ai_down() as down`;
+    if (!b?.trial_ends_at || b.trial_converted) return json({ trial: null, ai_down: down });
     const ms = new Date(b.trial_ends_at).getTime() - Date.now();
-    return json({ trial: { ends_at: b.trial_ends_at, days_left: Math.max(0, Math.ceil(ms / 86400000)), ended: ms <= 0, card_on_file: b.billing_status === "active", cap_usd: TRIAL_CAP } });
+    return json({ trial: { ends_at: b.trial_ends_at, days_left: Math.max(0, Math.ceil(ms / 86400000)), ended: ms <= 0, card_on_file: b.billing_status === "active", cap_usd: TRIAL_CAP }, ai_down: down });
   }
 
   if (action === "admin_trial") {
