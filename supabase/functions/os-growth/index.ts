@@ -45,7 +45,7 @@ async function monthlyReport(current: boolean) {
   const key = Deno.env.get("ANTHROPIC_API_KEY");
   if (!key) throw new Error("No Anthropic key.");
   const model = "claude-opus-5-5";
-  const system = `You write the monthly improvement report for Destiny OS, for its owner. Destiny OS is a SaaS that gives a small local business (mostly home services) an AI marketing team of six: James (research), Emily (analysis), Kole (writing), DeMarcus (coordination), Grayson (social media), Benjamin (distribution). It answers inquiries, follows up quotes on day 2, 5 and 10, asks for reviews, emails past customers seasonal offers, posts to Facebook, has a phone dialer with a virtual assistant, a weekly recap email, and phone notifications. Everything that goes out waits for the business owner's OK.
+  const system = `You write the monthly improvement report for Destiny OS, for its owner. Destiny OS is a SaaS that gives a small local business (mostly home services) an AI marketing team of six: James (research), Emily (analysis), Kole (writing), DeMarcus (coordination), Grayson (social media), Nora (money: invoices, jobs won, cost per job). It answers inquiries, follows up quotes on day 2, 5 and 10, asks for reviews, emails past customers seasonal offers, posts to Facebook, has a phone dialer with a virtual assistant, a weekly recap email, and phone notifications. Everything that goes out waits for the business owner's OK.
 How it earns: a monthly platform fee (standard $650), AI usage billed at cost plus a markup (standard 30%), calls at cost plus a per-minute fee, a monthly fee per phone number, and one-off charges. 14-day free trial. Billed on the 1st. "internal" businesses belong to the owner (they cost money but don't pay).
 
 Write a plain-text email (no markdown symbols like # or **), short and direct, in this order:
@@ -312,15 +312,17 @@ Deno.serve(async (req) => {
   // Bring in a whole list at once: a spreadsheet (as text) or a photo/screenshot of one. The AI reads it into rows,
   // the owner checks a preview, then import_rows saves them.
   if (action === "extract_list") {
-    const kind = body.kind === "quotes" ? "quotes" : "customers";
+    const kind = body.kind === "quotes" ? "quotes" : body.kind === "invoices" ? "invoices" : "customers";
     const text = clip(body.text, 60000), image = String(body.image ?? "");
     if (!text && !/^[A-Za-z0-9+/=]{100,}$/.test(image)) return json({ error: "Add a file, a photo or some text first." }, 400);
     if (image.length > 7_000_000) return json({ error: "That photo is too big. Try a smaller one or a screenshot." }, 400);
     const b = await business(bid);
     const fields = kind === "quotes"
       ? '{"name": "", "email": "", "phone": "", "job": "what the estimate was for", "amount": "number only", "sent_on": "YYYY-MM-DD or empty"}'
+      : kind === "invoices"
+      ? '{"name": "", "email": "", "phone": "", "number": "invoice number or empty", "job": "what it was for", "amount": "number only", "issued_on": "YYYY-MM-DD or empty", "due_on": "YYYY-MM-DD or empty", "paid": "yes if it is marked paid, else empty"}'
       : '{"name": "", "email": "", "phone": "", "service": "what they had done", "last_job": "YYYY-MM-DD or empty"}';
-    const ask = `This is a business owner's list of ${kind === "quotes" ? "estimates/quotes they sent to customers" : "past customers"}. Read every row and return ONLY a JSON array of objects shaped like ${fields}. One object per person or row. Copy names, emails and phone numbers exactly as written; leave a field empty if it isn't there. Skip header rows, totals and blank lines. Never invent anything. Today is ${new Date().toISOString().slice(0, 10)}.`;
+    const ask = `This is a business owner's list of ${kind === "quotes" ? "estimates/quotes they sent to customers" : kind === "invoices" ? "invoices they sent to customers" : "past customers"}. Read every row and return ONLY a JSON array of objects shaped like ${fields}. One object per person or row. Copy names, emails and phone numbers exactly as written; leave a field empty if it isn't there. Skip header rows, totals and blank lines. Never invent anything. Today is ${new Date().toISOString().slice(0, 10)}.`;
     const content: any[] = image ? [{ type: "image", source: { type: "base64", media_type: String(body.media_type || "image/jpeg"), data: image } }, { type: "text", text: ask }] : [{ type: "text", text: `${ask}\n\nTHE LIST:\n${text}` }];
     try {
       const res = await claude(b!, "analysis", { model: "claude-haiku-5-5", max_tokens: 16000, messages: [{ role: "user", content }] }, 120_000);
@@ -336,7 +338,7 @@ Deno.serve(async (req) => {
   }
 
   if (action === "import_rows") {
-    const kind = body.kind === "quotes" ? "quotes" : "customers";
+    const kind = body.kind === "quotes" ? "quotes" : body.kind === "invoices" ? "invoices" : "customers";
     const rows: any[] = Array.isArray(body.rows) ? body.rows.slice(0, 2000) : [];
     let added = 0, skipped = 0, old = 0;
     const today = new Date().toISOString().slice(0, 10);
@@ -352,6 +354,28 @@ Deno.serve(async (req) => {
         await sql`insert into os.records (business_id, type, status, title, data, created_by) values (${bid}, 'customer', 'past', ${name}, ${sql.json(d)}, 'owner')`;
         if (email) existing.add(email); existing.add(key); added++;
       }
+    } else if (kind === "invoices") {
+      // Nora's: unpaid ones get chased (reminders wait for the owner's OK); paid ones are kept as history.
+      const have = new Set((await sql`select lower(coalesce(data->>'number', '')) || '|' || lower(coalesce(data->>'email', title)) || '|' || coalesce(data->>'amount', '') as k
+        from os.records where business_id = ${bid} and type = 'invoice'`).map((x: any) => x.k));
+      const day = (v: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(v ?? "")) ? String(v) : null;
+      for (const r of rows) {
+        const email = clip(r.email, 200).toLowerCase(), name = clip(r.name, 120);
+        const amount = String(r.amount ?? "").replace(/[^0-9.]/g, "");
+        if (!name || !amount || (email && !EMAIL.test(email))) { skipped++; continue; }
+        const key = `${clip(r.number, 40).toLowerCase()}|${email || name.toLowerCase()}|${amount}`;
+        if (have.has(key)) { skipped++; continue; }
+        const paid = /^(y|yes|paid|true)$/i.test(String(r.paid ?? "").trim());
+        const due = day(r.due_on), issued = day(r.issued_on);
+        const d = { name, ...(email ? { email } : {}), ...(r.phone ? { phone: clip(r.phone, 40) } : {}), ...(r.number ? { number: clip(r.number, 40) } : {}),
+          ...(r.job ? { job: clip(r.job, 200) } : {}), amount, ...(issued ? { issued_on: issued } : {}), ...(due ? { due_on: due } : {}), ...(paid ? { paid_on: due ?? issued ?? today } : {}), source: "imported list" };
+        const nextDue = paid ? null : due && due >= today ? new Date(Date.parse(due) + 86400000).toISOString().slice(0, 10) : today;
+        await sql`insert into os.records (business_id, type, status, title, data, owner_slot, created_by, next_step, next_step_due)
+          values (${bid}, 'invoice', ${paid ? "paid" : "unpaid"}, ${name + (r.number ? ` · #${clip(r.number, 40)}` : r.job ? ` · ${clip(r.job, 80)}` : "")}, ${sql.json(d)}, 'finance', 'owner',
+            ${paid ? null : email ? "friendly payment reminder (for your OK)" : "add their email so Nora can send reminders"}, ${nextDue})`;
+        have.add(key); added++; if (paid) old++;
+      }
+      if (added > old) await post(bid, "system", `@nora The owner imported ${added - old} unpaid invoice${added - old === 1 ? "" : "s"}. Check them with money_numbers and draft reminders for the overdue ones (for approval).`);
     } else {
       const have = new Set((await sql`select lower(coalesce(data->>'email', '')) || '|' || lower(coalesce(data->>'job', '')) as k from os.records where business_id = ${bid} and type = 'quote'`).map((x: any) => x.k));
       for (const r of rows) {

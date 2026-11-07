@@ -21,7 +21,7 @@ export const TOOL_DEFS: Record<string, Record<string, unknown>> = {
     input_schema: obj({ id: I, type: S, status: S, title: S, data: { type: "object" }, next_step: S, next_step_due: { type: "string", description: "YYYY-MM-DD" } }) },
   find_records: { name: "find_records", description: "Search this business's records by type, status and/or words in the title.", input_schema: obj({ type: S, status: S, query: S }) },
   get_record: { name: "get_record", description: "Read one record in full.", input_schema: obj({ id: I }, ["id"]) },
-  create_task: { name: "create_task", description: "Create a task and assign it to a teammate by handle (james, emily, kole, demarcus, grayson, benjamin).", input_schema: obj({ title: S, detail: S, assignee: S, due_at: S, record_id: I }, ["title", "assignee"]) },
+  create_task: { name: "create_task", description: "Create a task and assign it to a teammate by handle (james, emily, kole, demarcus, grayson, nora).", input_schema: obj({ title: S, detail: S, assignee: S, due_at: S, record_id: I }, ["title", "assignee"]) },
   update_task: { name: "update_task", description: "Update a task's status (open, in_progress, blocked, done, cancelled) or detail.", input_schema: obj({ id: I, status: S, detail: S }, ["id"]) },
   list_tasks: { name: "list_tasks", description: "List open tasks for the business, optionally for one assignee.", input_schema: obj({ assignee: S }) },
   request_approval: { name: "request_approval", description: "Queue anything consequential (an email, offer, spend, publish) for approval. Nothing happens until it is approved. For email, payload = {to, subject, body}.",
@@ -38,6 +38,8 @@ export const TOOL_DEFS: Record<string, Record<string, unknown>> = {
     input_schema: obj({ ids: { type: "array", items: I } }, ["ids"]) },
   queue_call: { name: "queue_call", description: "Put someone on the call list for the business's caller (a person makes the calls). Give the record id (its data.phone is used) or a phone number, and say why to call and what to cover. Only for people the business rules allow calling.",
     input_schema: obj({ record_id: I, phone: S, reason: S }, ["reason"]) },
+  money_numbers: { name: "money_numbers", description: "The business's money in one call: jobs won and quotes sent in the last N days (and the N days before, to compare), open quotes, win rate, unpaid and overdue invoices (with the overdue list), what Destiny OS costs this month and per job won. Amounts are as entered, in the business's own currency.",
+    input_schema: obj({ days: { type: "integer", description: "period length in days (default 30; 7 for the weekly snapshot)" } }) },
   schedule_content: { name: "schedule_content", description: "Schedule APPROVED content for publishing (ISO date-time).", input_schema: obj({ id: I, when: S }, ["id", "when"]) },
 };
 
@@ -80,10 +82,11 @@ export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent
         return `updated #${r.id} ${r.title} (${r.status})`;
       }
       if (!f.type || !f.title) return "error: type and title are required for a new record";
-      if (types.length && !types.includes(f.type)) return `error: type must be one of ${types.join(", ")}`;
+      // invoice is a platform type every business has (Nora's).
+      if (types.length && !types.includes(f.type) && f.type !== "invoice") return `error: type must be one of ${types.join(", ")}, or invoice`;
       const [dup] = await sql`select id, title from os.records where business_id = ${b.id} and type = ${f.type} and lower(title) = lower(${f.title})`;
       if (dup) return `duplicate: already tracked as #${dup.id} ${dup.title}`;
-      const status = f.status ?? cfg.record_types?.[f.type]?.stages?.[0] ?? "new";
+      const status = f.status ?? cfg.record_types?.[f.type]?.stages?.[0] ?? (f.type === "invoice" ? "unpaid" : "new");
       const [r] = await sql`insert into os.records (business_id, type, status, title, data, owner_slot, next_step, next_step_due, created_by)
         values (${b.id}, ${f.type}, ${status}, ${f.title}, ${sql.json(data ?? {})}, ${a.slot}, ${f.next_step ?? null}, ${f.next_step_due ?? null}, ${a.slot}) returning id`;
       ctx.recordId = r.id; ctx.saved++;
@@ -100,8 +103,9 @@ export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent
       return r ? JSON.stringify(r) : "not found";
     }
     case "create_task": {
-      const [ag] = await sql`select slot from os.agents where handle = ${String(input.assignee ?? "").replace("@", "").toLowerCase()}`;
-      if (!ag) return "error: unknown assignee";
+      const [ag] = await sql`select a.slot from os.agents a join os.business_agents ba on ba.slot = a.slot and ba.business_id = ${b.id} and ba.enabled
+        where a.handle = ${String(input.assignee ?? "").replace("@", "").toLowerCase()}`;
+      if (!ag) return "error: that teammate isn't on this team. Use james, emily, kole, demarcus, grayson or nora.";
       const [t] = await sql`insert into os.tasks (business_id, title, detail, assignee_slot, created_by, due_at, record_id)
         values (${b.id}, ${input.title}, ${input.detail ?? null}, ${ag.slot}, ${a.slot}, ${input.due_at ?? null}, ${input.record_id ?? null}) returning id`;
       return `task #${t.id} created for ${input.assignee}. @mention them in your reply if they should start now.`;
@@ -232,6 +236,10 @@ export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent
       const [q] = await sql`insert into os.call_queue (business_id, record_id, phone, name, reason, queued_by)
         values (${b.id}, ${rec?.id ?? null}, ${phone}, ${rec?.title ?? null}, ${String(input.reason ?? "").slice(0, 500)}, ${a.slot}) on conflict do nothing returning id`;
       return q ? `added to the call list (#${q.id})` : "already on the call list";
+    }
+    case "money_numbers": {
+      const [m] = await sql`select os.money_numbers(${b.id}::uuid, ${Number(input?.days) || 30}::int) as j`;
+      return JSON.stringify(m.j);
     }
     case "schedule_content": {
       const [c] = await sql`select status from os.content where id = ${input.id} and business_id = ${b.id}`;

@@ -18,7 +18,7 @@
 :root{
   --bg:#f3f5f2; --surface:#ffffff; --sunk:#eef1ed; --ink:#18222d; --soft:#3c4854; --muted:#68737e; --line:#dfe4de;
   --go:#106b55; --go-ink:#ffffff; --go-tint:#e3f1ec; --need:#a85407; --need-tint:#fbefe2; --bad:#b42318; --bad-tint:#fbe9e7;
-  --c-research:#2f5fb3; --c-analysis:#7246b8; --c-production:#bb5a17; --c-coordination:#0d6b67; --c-media:#b0306a; --c-distribution:#3f7d20; --c-system:#7a8794;
+  --c-research:#2f5fb3; --c-analysis:#7246b8; --c-production:#bb5a17; --c-coordination:#0d6b67; --c-media:#b0306a; --c-distribution:#3f7d20; --c-finance:#8a6a00; --c-system:#7a8794;
   --r-lg:16px; --r-md:10px; --r-sm:8px;
   --font:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
   color-scheme:light;
@@ -26,7 +26,7 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#12171c; --surface:#1a2027; --sunk:#151b21; --ink:#e9edf0; --soft:#c3cbd2; --muted:#93a0ab; --line:#2a323a;
   --go:#4cc7a3; --go-ink:#06231b; --go-tint:#173229; --need:#f0a75a; --need-tint:#33261a; --bad:#ff8a80; --bad-tint:#3a1f1d;
-  --c-research:#7aa5f0; --c-analysis:#b597f0; --c-production:#f0a165; --c-coordination:#3fb7ad; --c-media:#f08cb8; --c-distribution:#8fd16a; --c-system:#7f8d97;
+  --c-research:#7aa5f0; --c-analysis:#b597f0; --c-production:#f0a165; --c-coordination:#3fb7ad; --c-media:#f08cb8; --c-distribution:#8fd16a; --c-finance:#e6c35c; --c-system:#7f8d97;
   color-scheme:dark}}
 [hidden]{display:none!important}
 *{box-sizing:border-box}
@@ -383,7 +383,8 @@ function mediaHtml(c){
   if (!c.media?.length) return "";
   return `<div class="pmedia">${c.media.map(m => m.kind === "video" ? `<video src="${esc(murl(m))}" controls preload="metadata" playsinline></video>` : `<a href="${esc(murl(m))}" target="_blank" rel="noopener"><img src="${esc(murl(m))}" alt="${esc(TAGL[m.tag] || "Photo")}" loading="lazy"></a>`).join("")}</div>`;
 }
-const ROLE = {research: "Research", analysis: "Analysis", production: "Writing", coordination: "Manager", media: "Media", distribution: "Outreach"};
+const ROLE = {research: "Research", analysis: "Analysis", production: "Writing", coordination: "Manager", media: "Media", distribution: "Outreach", finance: "Money"};
+const RETIRED = new Set(["distribution"]); // Benjamin retired; his work moved to James, Kole and Emily
 const TITLES = {home: "Home", chat: "Team chat", approve: "To approve", work: "Work", media: "Media", calls: "Calls", money: "Money", settings: "Settings", new: "Add a business", overview: "All businesses"};
 const CALLER_VIEWS = new Set(["calls", "chat"]);
 const OUTCOMES = [["talked", "Talked"], ["interested", "Interested"], ["callback", "Call back later"], ["no_answer", "No answer"], ["voicemail", "Left a voicemail"], ["not_interested", "Not interested"], ["wrong_number", "Wrong number"], ["do_not_call", "Do not call again"]];
@@ -1036,7 +1037,7 @@ function setBusiness(){
       <div class="field">Work days<div class="days">${DAYS.map((n, i) => `<label><input type="checkbox" data-day="${i + 1}"${(b.shift_days || []).includes(i + 1) ? " checked" : ""}${ro}>${n}</label>`).join("")}</div></div>
       <label class="field">Time zone<input data-s="timezone" value="${esc(b.timezone)}"${ro}></label></div>
     <div><h3 style="font-size:17px;margin:8px 0 4px">The team</h3><p class="s" style="color:var(--muted);margin:0 0 12px">Untick someone to switch them off. Open a teammate to give them instructions for this business.</p>
-    <div class="list">${d.agents.map(a => `<details class="agent" data-agent="${a.slot}" data-k="a${a.slot}"><summary><input type="checkbox" data-a="enabled"${a.enabled ? " checked" : ""}${ro} aria-label="${esc(a.name)} is on">${av(a.slot, a.name)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${esc(a.role)}</div></div></summary>
+    <div class="list">${d.agents.filter(a => !RETIRED.has(a.slot)).map(a => `<details class="agent" data-agent="${a.slot}" data-k="a${a.slot}"><summary><input type="checkbox" data-a="enabled"${a.enabled ? " checked" : ""}${ro} aria-label="${esc(a.name)} is on">${av(a.slot, a.name)}<div class="grow"><div class="t">${esc(a.name)}</div><div class="s">${esc(a.role)}</div></div></summary>
       <div class="inner"><label class="field">Instructions for ${esc(a.name)}<textarea data-a="role_instructions" rows="5"${ro}>${esc(a.role_instructions || "")}</textarea></label></div></details>`).join("")}</div></div>
     ${d.advanced ? `<details class="box"><summary style="cursor:pointer;font-weight:600">Advanced settings (only you see this)</summary><textarea data-s="raw_config" style="min-height:240px;margin-top:12px;font-family:ui-monospace,Menlo,monospace;font-size:13px">${esc(JSON.stringify(c, null, 2))}</textarea><p style="margin-top:8px">Edit only if you know what you're changing. The fields above still apply on top.</p></details>` : ""}
     ${d.can_edit ? `<div><button class="btn go" data-sact="save">Save settings</button></div>` : `<p class="s">Only admins can change settings.</p>`}
@@ -1185,16 +1186,17 @@ const V = $("view");
 let impKind = "customers", impPrev = null, impBusy = false;
 function importBox(g) {
   const k = impKind, P = impPrev;
-  const cols = k === "quotes" ? [["name", "Name"], ["email", "Email"], ["phone", "Phone"], ["job", "Job"], ["amount", "Amount"], ["sent_on", "Sent"]] : [["name", "Name"], ["email", "Email"], ["phone", "Phone"], ["service", "Service"], ["last_job", "Last job"]];
-  return `<details class="box form" id="impBox"${!g.customers || P || impBusy ? " open" : ""}><summary style="cursor:pointer;font-weight:700">Add a list: past customers or open quotes</summary>
-    <div class="seg" role="group" style="margin-top:8px">${[["customers", "Past customers"], ["quotes", "Open quotes"]].map(([v, n]) => `<button data-imk="${v}" aria-pressed="${k === v}">${n}</button>`).join("")}</div>
-    ${P ? `<p class="s" style="margin:4px 0"><b>Found ${P.rows.length} ${k === "quotes" ? "quote" : "customer"}${P.rows.length === 1 ? "" : "s"}.</b> Check a few, then add them.${k === "quotes" ? " Quotes from the last 30 days get follow-ups on day 2, 5 and 10; older ones are saved without emailing anyone." : ""}</p>
+  const cols = k === "quotes" ? [["name", "Name"], ["email", "Email"], ["phone", "Phone"], ["job", "Job"], ["amount", "Amount"], ["sent_on", "Sent"]]
+    : k === "invoices" ? [["name", "Name"], ["email", "Email"], ["number", "Invoice"], ["amount", "Amount"], ["due_on", "Due"], ["paid", "Paid"]] : [["name", "Name"], ["email", "Email"], ["phone", "Phone"], ["service", "Service"], ["last_job", "Last job"]];
+  return `<details class="box form" id="impBox"${!g.customers || P || impBusy ? " open" : ""}><summary style="cursor:pointer;font-weight:700">Add a list: past customers, open quotes or invoices</summary>
+    <div class="seg" role="group" style="margin-top:8px">${[["customers", "Past customers"], ["quotes", "Open quotes"], ["invoices", "Invoices"]].map(([v, n]) => `<button data-imk="${v}" aria-pressed="${k === v}">${n}</button>`).join("")}</div>
+    ${P ? `<p class="s" style="margin:4px 0"><b>Found ${P.rows.length} ${k === "quotes" ? "quote" : k === "invoices" ? "invoice" : "customer"}${P.rows.length === 1 ? "" : "s"}.</b> Check a few, then add them.${k === "quotes" ? " Quotes from the last 30 days get follow-ups on day 2, 5 and 10; older ones are saved without emailing anyone." : k === "invoices" ? " Nora drafts friendly reminders for the unpaid ones, and nothing goes out until you OK it. Paid ones are kept as history." : ""}</p>
       <div style="overflow-x:auto;border:1px solid var(--line);border-radius:10px"><table style="border-collapse:collapse;width:100%;font-size:14px"><tr>${cols.map(([, n]) => `<th style="text-align:left;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap">${n}</th>`).join("")}</tr>
         ${P.rows.slice(0, 12).map(r => `<tr>${cols.map(([c]) => `<td style="padding:8px;border-bottom:1px solid var(--line)">${esc(r[c] || "")}</td>`).join("")}</tr>`).join("")}</table></div>
       ${P.rows.length > 12 ? `<p class="s">…and ${P.rows.length - 12} more.</p>` : ""}
       <div class="acts"><button class="btn go" data-gr="imp_go">Add all ${P.rows.length}</button><button class="btn quiet" data-gr="imp_cancel">Start over</button></div>`
     : `<label class="field">Upload a spreadsheet, or a photo or screenshot of your list<input type="file" id="impFile" accept=".csv,.txt,.xlsx,.xls,image/*"></label>
-      <label class="field">Or paste it<textarea data-c="text" rows="4" placeholder="${k === "quotes" ? "Maria Lopez, maria@example.com, roof replacement, $14,500, 2026-10-28" : "Maria Lopez, maria@example.com, 555-123-4567, roof replacement, 2025-09-14"}"></textarea><small>Any layout works: an export from QuickBooks or Jobber, a sheet, a notebook page. Nothing is saved until you check it.</small></label>
+      <label class="field">Or paste it<textarea data-c="text" rows="4" placeholder="${k === "quotes" ? "Maria Lopez, maria@example.com, roof replacement, $14,500, 2026-10-28" : k === "invoices" ? "Invoice 1042, Maria Lopez, maria@example.com, $6,200, due 2026-11-01, unpaid" : "Maria Lopez, maria@example.com, 555-123-4567, roof replacement, 2025-09-14"}"></textarea><small>Any layout works: an export from QuickBooks or Jobber, a sheet, a notebook page. Nothing is saved until you check it.</small></label>
       <div class="acts"><button class="btn go" data-gr="extract"${impBusy ? " disabled" : ""}>${impBusy ? "Reading your list…" : "Read the list"}</button></div>`}</details>`;
 }
 async function fileForImport(f) {
@@ -1292,7 +1294,7 @@ V.addEventListener("click", async e => {
         try { const r = await gCall("extract_list", {kind: impKind, ...fromFile, text: [fromFile.text, pasted].filter(Boolean).join("\n")}); impPrev = r.rows?.length ? r : null; if (!r.rows?.length) msg = "We couldn't find anyone on that list. Try a clearer photo or the spreadsheet file."; }
         finally { impBusy = false; }
       }
-      else if (d.gr === "imp_go") { const r = await gCall("import_rows", {kind: impPrev.kind, rows: impPrev.rows}); msg = `Added ${r.added}${r.skipped ? ` (${r.skipped} skipped: already there, or no way to reach them)` : ""}.${r.old ? ` ${r.old} older quote${r.old === 1 ? " was" : "s were"} saved without follow-ups.` : ""}`; impPrev = null; growth = null; }
+      else if (d.gr === "imp_go") { const r = await gCall("import_rows", {kind: impPrev.kind, rows: impPrev.rows}); msg = `Added ${r.added}${r.skipped ? ` (${r.skipped} skipped: already there, or no way to reach them)` : ""}.${r.old ? (impPrev.kind === "invoices" ? ` ${r.old} paid invoice${r.old === 1 ? " was" : "s were"} saved as history.` : ` ${r.old} older quote${r.old === 1 ? " was" : "s were"} saved without follow-ups.`) : ""}${impPrev.kind === "invoices" && r.added > (r.old || 0) ? " Nora is on the unpaid ones." : ""}`; impPrev = null; growth = null; }
       else if (d.gr === "imp_cancel") { impPrev = null; }
       else if (d.gr === "import") { const r = await gCall("customers_import", {text: v('[data-c="text"]')}); msg = `Added ${r.added} customer${r.added === 1 ? "" : "s"}${r.skipped ? ` (${r.skipped} skipped: no email, or already on the list)` : ""}.`; }
       else if (d.gr === "camp_idea") { await gCall("campaign_ask", {idea: d.idea}); msg = "Kole's on it. His draft will show up in To approve."; }

@@ -11,7 +11,7 @@ One platform, six agents, any business. Build once, configure for each business,
 | @kole | Kole | Documentation, production, direct written outreach |
 | @demarcus | DeMarcus | Communications, coordination, owner reporting |
 | @grayson | Grayson | Media production, scheduling and publishing |
-| @benjamin | Benjamin | Distribution and customer/community outreach |
+| @nora | Nora | Money: jobs won, open quotes, unpaid invoices and reminders (Benjamin, Distribution, retired: his partner work moved to James and Kole) |
 
 A business never changes the six slots, names or personalities. It only adds job instructions, facts, rules, record types, approval rules and integrations.
 

@@ -56,7 +56,7 @@ async function setupTeam(bid: string) {
   if (!b) return;
   const [s] = await sql`select details from os.trial_signups where business_id = ${bid} order by id desc limit 1`;
   const d = s?.details ?? {};
-  const agents = await sql`select slot, name, handle, core_role from os.agents order by sort`;
+  const agents = await sql`select slot, name, handle, core_role from os.agents where not retired order by sort`;
   const prompt = `You are setting up a new business's AI team on Destiny OS. The team has six coworkers; each has a fixed core job:
 ${agents.map((a: any) => `- ${a.slot} (${a.name}): ${a.core_role}`).join("\n")}
 
@@ -72,7 +72,7 @@ Write this business's setup as JSON, and nothing else:
   "facts": "short bullet lines using ONLY what the owner said (services, area, customers, prices if given). Then one line listing what the owner should add (e.g. prices, offers, phone number) if it's missing.",
   "rules": "4 to 8 short bullet lines suited to this kind of business: what never to claim or promise, tone, who may and may not be contacted, anything the law or the industry requires (licensing, guarantees, health or financial claims)",
   "record_types": { "<snake_case_type>": { "stages": ["5 to 7 stages in order"], "description": "what one record is" } },
-  "agents": { "research": "...", "analysis": "...", "production": "...", "coordination": "...", "media": "...", "distribution": "..." }
+  "agents": { ${agents.map((a: any) => `"${a.slot}": "..."`).join(", ")} }
 }
 record_types: 1 to 3 types that fit how this business finds and wins work (for example "lead" for customers it wants, "partner" for referral sources).
 agents: for each slot, 2 to 4 sentences of concrete instructions for THIS business: exactly what to look for or make, where, how many per run (5 to 8), and who to hand it to by @handle (${agents.map((a: any) => "@" + a.handle).join(", ")}). Keep every instruction within the platform rules.`;

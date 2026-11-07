@@ -17,19 +17,19 @@ try { if (localStorage.getItem("osToken") && !/[?&]home\b/.test(location.search)
 :root{
   --bg:#f3f5f2; --surface:#ffffff; --sunk:#eef1ed; --ink:#18222d; --soft:#3c4854; --muted:#68737e; --line:#dfe4de;
   --go:#106b55; --go-ink:#ffffff; --go-tint:#e3f1ec; --need:#a85407; --need-tint:#fbefe2; --bad:#b42318; --bad-tint:#fbe9e7;
-  --c-research:#2f5fb3; --c-analysis:#7246b8; --c-production:#bb5a17; --c-coordination:#0d6b67; --c-media:#b0306a; --c-distribution:#3f7d20;
+  --c-research:#2f5fb3; --c-analysis:#7246b8; --c-production:#bb5a17; --c-coordination:#0d6b67; --c-media:#b0306a; --c-distribution:#3f7d20; --c-finance:#8a6a00;
   --r-sm:10px; --r:14px; --r-lg:20px; --shadow:0 1px 2px rgba(24,34,45,.06),0 8px 28px rgba(24,34,45,.07);
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#12171c; --surface:#1a2027; --sunk:#151b21; --ink:#e9edf0; --soft:#c3cbd2; --muted:#93a0ab; --line:#2a323a;
   --go:#4cc7a3; --go-ink:#06231b; --go-tint:#173229; --need:#f0a75a; --need-tint:#33261a; --bad:#ff8a80; --bad-tint:#3a1f1d;
-  --c-research:#7aa5f0; --c-analysis:#b597f0; --c-production:#f0a165; --c-coordination:#3fb7ad; --c-media:#f08cb8; --c-distribution:#8fd16a;
+  --c-research:#7aa5f0; --c-analysis:#b597f0; --c-production:#f0a165; --c-coordination:#3fb7ad; --c-media:#f08cb8; --c-distribution:#8fd16a; --c-finance:#e6c35c;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.25);
 }}
 :root[data-theme="dark"]{
   --bg:#12171c; --surface:#1a2027; --sunk:#151b21; --ink:#e9edf0; --soft:#c3cbd2; --muted:#93a0ab; --line:#2a323a;
   --go:#4cc7a3; --go-ink:#06231b; --go-tint:#173229; --need:#f0a75a; --need-tint:#33261a; --bad:#ff8a80; --bad-tint:#3a1f1d;
-  --c-research:#7aa5f0; --c-analysis:#b597f0; --c-production:#f0a165; --c-coordination:#3fb7ad; --c-media:#f08cb8; --c-distribution:#8fd16a;
+  --c-research:#7aa5f0; --c-analysis:#b597f0; --c-production:#f0a165; --c-coordination:#3fb7ad; --c-media:#f08cb8; --c-distribution:#8fd16a; --c-finance:#e6c35c;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.25);
 }
 *{box-sizing:border-box}
@@ -214,9 +214,9 @@ footer a{color:var(--muted)}
         <div class="hd"><b>2 things need you.</b><span class="pill need">To approve</span></div>
         <div class="mrow"><span class="av" style="--c:var(--c-production)">K</span><div class="grow"><div class="t">Intro email to a property manager</div><div class="s">Written by Kole · checked by Emily</div></div><span class="ok">Approve</span></div>
         <div class="mrow"><span class="av" style="--c:var(--c-media)">G</span><div class="grow"><div class="t">Before-and-after post from your job photos</div><div class="s">Made by Grayson for your Facebook Page</div></div><span class="ok">Approve</span></div>
-        <div class="mrow"><span class="av" style="--c:var(--c-coordination)">D</span><div class="grow"><div class="t">"Today: James is finding new leads, Emily is checking them, Benjamin is looking for partners."</div><div class="s">DeMarcus · your team manager</div></div></div>
+        <div class="mrow"><span class="av" style="--c:var(--c-coordination)">D</span><div class="grow"><div class="t">"Today: James is finding new leads and partners, Emily is checking them, Nora is checking who still owes you."</div><div class="s">DeMarcus · your team manager</div></div></div>
         <div class="foot"><div class="crew">
-          <span class="av" style="--c:var(--c-research)">J</span><span class="av" style="--c:var(--c-analysis)">E</span><span class="av" style="--c:var(--c-production)">K</span><span class="av" style="--c:var(--c-coordination)">D</span><span class="av" style="--c:var(--c-media)">G</span><span class="av" style="--c:var(--c-distribution)">B</span>
+          <span class="av" style="--c:var(--c-research)">J</span><span class="av" style="--c:var(--c-analysis)">E</span><span class="av" style="--c:var(--c-production)">K</span><span class="av" style="--c:var(--c-coordination)">D</span><span class="av" style="--c:var(--c-media)">G</span><span class="av" style="--c:var(--c-finance)">N</span>
         </div><span>Your team, working now</span></div>
         <p class="cap">An example of your Home screen</p>
       </div>
@@ -252,7 +252,7 @@ footer a{color:var(--muted)}
       <p class="sub">They talk to each other, hand work off by name and report back to you, like a real team.</p>
       <div class="team">
         <div class="mate" style="--c:var(--c-research)"><div class="id"><span class="av">J</span><div><h3>James</h3><div class="role">Research</div></div></div>
-          <ul><li>Finds businesses and people worth reaching out to</li><li>Researches your market and competitors</li><li>Saves every lead with where he found it</li></ul></div>
+          <ul><li>Finds businesses and people worth reaching out to</li><li>Finds partners who can send you work</li><li>Researches your market and competitors</li><li>Saves every lead with where he found it</li></ul></div>
         <div class="mate" style="--c:var(--c-analysis)"><div class="id"><span class="av">E</span><div><h3>Emily</h3><div class="role">Analysis</div></div></div>
           <ul><li>Checks the facts before anything is sent</li><li>Sorts out the best leads</li><li>Spots what's working and what isn't</li></ul></div>
         <div class="mate" style="--c:var(--c-production)"><div class="id"><span class="av">K</span><div><h3>Kole</h3><div class="role">Writing</div></div></div>
@@ -261,8 +261,8 @@ footer a{color:var(--muted)}
           <ul><li>Hands out the day's work</li><li>Keeps every lead moving to the next step</li><li>Sends you a plain-English report</li></ul></div>
         <div class="mate" style="--c:var(--c-media)"><div class="id"><span class="av">G</span><div><h3>Grayson</h3><div class="role">Media</div></div></div>
           <ul><li>Turns your job photos and videos into posts</li><li>Looks at your photos to pick the best ones</li><li>Publishes to your Facebook Page once approved</li></ul></div>
-        <div class="mate" style="--c:var(--c-distribution)"><div class="id"><span class="av">B</span><div><h3>Benjamin</h3><div class="role">Outreach</div></div></div>
-          <ul><li>Finds partners who can send you work</li><li>Finds groups and channels where your customers are</li><li>Suggests how to approach each one</li></ul></div>
+        <div class="mate" style="--c:var(--c-finance)"><div class="id"><span class="av">N</span><div><h3>Nora</h3><div class="role">Money</div></div></div>
+          <ul><li>Keeps track of jobs won, open quotes and unpaid invoices</li><li>Drafts friendly payment reminders for your OK</li><li>Sends a money snapshot every Monday</li></ul></div>
       </div>
     </div>
   </section>
@@ -312,7 +312,7 @@ footer a{color:var(--muted)}
       <p class="kicker">Questions</p>
       <h2>Good questions to ask.</h2>
       <div class="faq">
-        <details><summary>What does the team actually do each day?</summary><p>On their working hours, James finds new leads, Emily checks and sorts them, and Kole writes emails to the best ones. Grayson makes posts from your photos and videos, and Benjamin finds partners and new places to get seen. DeMarcus runs the plan and reports to you. Anything that would go out to the world lands in your "To approve" list first.</p></details>
+        <details><summary>What does the team actually do each day?</summary><p>On their working hours, James finds new leads, Emily checks and sorts them, and Kole writes emails to the best ones. Grayson makes posts from your photos and videos, and Nora keeps track of who owes you and drafts payment reminders. DeMarcus runs the plan and reports to you. Anything that would go out to the world lands in your "To approve" list first.</p></details>
         <details><summary>Will anything be sent without me knowing?</summary><p>No. Every email and every post waits for your approval. You can approve, edit or say no to each one, from your phone or your computer.</p></details>
         <details><summary>Do I need to be good with technology?</summary><p>No. You answer a few questions when you sign up, then approve or decline what the team brings you. Connecting your email and Facebook Page takes a few minutes, and the dashboard walks you through it.</p></details>
         <details><summary>What does AI usage cost?</summary><p>It depends on how much work the team does. Your dashboard shows the cost as it happens, broken down by teammate, and every business has a monthly limit. When the limit is reached, the team rests until the next month. During your free trial, we cover it.</p></details>

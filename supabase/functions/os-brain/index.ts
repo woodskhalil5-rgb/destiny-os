@@ -83,7 +83,7 @@ async function contextBlock(b: Business, crew: BizAgent[], me: BizAgent, trigger
   const mine = tasks.filter((t: any) => t.assignee_slot === me.slot);
   const others = tasks.filter((t: any) => t.assignee_slot !== me.slot);
   const myAps = lead ? aps : aps.filter((a: any) => a.requested_by === me.slot);
-  const content = ["media", "distribution", "coordination"].includes(me.slot)
+  const content = ["media", "coordination"].includes(me.slot)
     ? await sql`select id, kind, channel, title, status, scheduled_for, note from os.content where business_id = ${b.id}
         and status not in ('published','rejected') order by id desc limit 15`
     : [];

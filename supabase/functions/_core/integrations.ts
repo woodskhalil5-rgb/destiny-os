@@ -66,7 +66,7 @@ export const PACKS: Record<string, Pack> = {
         },
       },
       {
-        agents: ["research", "analysis", "production", "coordination", "distribution"],
+        agents: ["research", "analysis", "production", "coordination"],
         def: { name: "jhp_companies", description: "The full live list of companies on jerseyhomepros.com in one call: company, trade, city, website, profile link, license number and JHP status (member or pre-listed, meaning an unclaimed profile). Filter by status, trade or city. Each row says whether it's already in our pipeline (record id). Use this instead of check_jhp when you need the list, e.g. to work the pre-listed companies.", input_schema: { type: "object", properties: { status: { type: "string", enum: ["pre-listed", "member", "all"] }, trade: { type: "string" }, city: { type: "string" }, not_in_pipeline: { type: "boolean", description: "only companies we don't have a record for yet" } } } },
         run: async (b, input) => {
           const list: any[] = (await jhpGet(b, "companies", "JHP_LOOKUP_KEY")).companies ?? [];
