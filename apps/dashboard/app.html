@@ -144,6 +144,7 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--go)}
 .msg.sys{display:block;align-self:center;max-width:560px;font-size:13px;color:var(--muted);text-align:center;white-space:pre-wrap}
 .day{align-self:center;font-size:12px;font-weight:600;color:var(--muted);padding:2px 10px;border-radius:99px;background:var(--sunk)}
 .compose{display:flex;gap:10px;align-items:flex-end;padding:10px 32px calc(14px + env(safe-area-inset-bottom));background:var(--surface)}
+.compose .mic{padding:0 12px;flex:none}.compose .mic[aria-pressed="true"]{background:var(--bad-tint,#fbe9e7);color:var(--bad,#b42318);border-color:currentColor;animation:pulse 1.2s infinite}@keyframes pulse{50%{opacity:.55}}@media (prefers-reduced-motion:reduce){.compose .mic[aria-pressed="true"]{animation:none}}
 .compose textarea{min-height:46px;max-height:180px;resize:none}
 .hint{font-size:13px;color:var(--muted);padding:10px 32px 0;background:var(--surface);border-top:1px solid var(--line)}
 
@@ -581,7 +582,7 @@ const VIEWS = {
   chat(){
     return `<div class="chat"><div class="feed" id="feed" aria-live="polite"></div>
       <div class="hint">Everyone answers when you post. Name someone (like "DeMarcus, ...") and only they answer.</div>
-      <form class="compose" id="compose"><textarea id="draft" rows="1" placeholder="Message the team"></textarea><button class="btn go" type="submit">Send</button></form></div>`;
+      <form class="compose" id="compose"><textarea id="draft" rows="1" placeholder="Message the team"></textarea>${SR ? `<button class="btn mic" type="button" id="micBtn" aria-label="Talk instead of typing" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>` : ""}<button class="btn go" type="submit">Send</button></form></div>`;
   },
 
   approve(){
@@ -592,7 +593,13 @@ const VIEWS = {
         + (done.length ? `<div class="section"><h3>Recently decided</h3><div class="list">${done.map(a => `<div class="row"><div class="grow"><div class="t">${esc(a.summary)}</div><div class="s">${a.decided_at ? esc(when(a.decided_at)) : ""}</div></div><span class="pill ${a.status === "rejected" ? "" : "go"}">${a.status === "rejected" ? "Sent back" : a.status === "done" ? "Sent" : "Approved"}</span></div>`).join("")}</div></div>` : "");
     }
     const from = (slot) => `<div class="from">${av(slot, T[slot]?.name || "S")}<span>From ${esc(T[slot]?.name || slot)}</span></div>`;
-    return w.aps.map(a => {
+    // Routine items of the same kind (e.g. quote follow-ups) can be approved together.
+    const groups = {};
+    w.aps.filter(a => a.status === "pending" && ["email", "campaign"].includes(a.kind)).forEach(a => (groups[apGroup(a)] ||= []).push(a.id));
+    const bulk = Object.entries(groups).filter(([, ids]) => ids.length >= 2).map(([k, ids]) =>
+      `<button class="btn go" data-bulk="${esc(ids.join(","))}" data-label="${esc(k)}">${bulkArm === ids.join(",") ? `Tap again to send all ${ids.length}` : `Approve all ${ids.length}: ${esc(k)}`}</button>`).join("");
+    return (bulk ? `<div class="box" style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center"><span class="s" style="flex-basis:100%">Same kind of item, several waiting. Read one or two, then approve the rest together. Any edits you made below are kept.</span>${bulk}</div>` : "")
+    + w.aps.map(a => {
       const pl = a.payload || {}, isEmail = a.kind === "email", isCamp = a.kind === "campaign";
       return `<article class="ap${a.status === "failed" ? " warn" : ""}" data-ap="${a.id}">${from(a.requested_by)}
         <h4>${esc(a.summary)}</h4>
@@ -723,9 +730,7 @@ const VIEWS = {
       ${can && g.playbook?.idea ? `<div class="box" id="ideaBox" style="margin-bottom:12px;border-color:var(--go)"><div class="s" style="font-weight:700;color:var(--go)">Idea for ${new Date().toLocaleString("en-US", {month: "long"})}${g.playbook.key !== "general" ? ` · ${esc(g.playbook.label)}` : ""}</div>
         <div class="t" style="font-size:17px;font-weight:700">${esc(g.playbook.idea)}</div>
         <div class="acts"><button class="btn small go" data-gr="camp_idea" data-idea="${esc(g.playbook.idea)}">Have Kole write it</button><span class="s">${g.reachable ? `It goes to ${g.reachable} past customer${g.reachable === 1 ? "" : "s"}, only after you OK it.` : "Add your past customers below first, so it has someone to go to."}</span></div></div>` : ""}
-      ${can ? `<details class="box form"${g.customers ? "" : " open"}><summary style="cursor:pointer;font-weight:700">Add past customers</summary>
-        <label class="field">Paste your list, one customer per line<textarea data-c="text" rows="5" placeholder="Maria Lopez, maria@example.com, 555-123-4567, roof replacement, 2025-09-14&#10;John Park, john@example.com, gutter cleaning"></textarea><small>Name and email are enough. You can copy rows straight from a spreadsheet. Only add people who are actually your customers.</small></label>
-        <div class="acts"><button class="btn go" data-gr="import">Add customers</button></div></details>` : ""}
+      ${can ? importBox(g) : ""}
       ${can && g.reachable ? `<div class="box form" style="margin-top:12px"><h4>Send a seasonal email</h4>
         <label class="field">Ask Kole to write it<input data-cp="idea" placeholder="e.g. Fall gutter cleaning, 10% off if they book by Nov 30"></label>
         <div class="acts"><button class="btn" data-gr="camp_ask">Ask Kole</button><span class="s">He drafts it and it waits for your OK.</span></div>
@@ -745,6 +750,7 @@ const VIEWS = {
         <label class="check"><input type="checkbox" data-gs="follow_ups" ${st.follow_ups !== false ? "checked" : ""} ${can ? "" : "disabled"}> Follow up on open quotes (day 2, 5 and 10)</label>
         <label class="check"><input type="checkbox" data-gs="review_asks" ${st.review_asks !== false ? "checked" : ""} ${can ? "" : "disabled"}> Ask for a review after a job is won</label>
         <label class="check"><input type="checkbox" data-gs="weekly_recap" ${st.weekly_recap !== false ? "checked" : ""} ${can ? "" : "disabled"}> Weekly recap: a short email every Monday with what came in and what went out</label>
+        <label class="check"><input type="checkbox" data-gs="morning_message" ${st.morning_message !== false ? "checked" : ""} ${can ? "" : "disabled"}> Morning message: when your day starts, a note with what needs you (only if something does)</label>
         ${can ? `<div class="acts"><button class="btn go" data-gr="settings">Save</button></div>` : ""}</div></div></div>`;
     return h;
   },
@@ -1175,6 +1181,47 @@ document.addEventListener("click", e => {
   if (e.target.closest("[data-hidesetup]")) { try { localStorage.setItem("osSetupHide:" + biz, "1"); } catch {} rendered = ""; render(true); return; }
 });
 const V = $("view");
+// Bring in a whole list: a spreadsheet, a photo of a list, or pasted text. The AI reads it; the owner checks before saving.
+let impKind = "customers", impPrev = null, impBusy = false;
+function importBox(g) {
+  const k = impKind, P = impPrev;
+  const cols = k === "quotes" ? [["name", "Name"], ["email", "Email"], ["phone", "Phone"], ["job", "Job"], ["amount", "Amount"], ["sent_on", "Sent"]] : [["name", "Name"], ["email", "Email"], ["phone", "Phone"], ["service", "Service"], ["last_job", "Last job"]];
+  return `<details class="box form" id="impBox"${!g.customers || P || impBusy ? " open" : ""}><summary style="cursor:pointer;font-weight:700">Add a list: past customers or open quotes</summary>
+    <div class="seg" role="group" style="margin-top:8px">${[["customers", "Past customers"], ["quotes", "Open quotes"]].map(([v, n]) => `<button data-imk="${v}" aria-pressed="${k === v}">${n}</button>`).join("")}</div>
+    ${P ? `<p class="s" style="margin:4px 0"><b>Found ${P.rows.length} ${k === "quotes" ? "quote" : "customer"}${P.rows.length === 1 ? "" : "s"}.</b> Check a few, then add them.${k === "quotes" ? " Quotes from the last 30 days get follow-ups on day 2, 5 and 10; older ones are saved without emailing anyone." : ""}</p>
+      <div style="overflow-x:auto;border:1px solid var(--line);border-radius:10px"><table style="border-collapse:collapse;width:100%;font-size:14px"><tr>${cols.map(([, n]) => `<th style="text-align:left;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap">${n}</th>`).join("")}</tr>
+        ${P.rows.slice(0, 12).map(r => `<tr>${cols.map(([c]) => `<td style="padding:8px;border-bottom:1px solid var(--line)">${esc(r[c] || "")}</td>`).join("")}</tr>`).join("")}</table></div>
+      ${P.rows.length > 12 ? `<p class="s">…and ${P.rows.length - 12} more.</p>` : ""}
+      <div class="acts"><button class="btn go" data-gr="imp_go">Add all ${P.rows.length}</button><button class="btn quiet" data-gr="imp_cancel">Start over</button></div>`
+    : `<label class="field">Upload a spreadsheet, or a photo or screenshot of your list<input type="file" id="impFile" accept=".csv,.txt,.xlsx,.xls,image/*"></label>
+      <label class="field">Or paste it<textarea data-c="text" rows="4" placeholder="${k === "quotes" ? "Maria Lopez, maria@example.com, roof replacement, $14,500, 2026-10-28" : "Maria Lopez, maria@example.com, 555-123-4567, roof replacement, 2025-09-14"}"></textarea><small>Any layout works: an export from QuickBooks or Jobber, a sheet, a notebook page. Nothing is saved until you check it.</small></label>
+      <div class="acts"><button class="btn go" data-gr="extract"${impBusy ? " disabled" : ""}>${impBusy ? "Reading your list…" : "Read the list"}</button></div>`}</details>`;
+}
+async function fileForImport(f) {
+  if (!f) return {};
+  if (f.type.startsWith("image/")) {
+    const img = await createImageBitmap(f), sc = Math.min(1, 1800 / Math.max(img.width, img.height));
+    const cv = document.createElement("canvas"); cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+    cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+    return {image: cv.toDataURL("image/jpeg", 0.85).split(",")[1], media_type: "image/jpeg"};
+  }
+  if (/\.xlsx?$/i.test(f.name)) {
+    if (!window.XLSX) await new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; sc.onload = ok; sc.onerror = () => no(new Error("Couldn't open spreadsheets right now. Save it as CSV and try again.")); document.head.appendChild(sc); });
+    const wb = XLSX.read(await f.arrayBuffer());
+    return {text: wb.SheetNames.slice(0, 3).map(n => XLSX.utils.sheet_to_csv(wb.Sheets[n])).join("\n")};
+  }
+  return {text: await f.text()};
+}
+
+// Groups like "Follow-up", "Review request" or "Email to" from the same teammate.
+function apGroup(a) {
+  const s = String(a.summary || "");
+  const m = /^(Follow-up|Review request|Reply to|Email to|Partnership|Claim)/i.exec(s);
+  const head = m ? m[1] : s.split(/\s+/).slice(0, 2).join(" ");
+  return `${head.replace(/^Follow-up$/i, "quote follow-ups").replace(/^Review request$/i, "review requests")}${m ? "" : "…"}`.toLowerCase().replace(/^email to$/, "emails").replace(/^reply to$/, "replies") + (a.kind === "campaign" ? " (campaigns)" : "");
+}
+let bulkArm = "";
+
 V.addEventListener("submit", async e => {
   if (e.target.id === "askForm") {
     e.preventDefault(); const t = $("askInput").value.trim(); if (!t) return;
@@ -1185,6 +1232,21 @@ V.addEventListener("submit", async e => {
     $("draft").value = ""; try { await call("post", {body: t}); tick(); } catch (err) { $("draft").value = t; showErr(err); }
   }
 });
+// Voice typing for the team chat: the phone's or browser's own speech recognition (free, nothing sent to us but the text).
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+V.addEventListener("click", e => {
+  const b = e.target.closest("#micBtn"); if (!b) return;
+  if (rec) { rec.stop(); return; }
+  const box = $("draft"), start = box.value ? box.value.replace(/\s*$/, " ") : "";
+  rec = new SR(); rec.lang = navigator.language || "en-US"; rec.interimResults = true; rec.continuous = true;
+  b.setAttribute("aria-pressed", "true"); editing.add("mic");
+  rec.onresult = (ev) => { let t = ""; for (const r of ev.results) t += r[0].transcript; box.value = start + t; box.dispatchEvent(new Event("input", {bubbles: true})); };
+  rec.onerror = (ev) => { if (ev.error === "not-allowed") showErr(new Error("Allow the microphone for this site to talk to the team.")); };
+  rec.onend = () => { rec = null; b.setAttribute("aria-pressed", "false"); editing.delete("mic"); box.focus(); };
+  rec.start();
+});
+
 V.addEventListener("keydown", e => {
   if (e.target.id === "draft" && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("compose").requestSubmit(); }
 });
@@ -1223,11 +1285,20 @@ V.addEventListener("click", async e => {
       if (d.gr === "quote_add") await gCall("quote_add", {name: v('[data-q="name"]'), email: v('[data-q="email"]'), phone: v('[data-q="phone"]'), job: v('[data-q="job"]'), amount: v('[data-q="amount"]'), sent_on: v('[data-q="sent_on"]')});
       else if (d.gr === "won" || d.gr === "lost") await gCall("quote_set", {id: Number(row.dataset.qid), status: d.gr});
       else if (d.gr === "inq_done") await gCall("inquiry_done", {id: Number(t.closest("[data-iid]").dataset.iid)});
+      else if (d.gr === "extract") {
+        const fromFile = await fileForImport($("impFile")?.files?.[0]), pasted = v('[data-c="text"]');
+        if (!fromFile.image && !fromFile.text && !pasted) throw new Error("Pick a file or paste your list first.");
+        impBusy = true; rendered = ""; render(true);
+        try { const r = await gCall("extract_list", {kind: impKind, ...fromFile, text: [fromFile.text, pasted].filter(Boolean).join("\n")}); impPrev = r.rows?.length ? r : null; if (!r.rows?.length) msg = "We couldn't find anyone on that list. Try a clearer photo or the spreadsheet file."; }
+        finally { impBusy = false; }
+      }
+      else if (d.gr === "imp_go") { const r = await gCall("import_rows", {kind: impPrev.kind, rows: impPrev.rows}); msg = `Added ${r.added}${r.skipped ? ` (${r.skipped} skipped: already there, or no way to reach them)` : ""}.${r.old ? ` ${r.old} older quote${r.old === 1 ? " was" : "s were"} saved without follow-ups.` : ""}`; impPrev = null; growth = null; }
+      else if (d.gr === "imp_cancel") { impPrev = null; }
       else if (d.gr === "import") { const r = await gCall("customers_import", {text: v('[data-c="text"]')}); msg = `Added ${r.added} customer${r.added === 1 ? "" : "s"}${r.skipped ? ` (${r.skipped} skipped: no email, or already on the list)` : ""}.`; }
       else if (d.gr === "camp_idea") { await gCall("campaign_ask", {idea: d.idea}); msg = "Kole's on it. His draft will show up in To approve."; }
       else if (d.gr === "camp_ask") { await gCall("campaign_ask", {idea: v('[data-cp="idea"]')}); msg = "Kole's on it. His draft will show up in To approve."; }
       else if (d.gr === "camp_send") { if (!chk('[data-cp="ok"]')) throw new Error("Tick the box to confirm you want to send it."); const r = await gCall("campaign_create", {subject: v('[data-cp="subject"]'), body: v('[data-cp="body"]')}); msg = `Sending to ${r.recipients} customers over the next few minutes.`; }
-      else if (d.gr === "settings") { await gCall("settings_set", {review_link: v('[data-gs="review_link"]'), sender_name: v('[data-gs="sender_name"]'), follow_ups: chk('[data-gs="follow_ups"]'), review_asks: chk('[data-gs="review_asks"]'), weekly_recap: chk('[data-gs="weekly_recap"]')}); msg = "Saved."; }
+      else if (d.gr === "settings") { await gCall("settings_set", {review_link: v('[data-gs="review_link"]'), sender_name: v('[data-gs="sender_name"]'), follow_ups: chk('[data-gs="follow_ups"]'), review_asks: chk('[data-gs="review_asks"]'), weekly_recap: chk('[data-gs="weekly_recap"]'), morning_message: chk('[data-gs="morning_message"]')}); msg = "Saved."; }
       editing.delete("grow"); growth = null;
       const r = await gCall("summary"); growth = r; rendered = ""; render(true);
       if (msg) $("grow")?.insertAdjacentHTML("afterbegin", `<p class="okmsg box" style="margin-bottom:16px;color:var(--ink)">${esc(msg)}</p>`);
@@ -1235,6 +1306,21 @@ V.addEventListener("click", async e => {
     return;
   }
   if (d.out && pending) { pending.outcome = d.out; pending.note = $("outNote")?.value; pending.cb = $("cbDate")?.value; editing.add("outcome"); rendered = ""; render(true); return; }
+  if (d.imk) { impKind = d.imk; impPrev = null; rendered = ""; render(true); return; }
+  if (d.bulk) {
+    if (bulkArm !== d.bulk) { bulkArm = d.bulk; rendered = ""; render(true); setTimeout(() => { if (bulkArm === d.bulk) { bulkArm = ""; rendered = ""; render(true); } }, 6000); return; }
+    bulkArm = ""; t.disabled = true;
+    let ok = 0, bad = 0;
+    for (const id of d.bulk.split(",")) {
+      const c = V.querySelector(`[data-ap="${id}"]`), a = data.approvals.find(x => String(x.id) === id);
+      if (!c || !a) continue;
+      const f = (n) => c.querySelector(`[data-f="${n}"]`)?.value;
+      const payload = a.kind === "email" ? {...a.payload, to: f("to"), subject: f("subject"), body: f("body")} : {...a.payload, subject: f("subject"), body: f("body")};
+      try { await call("decide", {id: a.id, decision: "approve", payload, note: f("note") || undefined}); editing.delete(id); c.remove(); ok++; } catch (err) { bad++; fail(c.querySelector('[data-act="approve"]'), c, err); }
+    }
+    t.textContent = `${ok} approved${bad ? `, ${bad} need a look` : ""}`;
+    tick(); return;
+  }
   if (d.act) { // approvals and posts
     const c = t.closest("[data-ap],[data-ct]"), f = (n) => c.querySelector(`[data-f="${n}"]`)?.value;
     t.disabled = true; c.querySelectorAll(".err").forEach(x => x.remove());

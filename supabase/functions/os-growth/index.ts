@@ -1,7 +1,7 @@
 // os-growth: the Customers screen. Quotes the owner logs (followed up at 2, 5 and 10 days), wins, past customers,
 // seasonal emails to them, review-request settings, and the public unsubscribe link.
 // Signed-in calls use the dashboard's session token (x-os-token); 'unsub' is public and checks a signed link.
-import { audit, post, secret, sql } from "../_core/core.ts";
+import { audit, business, claude, post, secret, sql } from "../_core/core.ts";
 import { unsubToken } from "../_core/unsub.ts";
 import { pushTo, vapidPublic } from "../_core/push.ts";
 import { stripe, stripeAccount } from "../_core/stripe.ts";
@@ -255,14 +255,14 @@ Deno.serve(async (req) => {
       where business_id = ${bid} and type = 'quote' order by (status in ('sent','following up')) desc, updated_at desc limit 150`;
     const [c] = await sql`select count(*)::int as n from os.records where business_id = ${bid} and type = 'customer'`;
     const [o] = await sql`select count(*)::int as n from os.optouts where business_id = ${bid}`;
-    const [s] = await sql`select review_link, sender_name, follow_ups, review_asks, weekly_recap from os.growth_settings where business_id = ${bid}`;
+    const [s] = await sql`select review_link, sender_name, follow_ups, review_asks, weekly_recap, morning_message from os.growth_settings where business_id = ${bid}`;
     const [playbook] = await sql`select key, label, idea from os.playbook_for(${bid})`;
     const inquiries = await sql`select id, title, status, data - 'ip' as data, created_at from os.records
       where business_id = ${bid} and type = 'inquiry' order by (status = 'new') desc, created_at desc limit 40`;
     const [biz] = await sql`select slug from os.businesses where id = ${bid}`;
     const campaigns = await sql`select id, status, summary, payload->>'subject' as subject, note, created_at, decided_at from os.approvals
       where business_id = ${bid} and kind = 'campaign' order by id desc limit 5`;
-    return json({ wins, quotes, customers: c.n, reachable: await recipients(bid), optouts: o.n, settings: s ?? { review_link: null, sender_name: null, follow_ups: true, review_asks: true, weekly_recap: true }, playbook: playbook ?? null, campaigns, inquiries, slug: biz?.slug, can_edit: canEdit });
+    return json({ wins, quotes, customers: c.n, reachable: await recipients(bid), optouts: o.n, settings: s ?? { review_link: null, sender_name: null, follow_ups: true, review_asks: true, weekly_recap: true, morning_message: true }, playbook: playbook ?? null, campaigns, inquiries, slug: biz?.slug, can_edit: canEdit });
   }
 
   if (action === "quote_add") {
@@ -309,6 +309,71 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   }
 
+  // Bring in a whole list at once: a spreadsheet (as text) or a photo/screenshot of one. The AI reads it into rows,
+  // the owner checks a preview, then import_rows saves them.
+  if (action === "extract_list") {
+    const kind = body.kind === "quotes" ? "quotes" : "customers";
+    const text = clip(body.text, 60000), image = String(body.image ?? "");
+    if (!text && !/^[A-Za-z0-9+/=]{100,}$/.test(image)) return json({ error: "Add a file, a photo or some text first." }, 400);
+    if (image.length > 7_000_000) return json({ error: "That photo is too big. Try a smaller one or a screenshot." }, 400);
+    const b = await business(bid);
+    const fields = kind === "quotes"
+      ? '{"name": "", "email": "", "phone": "", "job": "what the estimate was for", "amount": "number only", "sent_on": "YYYY-MM-DD or empty"}'
+      : '{"name": "", "email": "", "phone": "", "service": "what they had done", "last_job": "YYYY-MM-DD or empty"}';
+    const ask = `This is a business owner's list of ${kind === "quotes" ? "estimates/quotes they sent to customers" : "past customers"}. Read every row and return ONLY a JSON array of objects shaped like ${fields}. One object per person or row. Copy names, emails and phone numbers exactly as written; leave a field empty if it isn't there. Skip header rows, totals and blank lines. Never invent anything. Today is ${new Date().toISOString().slice(0, 10)}.`;
+    const content: any[] = image ? [{ type: "image", source: { type: "base64", media_type: String(body.media_type || "image/jpeg"), data: image } }, { type: "text", text: ask }] : [{ type: "text", text: `${ask}\n\nTHE LIST:\n${text}` }];
+    try {
+      const res = await claude(b!, "analysis", { model: "claude-haiku-5-5", max_tokens: 16000, messages: [{ role: "user", content }] }, 120_000);
+      const out = (res.content ?? []).filter((x: any) => x.type === "text").map((x: any) => x.text).join("");
+      const rows = JSON.parse(out.slice(out.indexOf("["), out.lastIndexOf("]") + 1));
+      if (!Array.isArray(rows)) throw new Error("no rows");
+      const clean = rows.slice(0, 2000).map((r: any) => Object.fromEntries(Object.entries(r ?? {}).map(([k, v]) => [k, clip(v, 300)]).filter(([, v]) => v)))
+        .filter((r: any) => r.name || r.email || r.phone);
+      return json({ kind, rows: clean, truncated: rows.length > 2000 });
+    } catch (e) {
+      return json({ error: `Couldn't read that list (${(e as Error).message.slice(0, 120)}). Try a clearer photo, or the spreadsheet file itself.` }, 422);
+    }
+  }
+
+  if (action === "import_rows") {
+    const kind = body.kind === "quotes" ? "quotes" : "customers";
+    const rows: any[] = Array.isArray(body.rows) ? body.rows.slice(0, 2000) : [];
+    let added = 0, skipped = 0, old = 0;
+    const today = new Date().toISOString().slice(0, 10);
+    if (kind === "customers") {
+      const existing = new Set((await sql`select lower(coalesce(data->>'email', '')) || '|' || regexp_replace(coalesce(data->>'phone', ''), '\\D', '', 'g') as k, lower(data->>'email') as e
+        from os.records where business_id = ${bid} and type = 'customer'`).flatMap((x: any) => [x.k, x.e].filter(Boolean)));
+      for (const r of rows) {
+        const email = clip(r.email, 200).toLowerCase(), phone = clip(r.phone, 40), name = clip(r.name, 120) || email.split("@")[0] || phone;
+        if (email && !EMAIL.test(email)) { skipped++; continue; }
+        const key = `${email}|${phone.replace(/\D/g, "")}`;
+        if ((!email && !phone) || existing.has(email) || existing.has(key)) { skipped++; continue; }
+        const d = { name, ...(email ? { email } : {}), ...(phone ? { phone } : {}), ...(r.service ? { service: clip(r.service, 200) } : {}), ...(r.last_job ? { last_job: clip(r.last_job, 20) } : {}), source: "imported list" };
+        await sql`insert into os.records (business_id, type, status, title, data, created_by) values (${bid}, 'customer', 'past', ${name}, ${sql.json(d)}, 'owner')`;
+        if (email) existing.add(email); existing.add(key); added++;
+      }
+    } else {
+      const have = new Set((await sql`select lower(coalesce(data->>'email', '')) || '|' || lower(coalesce(data->>'job', '')) as k from os.records where business_id = ${bid} and type = 'quote'`).map((x: any) => x.k));
+      for (const r of rows) {
+        const email = clip(r.email, 200).toLowerCase(), name = clip(r.name, 120);
+        if (!name || (email && !EMAIL.test(email))) { skipped++; continue; }
+        const job = clip(r.job, 200), key = `${email}|${job.toLowerCase()}`;
+        if (email && have.has(key)) { skipped++; continue; }
+        const sent = /^\d{4}-\d{2}-\d{2}$/.test(String(r.sent_on)) && String(r.sent_on) <= today ? String(r.sent_on) : today;
+        const age = (Date.parse(today) - Date.parse(sent)) / 86400000;
+        // Recent quotes get the day 2/5/10 follow-ups; older ones are kept as history without emailing anyone out of the blue.
+        const status = age > 30 ? "no answer" : "sent";
+        const d = { name, ...(email ? { email } : {}), ...(r.phone ? { phone: clip(r.phone, 40) } : {}), ...(job ? { job } : {}), ...(r.amount ? { amount: String(r.amount).replace(/[^0-9.]/g, "") } : {}), sent_on: sent, source: "imported list" };
+        await sql`insert into os.records (business_id, type, status, title, data, created_by, next_step, next_step_due)
+          values (${bid}, 'quote', ${status}, ${name + (job ? ` · ${job}` : "")}, ${sql.json(d)}, 'owner',
+            ${status === "sent" ? (email ? "follow-ups on day 2, 5 and 10" : "add their email so the team can follow up") : null}, null)`;
+        if (email) have.add(key); added++; if (status !== "sent") old++;
+      }
+    }
+    await audit(bid, "user", user.email, "import_rows", null, { kind, added, skipped, old });
+    return json({ ok: true, added, skipped, old });
+  }
+
   if (action === "customers_import") {
     const lines = String(body.text ?? "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 3000);
     let added = 0, skipped = 0;
@@ -352,10 +417,10 @@ Deno.serve(async (req) => {
   if (action === "settings_set") {
     const link = clip(body.review_link, 400);
     if (link && !/^https:\/\/\S+$/.test(link)) return json({ error: "The review link should start with https://" }, 400);
-    await sql`insert into os.growth_settings (business_id, review_link, sender_name, follow_ups, review_asks, weekly_recap, updated_at)
-      values (${bid}, ${link || null}, ${clip(body.sender_name, 80) || null}, ${body.follow_ups !== false}, ${body.review_asks !== false}, ${body.weekly_recap !== false}, now())
+    await sql`insert into os.growth_settings (business_id, review_link, sender_name, follow_ups, review_asks, weekly_recap, morning_message, updated_at)
+      values (${bid}, ${link || null}, ${clip(body.sender_name, 80) || null}, ${body.follow_ups !== false}, ${body.review_asks !== false}, ${body.weekly_recap !== false}, ${body.morning_message !== false}, now())
       on conflict (business_id) do update set review_link = excluded.review_link, sender_name = excluded.sender_name,
-        follow_ups = excluded.follow_ups, review_asks = excluded.review_asks, weekly_recap = excluded.weekly_recap, updated_at = now()`;
+        follow_ups = excluded.follow_ups, review_asks = excluded.review_asks, weekly_recap = excluded.weekly_recap, morning_message = excluded.morning_message, updated_at = now()`;
     return json({ ok: true });
   }
 

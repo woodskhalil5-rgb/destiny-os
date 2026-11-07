@@ -3,7 +3,7 @@
 //  2. Publishes approved content whose scheduled time has come (Facebook Page today; anything else is flagged to post by hand).
 //  3. Watches each business's connected Gmail inbox (when "watch for replies" is on): owner emails go on the board,
 //     replies from records' email addresses mark the record "replied" and wake the team.
-import { audit, business, post, secret, sql } from "../_core/core.ts";
+import { audit, business, claude, post, secret, sql } from "../_core/core.ts";
 import { sendEmail } from "../_core/integrations.ts";
 import { unsubLink } from "../_core/unsub.ts";
 import { pushTo, pushUsersFor } from "../_core/push.ts";
@@ -234,6 +234,41 @@ async function publishOne(pageId: string, tok: string, c: any, message: string):
 }
 
 
+// Notification emails from a business's own website form or a lead service ("New form submission", Wix, Angi...).
+const FORM_SUBJECT = /(new (form |website |contact )?(submission|entry|message|inquiry|enquiry|lead|contact|request)|contact (us )?form|website (form|inquiry|enquiry|message|lead)|form (submission|entry)|quote request|estimate request|request (a|for a) (quote|estimate)|someone (filled|submitted|sent))/i;
+const FORM_SENDER = /(wordpress|wix|squarespace|jotform|formspree|typeform|hubspot|godaddy|weebly|webflow|wpforms|gravity ?forms|elementor|ninja ?forms|contactform|formsubmit|netlify|thumbtack|angi|homeadvisor|yelp|nextdoor|houzz|porch|bark\.com|networx)/i;
+function isFormEmail(from: string, subject: string) {
+  return FORM_SUBJECT.test(subject) || (FORM_SENDER.test(from) && /(lead|request|message|quote|estimate|inquiry|enquiry|submission|contact)/i.test(subject));
+}
+
+/** A website-form or lead-service email becomes an inquiry: the owner hears right away and Kole drafts the reply. */
+async function formToInquiry(bid: string, from: string, subject: string, text: string, mid: string) {
+  const b = await business(bid);
+  if (!b) return false;
+  let d: any = null;
+  const [down] = await sql`select os.ai_down() as d`;
+  if (!down?.d) {
+    try {
+      const res = await claude(b, "coordination", { model: "claude-haiku-5-5", max_tokens: 800, messages: [{ role: "user", content:
+        `This email reached a business's inbox. If it is a notification of a customer contacting the business (a website contact form, or a lead service like Angi or Thumbtack), return ONLY JSON: {"name": "", "email": "", "phone": "", "message": "what they need, in their words", "source": "e.g. website form, Angi"}. Copy contact details exactly; leave unknown fields empty. If it is anything else (newsletter, receipt, marketing, spam, a system notice), return {"not_a_lead": true}.\n\nFrom: ${from}\nSubject: ${subject}\n\n${text.slice(0, 6000)}` }] }, 30_000);
+      const out = (res.content ?? []).filter((x: any) => x.type === "text").map((x: any) => x.text).join("");
+      d = JSON.parse(out.slice(out.indexOf("{"), out.lastIndexOf("}") + 1));
+    } catch { d = null; }
+  }
+  if (d?.not_a_lead) return false;
+  const lead = d ?? { name: "", email: "", phone: "", message: `${subject}\n\n${text.slice(0, 1500)}`, source: "website form (unread)" };
+  const email = String(lead.email ?? "").toLowerCase().trim(), phone = String(lead.phone ?? "").trim(), name = String(lead.name ?? "").trim() || email || phone || "Website visitor";
+  const [r] = await sql`insert into os.records (business_id, type, status, title, data, created_by, next_step, next_step_due)
+    values (${bid}, 'inquiry', 'new', ${name.slice(0, 100)}, ${sql.json({ name, ...(email ? { email } : {}), ...(phone ? { phone } : {}), message: String(lead.message ?? "").slice(0, 3000), source: lead.source || "website form (email)", email_subject: subject.slice(0, 200), received_at: new Date().toISOString() })},
+      'inbox', 'answer today', current_date) returning id`;
+  const contact = [email, phone].filter(Boolean).join(" · ");
+  await sql`select os.alert(${bid}, 'business', 'inquiry', ${"New inquiry: " + name}, ${`${name}${contact ? ` (${contact})` : ""} wrote through ${lead.source || "your website form"}:\n\n${String(lead.message ?? "").slice(0, 1500)}\n\n${email ? "Kole is drafting a reply for your OK. " : ""}${phone ? `Fastest: call them now at ${phone}. ` : ""}The first business to answer usually wins the job.`}, ${"inqmail:" + mid})`;
+  await post(bid, "system", email
+    ? `@kole New inquiry #${r.id} from ${name} (${contact}) via ${lead.source || "the website form"}: "${String(lead.message ?? "").slice(0, 1500)}" Draft a short, friendly reply to ${email} now and queue it with request_approval (kind email, record_id ${r.id}). Answer only from our facts, and offer the next step. @demarcus make sure it's answered today.`
+    : `@demarcus New inquiry #${r.id} from ${name}${phone ? `, phone only (${phone})` : ""} via ${lead.source || "the website form"}: "${String(lead.message ?? "").slice(0, 1500)}" Remind the owner to call them back today.`, { recordId: r.id });
+  return true;
+}
+
 function stripQuoted(text: string) {
   const out: string[] = [];
   for (const line of text.replace(/\r/g, "").split("\n")) {
@@ -264,12 +299,13 @@ async function watchInboxes() {
       const lock = await client.getMailboxLock("INBOX");
       try {
         const uids = (await client.search({ since: new Date(Date.now() - 3 * 86400000) }, { uid: true })) || [];
-        const wanted: { uid: number; mid: string; from: string }[] = [];
+        const wanted: { uid: number; mid: string; from: string; subject: string; form: boolean }[] = [];
         for await (const m of client.fetch(uids.slice(-80), { envelope: true }, { uid: true })) {
-          const from = (m.envelope?.from?.[0]?.address ?? "").toLowerCase();
-          if (from !== owner && !byEmail.has(from)) continue;
+          const from = (m.envelope?.from?.[0]?.address ?? "").toLowerCase(), subject = m.envelope?.subject ?? "";
+          const form = from !== owner && !byEmail.has(from) && isFormEmail(`${m.envelope?.from?.[0]?.name ?? ""} ${from}`, subject);
+          if (from !== owner && !byEmail.has(from) && !form) continue;
           if (m.envelope?.date && new Date(m.envelope.date) < startAt) continue;
-          wanted.push({ uid: m.uid, mid: m.envelope?.messageId || `uid-${m.uid}`, from });
+          wanted.push({ uid: m.uid, mid: m.envelope?.messageId || `uid-${m.uid}`, from, subject, form });
         }
         for (const w of wanted) {
           const [claimed] = await sql`insert into os.mail_seen (business_id, message_id) values (${c.business_id}, ${w.mid}) on conflict do nothing returning message_id`;
@@ -278,6 +314,10 @@ async function watchInboxes() {
           if (!one) continue;
           const parsed = await simpleParser(one.source);
           const text = stripQuoted(parsed.text ?? "") || (parsed.subject ?? "");
+          if (w.form) {
+            if (await formToInquiry(c.business_id, w.from, w.subject, parsed.text ?? text, w.mid)) handled++;
+            continue;
+          }
           if (w.from === owner) {
             await post(c.business_id, "owner", `(by email) ${text}`, { senderName: "Owner" });
           } else {
