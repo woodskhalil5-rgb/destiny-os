@@ -66,6 +66,21 @@ export const PACKS: Record<string, Pack> = {
         },
       },
       {
+        agents: ["research", "analysis", "production", "coordination", "distribution"],
+        def: { name: "jhp_companies", description: "The full live list of companies on jerseyhomepros.com in one call: company, trade, city, website, profile link, license number and JHP status (member or pre-listed, meaning an unclaimed profile). Filter by status, trade or city. Each row says whether it's already in our pipeline (record id). Use this instead of check_jhp when you need the list, e.g. to work the pre-listed companies.", input_schema: { type: "object", properties: { status: { type: "string", enum: ["pre-listed", "member", "all"] }, trade: { type: "string" }, city: { type: "string" }, not_in_pipeline: { type: "boolean", description: "only companies we don't have a record for yet" } } } },
+        run: async (b, input) => {
+          const list: any[] = (await jhpGet(b, "companies", "JHP_LOOKUP_KEY")).companies ?? [];
+          const recs = await sql`select id, title, status, data->>'website' as website from os.records where business_id = ${b.id} and type = 'contractor'`;
+          const byKey = new Map<string, any>();
+          for (const r of recs) { byKey.set(norm(r.title), r); if (r.website) byKey.set("d:" + dom(r.website), r); }
+          const st = String(input.status ?? "all"), tr = String(input.trade ?? "").toLowerCase(), ct = String(input.city ?? "").toLowerCase();
+          const rows = list.filter((c) => (st === "all" || String(c.jhp_status).startsWith(st)) && (!tr || String(c.trade).toLowerCase().includes(tr)) && (!ct || String(c.city).toLowerCase().includes(ct)))
+            .map((c) => { const r = (c.website && byKey.get("d:" + dom(c.website))) || byKey.get(norm(c.company)); return { ...c, pipeline: r ? `#${r.id} (${r.status})` : null }; })
+            .filter((c) => !input.not_in_pipeline || !c.pipeline);
+          return JSON.stringify({ total: rows.length, companies: rows });
+        },
+      },
+      {
         agents: ["coordination", "media"],
         def: { name: "jhp_stats", description: "Live JHP counts: homeowner requests, sign-ups, members, applied, pre-listed.", input_schema: { type: "object", properties: {} } },
         run: async (b) => JSON.stringify(await jhpGet(b, "stats", "JHP_STATS_KEY")),
