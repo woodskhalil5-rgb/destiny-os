@@ -130,7 +130,7 @@ async function agentTurn(b: Business, me: BizAgent, crew: BizAgent[], cfg: Recor
   const tools = toolsFor(me, cfg);
   const ctx = { recordId: trigger.record_id ?? undefined, saved: 0, depth: trigger.depth ?? 0 };
   const started = Date.now(), BUDGET = 100_000;
-  let final = "";
+  let final = "", nudged = false;
   for (let i = 0; i < 8; i++) {
     const left = BUDGET - (Date.now() - started);
     if (i > 0 && left < 30_000) {
@@ -140,13 +140,23 @@ async function agentTurn(b: Business, me: BizAgent, crew: BizAgent[], cfg: Recor
     let res;
     cachePoint(messages);
     try {
-      res = await claude(b, me.slot, { model: me.model ?? b.model, max_tokens: 2000, system, tools, messages }, left);
+      res = await claude(b, me.slot, { model: me.model ?? b.model, max_tokens: 4096, system, tools, messages }, left);
     } catch (e) {
       if (/abort/i.test((e as Error).name + (e as Error).message)) {
         await post(b.id, "system", `@${me.handle} that step took too long. Keep going where you left off.`, { depth: ctx.depth + 1 });
         return;
       }
       throw e;
+    }
+    // Out of room mid-reply (usually after a lot of searching): keep what was said, drop the cut-off tool call,
+    // and have them save what they found instead of losing the whole run.
+    if (res.stop_reason === "max_tokens") {
+      const kept = [...(res.content ?? [])];
+      while (kept.length && ["tool_use", "server_tool_use"].includes(kept[kept.length - 1].type)) kept.pop();
+      const nudge = { type: "text", text: "You ran out of room in that reply. Stop searching now: save what you already found with your tools (one save_record per item, facts in data, with sources), then write a short board update." };
+      if (kept.length) { messages.push({ role: "assistant", content: kept }); messages.push({ role: "user", content: [nudge] }); }
+      else messages[messages.length - 1].content.push(nudge);
+      continue;
     }
     messages.push({ role: "assistant", content: res.content });
     if (res.stop_reason === "tool_use") {
@@ -159,6 +169,13 @@ async function agentTurn(b: Business, me: BizAgent, crew: BizAgent[], cfg: Recor
     }
     if (res.stop_reason === "pause_turn") continue;
     final = res.content.filter((x: any) => x.type === "text").map((x: any) => x.text).join("").trim();
+    // Searched the web but ended without saving or saying anything: give them one chance to keep the work.
+    const searched = res.content.some((x: any) => x.type === "server_tool_use");
+    if (!nudged && searched && !ctx.saved && (!final || /^\(no reply\)$/i.test(final))) {
+      nudged = true;
+      messages.push({ role: "user", content: [{ type: "text", text: "You searched but didn't save anything or post an update. Save what you found now (save_record, facts in data, with sources), or say on the board why nothing was worth saving." }] });
+      continue;
+    }
     break;
   }
   if (final && !/^\(no reply\)$/i.test(final)) await post(b.id, me.slot, final, { depth: ctx.depth + 1, recordId: ctx.recordId });

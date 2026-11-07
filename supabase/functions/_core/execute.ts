@@ -13,7 +13,14 @@ export async function execute(b: Business, ap: any): Promise<string> {
     const from = rec ? (await config(b.id)).email_from?.[rec.type] : undefined;
     await sendEmail(b, { to: p.to, subject: p.subject, text: p.body, from });
     await sql`update os.approvals set status = 'done' where id = ${ap.id}`;
-    if (ap.record_id) await sql`update os.records set status = 'contacted', next_step = 'wait for reply, follow up if none', next_step_due = (now() + interval '4 days')::date, updated_at = now() where id = ${ap.record_id} and business_id = ${b.id}`;
+    // A payment reminder (Nora's): the invoice stays open as "reminded", counts the reminder and waits a week for the next one.
+    if (ap.record_id && rec?.type === "invoice") await sql`update os.records set
+        status = case when status in ('paid', 'written off') then status else 'reminded' end,
+        data = jsonb_set(data, '{reminders}', to_jsonb(coalesce(case when coalesce(data->>'reminders', '') ~ '^[0-9]+$' then (data->>'reminders')::int end, 0) + 1)),
+        next_step = case when coalesce(case when coalesce(data->>'reminders', '') ~ '^[0-9]+$' then (data->>'reminders')::int end, 0) + 1 >= 3 then 'three reminders sent: the owner should call' else 'next reminder if still unpaid' end,
+        next_step_due = (now() + interval '7 days')::date, updated_at = now()
+      where id = ${ap.record_id} and business_id = ${b.id}`;
+    else if (ap.record_id) await sql`update os.records set status = 'contacted', next_step = 'wait for reply, follow up if none', next_step_due = (now() + interval '4 days')::date, updated_at = now() where id = ${ap.record_id} and business_id = ${b.id}`;
     return `email sent to ${p.to}`;
   }
   if (ap.kind === "campaign") return "approved; it goes out to your past customers within a few minutes";

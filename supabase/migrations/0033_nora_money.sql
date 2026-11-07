@@ -122,29 +122,29 @@ create or replace function os.money_numbers(bid uuid, days int default 30) retur
     'period_days', (select d from p),
     'today', (select today from p),
     'jobs_won', jsonb_build_object(
-      'now', (select count(*) from w where kind = 'job' and span = 'now'), 'now_usd', (select coalesce(sum(value_usd), 0) from w where kind = 'job' and span = 'now'),
-      'before', (select count(*) from w where kind = 'job' and span = 'before'), 'before_usd', (select coalesce(sum(value_usd), 0) from w where kind = 'job' and span = 'before'),
+      'now', (select count(*) from w where kind = 'job' and span = 'now'), 'now_total', (select coalesce(sum(value_usd), 0) from w where kind = 'job' and span = 'now'),
+      'before', (select count(*) from w where kind = 'job' and span = 'before'), 'before_total', (select coalesce(sum(value_usd), 0) from w where kind = 'job' and span = 'before'),
       'jobs_with_no_amount', (select count(*) from w where kind = 'job' and span = 'now' and value_usd is null)),
-    'repeat_jobs', jsonb_build_object('now', (select count(*) from w where kind = 'repeat' and span = 'now'), 'now_usd', (select coalesce(sum(value_usd), 0) from w where kind = 'repeat' and span = 'now')),
+    'repeat_jobs', jsonb_build_object('now', (select count(*) from w where kind = 'repeat' and span = 'now'), 'now_total', (select coalesce(sum(value_usd), 0) from w where kind = 'repeat' and span = 'now')),
     'quotes_sent', jsonb_build_object(
-      'now', (select count(*) from w where kind = 'estimate' and span = 'now'), 'now_usd', (select coalesce(sum(value_usd), 0) from w where kind = 'estimate' and span = 'now'),
+      'now', (select count(*) from w where kind = 'estimate' and span = 'now'), 'now_total', (select coalesce(sum(value_usd), 0) from w where kind = 'estimate' and span = 'now'),
       'before', (select count(*) from w where kind = 'estimate' and span = 'before')),
-    'quotes_open', jsonb_build_object('count', (select count(*) from q where status in ('sent', 'following up')), 'usd', (select coalesce(sum(amount), 0) from q where status in ('sent', 'following up'))),
+    'quotes_open', jsonb_build_object('count', (select count(*) from q where status in ('sent', 'following up')), 'total', (select coalesce(sum(amount), 0) from q where status in ('sent', 'following up'))),
     'quote_win_rate_pct', (select round(100.0 * count(*) filter (where status = 'won') / nullif(count(*) filter (where status in ('won', 'lost', 'no answer')), 0))
       from q, p where updated_at >= now() - make_interval(days => p.d)),
     'invoices', jsonb_build_object(
       'unpaid_count', (select count(*) from inv where status in ('unpaid', 'reminded')),
-      'unpaid_usd', (select coalesce(sum(amount), 0) from inv where status in ('unpaid', 'reminded')),
+      'unpaid_total', (select coalesce(sum(amount), 0) from inv where status in ('unpaid', 'reminded')),
       'overdue_count', (select count(*) from inv, p where status in ('unpaid', 'reminded') and due_on < p.today),
-      'overdue_usd', (select coalesce(sum(amount), 0) from inv, p where status in ('unpaid', 'reminded') and due_on < p.today),
-      'paid_in_period_usd', (select coalesce(sum(amount), 0) from inv, p where status = 'paid' and paid_on >= p.today - p.d),
+      'overdue_total', (select coalesce(sum(amount), 0) from inv, p where status in ('unpaid', 'reminded') and due_on < p.today),
+      'paid_in_period_total', (select coalesce(sum(amount), 0) from inv, p where status = 'paid' and paid_on >= p.today - p.d),
       'overdue', (select coalesce(jsonb_agg(jsonb_build_object('id', id, 'title', title, 'amount', amount, 'due_on', due_on, 'days_late', p.today - due_on, 'reminders', reminders) order by due_on), '[]'::jsonb)
         from (select inv.* from inv, p where status in ('unpaid', 'reminded') and due_on < p.today order by due_on limit 25) x, p)),
     'inquiries_this_month', (select count(*) from os.records where business_id = bid and type = 'inquiry' and created_at >= date_trunc('month', now())),
     'destiny_os_bill_this_month_usd', (select round(usd, 2) from bill),
     'jobs_won_this_month', (select count(*) from os.wins where business_id = bid and kind = 'job' and at >= date_trunc('month', now())),
     'destiny_os_cost_per_job_this_month_usd', (select round((select usd from bill) / nullif(count(*), 0), 2) from os.wins where business_id = bid and kind = 'job' and at >= date_trunc('month', now())),
-    'note', 'Amounts are in the business''s own currency as entered. Jobs and quotes count only what the owner logged on the Customers screen or told the team.'
+    'note', 'Jobs, quotes and invoices (every *_total and amount) are in the business''s own currency, as entered. Only the destiny_os_* figures are US dollars (what the business pays for Destiny OS). Jobs and quotes count only what the owner logged on the Customers screen or told the team.'
   )
 $$;
 revoke all on function os.money_numbers(uuid, int) from public;
