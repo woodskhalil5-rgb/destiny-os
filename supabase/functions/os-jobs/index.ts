@@ -293,6 +293,8 @@ async function watchInboxes() {
     const recs = await sql`select id, title, lower(data->>'email') as email from os.records where business_id = ${c.business_id} and coalesce(data->>'email', '') <> ''`;
     const byEmail = new Map(recs.map((r: any) => [r.email, r]));
     const client = new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user: c.settings.user, pass: String(pw.v).replace(/\s+/g, "") }, logger: false });
+    // Gmail sometimes drops the connection without a clean goodbye; without a listener that error crashes the whole run.
+    client.on("error", (e: Error) => console.error("imap", c.slug, e?.message));
     let handled = 0;
     try {
       await client.connect();
@@ -391,15 +393,19 @@ async function checkAi() {
   return `back (${x.n} resent)`;
 }
 
+// A stray network error from a mail connection is logged, not fatal to the run.
+addEventListener("unhandledrejection", (e) => { e.preventDefault(); console.error("unhandled", (e as PromiseRejectionEvent).reason?.message ?? e); });
+
 Deno.serve(async (req) => {
   const key = await secret("OS_INVOKE_KEY");
   if (!key || (req.headers.get("authorization") ?? "") !== `Bearer ${key}`) return new Response("forbidden", { status: 403 });
   const out: Record<string, unknown> = {};
   try { out.ai = await checkAi(); } catch (e) { out.ai_error = (e as Error).message; }
-  try { out.inbox = await watchInboxes(); } catch (e) { out.inbox_error = (e as Error).message; }
+  // Alerts, publishing and campaigns first: a slow or broken inbox connection must never hold them up.
   try { out.alerts = await sendAlerts(); } catch (e) { out.alerts_error = (e as Error).message; }
   try { out.published = await publishDue(); } catch (e) { out.publish_error = (e as Error).message; }
   try { out.campaigns = await sendCampaigns(); } catch (e) { out.campaign_error = (e as Error).message; }
+  try { out.inbox = await watchInboxes(); } catch (e) { out.inbox_error = (e as Error).message; }
   try { out.described = await describePending(); } catch (e) { out.describe_error = (e as Error).message; }
   return new Response(JSON.stringify(out), { headers: { "content-type": "application/json" } });
 });
