@@ -214,7 +214,7 @@ Deno.serve(async (req) => {
       // @ts-ignore EdgeRuntime is provided by Supabase
       EdgeRuntime.waitUntil(setupTeam(bid).catch(async (e) => {
         console.error("setupTeam", (e as Error).message);
-        await post(bid, "system", "Your team is ready with its standard jobs. Add your services, prices and rules in Settings so it knows your business, then click Start team.", { status: "handled" });
+        await post(bid, "system", "Setting up your team is taking a little longer than usual. It finishes on its own shortly (you'll see a note here), and you don't need to do anything.", { status: "handled" });
         await sql`select os.alert(${bid}, 'platform', 'setup_failed', ${"Trial team setup failed: " + String(s.details.business)}, ${(e as Error).message.slice(0, 500)}, ${"setup:" + bid})`;
       }));
       const token = Array.from(crypto.getRandomValues(new Uint8Array(32))).map((x) => x.toString(16).padStart(2, "0")).join("");
@@ -227,6 +227,17 @@ Deno.serve(async (req) => {
       await sql`update os.trial_signups set used = false where id = ${s.id}`;
       return json({ error: (e as Error).message }, 500);
     }
+  }
+
+  // A sign-up whose setup failed (usually the AI was down): os.retry_trial_setups() calls this once the AI is back.
+  if (action === "retry_setup") {
+    const key = await secret("OS_INVOKE_KEY");
+    if (!key || req.headers.get("authorization") !== `Bearer ${key}`) return json({ error: "forbidden" }, 403);
+    const id = String(body.business_id ?? "");
+    const [c] = await sql`select note from os.business_config where business_id = ${id} and active`;
+    if (c?.note !== "free trial sign-up") return json({ ok: true, skipped: "already set up" });
+    try { await setupTeam(id); return json({ ok: true }); }
+    catch (e) { return json({ error: (e as Error).message.slice(0, 300) }, 502); }
   }
 
   const user = await who(req);
