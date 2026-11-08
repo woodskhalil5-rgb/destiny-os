@@ -209,6 +209,18 @@ async function route(id: number) {
     await post(b.id, "system", `Monthly budget of $${b.monthly_budget_usd} reached; the team is paused until the owner raises it.`, { status: "handled" });
     return;
   }
+  // Daily limit: the team stops for the day once it has spent its share (the owner can still talk to it).
+  const daily = (b as any).daily_budget_usd != null ? Number((b as any).daily_budget_usd) : b.monthly_budget_usd != null ? Number(b.monthly_budget_usd) / 20 : null;
+  if (daily != null && !fromOwner) {
+    const [d] = await sql`select coalesce(sum(billed_usd), 0) as usd from os.usage_events
+      where business_id = ${b.id} and at >= (date_trunc('day', now() at time zone ${b.timezone}) at time zone ${b.timezone})`;
+    if (Number(d.usd) >= daily) {
+      const [told] = await sql`select 1 from os.messages where business_id = ${b.id} and sender = 'system' and body like 'Daily AI limit%'
+        and created_at >= (date_trunc('day', now() at time zone ${b.timezone}) at time zone ${b.timezone})`;
+      if (!told) await post(b.id, "system", `Daily AI limit reached ($${daily.toFixed(2)}). The team picks up again tomorrow; you can still message them.`, { status: "handled" });
+      return;
+    }
+  }
   const who = responders(m, await team(b.id));
   await Promise.all(who.map((a) => fetch(SELF, {
     method: "POST",
