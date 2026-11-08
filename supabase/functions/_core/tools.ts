@@ -57,7 +57,7 @@ async function ownerDecisions(bid: string, kind: string) {
 }
 
 /** Carry out an approved action. Returns what happened. */
-export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent, name: string, input: any, ctx: { recordId?: number; saved: number; depth: number }): Promise<string | any[]> {
+export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent, name: string, input: any, ctx: { recordId?: number; saved: number; depth: number; savedIds?: number[] }): Promise<string | any[]> {
   const allowed = (a.tools ?? a.default_tools).includes(name) || (cfg.tool_packs ?? []).some((p: string) => PACKS[p]?.tools.some((t) => (t.def as any).name === name && t.agents.includes(a.slot)));
   if (!allowed) return `error: ${name} isn't one of your tools`;
   await audit(b.id, "agent", a.slot, `tool:${name}`, input?.id ? String(input.id) : null, input);
@@ -78,7 +78,7 @@ export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent
           next_step_due = coalesce(${f.next_step_due ?? null}::date, next_step_due), updated_at = now()
           where id = ${id} and business_id = ${b.id} returning id, title, status`;
         if (!r) return "not found";
-        ctx.recordId = r.id; ctx.saved++;
+        ctx.recordId = r.id; ctx.saved++; ctx.savedIds?.push(r.id);
         return `updated #${r.id} ${r.title} (${r.status})`;
       }
       if (!f.type || !f.title) return "error: type and title are required for a new record";
@@ -89,7 +89,7 @@ export async function runTool(b: Business, cfg: Record<string, any>, a: BizAgent
       const status = f.status ?? cfg.record_types?.[f.type]?.stages?.[0] ?? (f.type === "invoice" ? "unpaid" : "new");
       const [r] = await sql`insert into os.records (business_id, type, status, title, data, owner_slot, next_step, next_step_due, created_by)
         values (${b.id}, ${f.type}, ${status}, ${f.title}, ${sql.json(data ?? {})}, ${a.slot}, ${f.next_step ?? null}, ${f.next_step_due ?? null}, ${a.slot}) returning id`;
-      ctx.recordId = r.id; ctx.saved++;
+      ctx.recordId = r.id; ctx.saved++; ctx.savedIds?.push(r.id);
       return `created #${r.id} ${f.title}`;
     }
     case "find_records": {

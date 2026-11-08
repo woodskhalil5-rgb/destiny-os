@@ -125,16 +125,19 @@ async function agentTurn(b: Business, me: BizAgent, crew: BizAgent[], cfg: Recor
     ? "The message above (the last on the board) is from the owner and names you. Answer it yourself in your own voice, and if it gives you work, do it with your tools first. Only the teammates the owner named will answer."
     : fromOwner
     ? "The message above (the last on the board) is from the owner to the whole team. Everyone answers: reply in your own voice (1 to 3 sentences) about the part that concerns your job, and if it gives you work, do it with your tools first."
-    : `Message #${trigger.id} (the last on the board) is for you. Do the work it needs with your tools, then write your reply for the board. If no reply is needed, answer with exactly: (no reply)`;
+    : `Message #${trigger.id} (the last on the board) is for you. Do the work it needs with your tools, then write your reply for the board. If no reply is needed, answer with exactly: (no reply)`
+      + " When the work covers several records, finish them one at a time (read one, save it, then the next) rather than reading them all first: a run can stop part-way, and only saved work carries over.";
   const messages: any[] = [{ role: "user", content: [{ type: "text", text: `${await contextBlock(b, crew, me, trigger)}\n\nIt is now ${bubbleDate(b)} (${b.timezone}).\n\n${ask}` }] }];
   const tools = toolsFor(me, cfg);
-  const ctx = { recordId: trigger.record_id ?? undefined, saved: 0, depth: trigger.depth ?? 0 };
+  const ctx = { recordId: trigger.record_id ?? undefined, saved: 0, depth: trigger.depth ?? 0, savedIds: [] as number[] };
+  // Handing over to the next run: say what this run already saved, so it isn't read and redone.
+  const done = () => { const ids = [...new Set(ctx.savedIds)]; return ids.length ? ` You already saved ${ids.map((x) => "#" + x).join(", ")} in the last run: don't reopen those; go on with the next one.` : ""; };
   const started = Date.now(), BUDGET = 100_000;
   let final = "", nudged = false;
   for (let i = 0; i < 8; i++) {
     const left = BUDGET - (Date.now() - started);
     if (i > 0 && left < 30_000) {
-      await post(b.id, "system", `@${me.handle} keep going where you left off; check tasks and records first so nothing is redone.`, { depth: ctx.depth + 1 });
+      await post(b.id, "system", `@${me.handle} keep going where you left off; check your task first so nothing is redone.${done()}`, { depth: ctx.depth + 1 });
       return;
     }
     let res;
@@ -143,7 +146,7 @@ async function agentTurn(b: Business, me: BizAgent, crew: BizAgent[], cfg: Recor
       res = await claude(b, me.slot, { model: me.model ?? b.model, max_tokens: 4096, system, tools, messages }, left);
     } catch (e) {
       if (/abort/i.test((e as Error).name + (e as Error).message)) {
-        await post(b.id, "system", `@${me.handle} that step took too long. Keep going where you left off.`, { depth: ctx.depth + 1 });
+        await post(b.id, "system", `@${me.handle} that step took too long. Keep going where you left off.${done()}`, { depth: ctx.depth + 1 });
         return;
       }
       throw e;
