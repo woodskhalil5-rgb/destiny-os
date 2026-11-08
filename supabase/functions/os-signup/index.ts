@@ -250,10 +250,11 @@ Deno.serve(async (req) => {
   if (action === "trial_status") {
     const [m] = isAdmin ? [{ ok: 1 }] : await sql`select 1 as ok from os.business_members where user_id = ${user.id} and business_id = ${bid}`;
     if (!m) return json({ error: "You don't have access to that business." }, 403);
-    const [b] = await sql`select trial_ends_at, trial_converted, billing_status, pay_to_start, fee_paid_until, platform_fee_usd from os.businesses where id = ${bid}`;
+    const [b] = await sql`select trial_ends_at, trial_converted, billing_status, pay_to_start, fee_paid_until, platform_fee_usd, cancel_at, plan from os.businesses where id = ${bid}`;
     const [{ down }] = await sql`select os.ai_down() as down`;
     const pay = b?.pay_to_start && !b.fee_paid_until ? { amount_usd: Number(b.platform_fee_usd) } : null;
-    if (!b?.trial_ends_at || b.trial_converted) return json({ trial: null, pay, ai_down: down });
+    const plan = { cancel_at: b?.cancel_at ?? null, can_cancel: b?.plan === "customer" && !pay };
+    if (!b?.trial_ends_at || b.trial_converted) return json({ trial: null, pay, plan, ai_down: down });
     const ms = new Date(b.trial_ends_at).getTime() - Date.now();
     return json({ trial: { ends_at: b.trial_ends_at, days_left: Math.max(0, Math.ceil(ms / 86400000)), ended: ms <= 0, card_on_file: b.billing_status === "active", cap_usd: TRIAL_CAP }, ai_down: down });
   }
@@ -282,6 +283,31 @@ Deno.serve(async (req) => {
       await audit(bid, "user", user.email, "pay_start_link", customer);
       return json({ url: s.url });
     } catch (e) { return json({ error: `Couldn't open the payment page: ${(e as Error).message}` }, 502); }
+  }
+
+  // Self-serve cancel: the team keeps working until the end of what's paid (the prepaid first 30 days, or the end of
+  // this month), then pauses and the platform fee stops. "keep_plan" undoes it before that date.
+  if (action === "cancel_plan" || action === "keep_plan") {
+    const [m] = await sql`select role from os.business_members where user_id = ${user.id} and business_id = ${bid}`;
+    if (!isAdmin && m?.role !== "owner") return json({ error: "Only the owner can cancel or keep the plan." }, 403);
+    const [b] = await sql`select id, name, plan, fee_paid_until, cancel_at from os.businesses where id = ${bid}`;
+    if (!b || b.plan !== "customer") return json({ error: "This business doesn't have a plan to cancel." }, 400);
+    if (action === "keep_plan") {
+      if (!b.cancel_at || new Date(b.cancel_at) <= new Date()) return json({ error: b.cancel_at ? "Your plan has already ended. Email us to restart it." : "Your plan isn't cancelled." }, 400);
+      await sql`update os.businesses set cancel_at = null where id = ${bid}`;
+      await post(bid, "system", "You kept your plan. Nothing changes: the team keeps working and billing continues as before.", { status: "handled" });
+      await audit(bid, "user", user.email, "keep_plan", bid);
+      await sql`select os.alert(${bid}, 'platform', 'plan_kept', ${b.name + " kept their plan"}, ${b.name + " undid their cancellation."}, ${"kept:" + bid + ":" + Date.now()})`;
+      return json({ ok: true, cancel_at: null });
+    }
+    if (b.cancel_at) return json({ ok: true, cancel_at: b.cancel_at });
+    const [r] = await sql`update os.businesses set cancel_at = greatest(coalesce(fee_paid_until, '-infinity'), (date_trunc('month', now() at time zone timezone) + interval '1 month') at time zone timezone)
+      where id = ${bid} returning cancel_at`;
+    const when = new Date(r.cancel_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    await post(bid, "system", `Your plan is cancelled. The team keeps working until ${when}, then pauses and the platform fee stops. Your last invoice (for the time until then, plus AI work) comes on the 1st. Changed your mind? Tap "Keep my plan" on the Money tab before then.`, { status: "handled" });
+    await audit(bid, "user", user.email, "cancel_plan", bid, { cancel_at: r.cancel_at });
+    await sql`select os.alert(${bid}, 'platform', 'plan_cancelled', ${b.name + " cancelled"}, ${`${b.name} cancelled their plan (${user.email}). It ends on ${when}.`}, ${"cancel:" + bid + ":" + r.cancel_at})`;
+    return json({ ok: true, cancel_at: r.cancel_at });
   }
 
   if (action === "admin_trial") {

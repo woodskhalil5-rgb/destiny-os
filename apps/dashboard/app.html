@@ -394,7 +394,7 @@ const fmtPhone = (p) => { const d = String(p || "").replace(/\D/g, "").slice(-10
 
 // Sign-up, the first payment and (older) trials live in their own small service.
 const SIGNUP = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-signup";
-let trialInfo = {}, payInfo = {};
+let trialInfo = {}, payInfo = {}, planInfo = {}, cancelArm = false;
 const payDue = () => !!payInfo[biz];
 async function sCall(action, extra = {}) {
   const r = await fetch(SIGNUP, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
@@ -418,7 +418,7 @@ const usd0 = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("en-US");
 const winOf = (k) => (growth?.wins || []).find(w => w.kind === k) || {n: 0, usd: 0};
 async function loadTrial(){
   const id = biz;
-  try { const r = await sCall("trial_status"); trialInfo[id] = r.trial; payInfo[id] = r.pay || null; aiDown = !!r.ai_down; } catch { trialInfo[id] = null; }
+  try { const r = await sCall("trial_status"); trialInfo[id] = r.trial; payInfo[id] = r.pay || null; planInfo[id] = r.plan || null; aiDown = !!r.ai_down; } catch { trialInfo[id] = null; }
   if (id === biz) { rendered = ""; render(true); }
 }
 let aiDown = false, statusTimer = null;
@@ -1027,8 +1027,16 @@ function setupSteps(){
 function billing(){
   const st = data.business.billing_status, can = ["owner", "admin"].includes(data.role);
   const text = {active: "Card on file. Invoices are charged automatically on the 1st.", card_needed: "No card on file yet. Invoices are emailed with a payment link until you add one.", past_due: "A payment didn't go through. The team is on hold until it's paid.", none: "Billing isn't set up for this business."}[st] || "";
+  const pl = planInfo[biz], owner = data.role === "owner" || data.admin;
+  const ends = pl?.cancel_at ? new Date(pl.cancel_at).toLocaleDateString([], {month: "long", day: "numeric", year: "numeric"}) : "";
+  const ended = pl?.cancel_at && new Date(pl.cancel_at) <= new Date();
+  const plan = !pl?.can_cancel || !owner ? "" : pl.cancel_at
+    ? `<div class="box${ended ? "" : " alert"}" style="margin-top:16px"><h4>Your plan</h4><p>${ended ? `Your plan ended on ${esc(ends)}. Everything the team did is saved. Email us to restart.`
+        : `Your plan is cancelled and ends on ${esc(ends)}. The team keeps working until then.`}</p>${ended ? "" : `<div class="acts"><button class="btn go" data-bact="keep">Keep my plan</button></div>`}</div>`
+    : `<div class="box" style="margin-top:16px"><h4>Your plan</h4><p>Cancel any time. The team keeps working until the end of what you've paid for, then pauses, and the platform fee stops.</p>
+        <div class="acts"><button class="btn${cancelArm ? " bad" : ""}" data-bact="cancel">${cancelArm ? "Tap again to cancel your plan" : "Cancel my plan"}</button>${cancelArm ? `<button class="btn quiet" data-bact="cancel_no">Never mind</button>` : ""}</div></div>`;
   return `<div class="box${st === "past_due" ? " alert" : ""}"><h4>Payment</h4><p>${esc(text)} Adding a card means you agree to the <a href="/terms" target="_blank">Terms</a>.</p>
-    ${can && st !== "none" ? `<div class="acts"><button class="btn ${st === "active" ? "" : "go"}" data-bact="card">${st === "active" ? "Update card" : "Add a card"}</button><button class="btn" data-bact="portal">Invoices and receipts</button></div>` : ""}</div>`;
+    ${can && st !== "none" ? `<div class="acts"><button class="btn ${st === "active" ? "" : "go"}" data-bact="card">${st === "active" ? "Update card" : "Add a card"}</button><button class="btn" data-bact="portal">Invoices and receipts</button></div>` : ""}</div>` + plan;
 }
 
 function setBusiness(){
@@ -1436,6 +1444,13 @@ V.addEventListener("click", async e => {
   if (d.bact === "portal") {
     t.disabled = true;
     try { const r = await gCall("billing_portal"); location.href = r.url; } catch (err) { fail(t, t.closest(".box"), err); }
+    return;
+  }
+  if (d.bact === "cancel" || d.bact === "cancel_no" || d.bact === "keep") {
+    if (d.bact === "cancel_no") { cancelArm = false; rendered = ""; render(true); return; }
+    if (d.bact === "cancel" && !cancelArm) { cancelArm = true; rendered = ""; render(true); return; }
+    t.disabled = true;
+    try { await sCall(d.bact === "keep" ? "keep_plan" : "cancel_plan"); cancelArm = false; await loadTrial(); tick(); } catch (err) { fail(t, t.closest(".box"), err); }
     return;
   }
   if (d.bact === "pay") {
