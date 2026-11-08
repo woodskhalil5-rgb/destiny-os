@@ -340,6 +340,20 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   }
 
+  // Add a missing email to a quote or invoice from the Customers screen, so follow-ups (quotes) or reminders (invoices) can start.
+  if (action === "record_email") {
+    const email = clip(body.email, 200).toLowerCase();
+    if (!EMAIL.test(email)) return json({ error: "That email doesn't look right." }, 400);
+    const [r] = await sql`update os.records set data = data || ${sql.json({ email })}, updated_at = now(),
+        next_step = case when type = 'quote' and status in ('sent', 'following up') then 'follow-ups on day 2, 5 and 10'
+                         when type = 'invoice' and status in ('unpaid', 'reminded') then 'friendly payment reminder if it''s still unpaid after the due date (for your OK)'
+                         else next_step end
+      where id = ${Number(body.id)} and business_id = ${bid} and type in ('quote', 'invoice', 'customer', 'inquiry') returning id, type`;
+    if (!r) return json({ error: "Not found." }, 404);
+    await audit(bid, "user", user.email, "record_email", String(r.id), {});
+    return json({ ok: true, type: r.type });
+  }
+
   if (action === "inquiry_done") {
     const [r] = await sql`update os.records set status = 'handled', next_step = null, next_step_due = null, updated_at = now()
       where id = ${Number(body.id)} and business_id = ${bid} and type = 'inquiry' returning id`;
