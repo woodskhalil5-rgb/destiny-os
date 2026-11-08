@@ -46,7 +46,7 @@ async function monthlyReport(current: boolean) {
   if (!key) throw new Error("No Anthropic key.");
   const model = "claude-opus-5-5";
   const system = `You write the monthly improvement report for Destiny OS, for its owner. Destiny OS is a SaaS that gives a small local business (mostly home services) an AI marketing team of six: James (research), Emily (analysis), Kole (writing), DeMarcus (coordination), Grayson (social media), Nora (money: invoices, jobs won, cost per job). It answers inquiries, follows up quotes on day 2, 5 and 10, asks for reviews, emails past customers seasonal offers, posts to Facebook, has a phone dialer with a virtual assistant, a weekly recap email, and phone notifications. Everything that goes out waits for the business owner's OK.
-How it earns: a monthly platform fee (standard $650), AI usage billed at cost plus a markup (standard 30%), calls at cost plus a per-minute fee, a monthly fee per phone number, and one-off charges. 14-day free trial. Billed on the 1st. "internal" businesses belong to the owner (they cost money but don't pay).
+How it earns: a monthly platform fee (standard $650), AI usage billed at cost plus a markup (standard 30%), calls at cost plus a per-minute fee, a monthly fee per phone number, and one-off charges. No free trial: a business that signs up itself pays its first 30 days of platform fee up front before its team starts; after that it's billed on the 1st. Older businesses may still show trial fields. "internal" businesses belong to the owner (they cost money but don't pay).
 
 Write a plain-text email (no markdown symbols like # or **), short and direct, in this order:
 1. The month in numbers: 5 to 8 lines (revenue, our cost, margin, paying businesses, trials started and converted, AI cost and which teammate costs most, anything unusual).
@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
     };
     if (action === "wa_sheet") {
       const rows = await sql`select id, title, status, data, updated_at from os.records where business_id = ${bid}
-        and status in ('call planned', 'called', 'meeting', 'trial') and (data ? 'call_plan' or status <> 'call planned')
+        and status in ('call planned', 'called', 'meeting') and (data ? 'call_plan' or status <> 'call planned')
         order by case status when 'call planned' then 0 when 'called' then 1 when 'meeting' then 2 else 3 end,
           case upper(coalesce(data->>'priority', '')) when 'A' then 0 when 'B' then 1 else 2 end, (data->>'score') desc nulls last, id limit 80`;
       const done = await sql`select count(*) filter (where started_at > now() - interval '1 day')::int as today, count(*) filter (where started_at > now() - interval '7 days')::int as week
@@ -224,7 +224,7 @@ Deno.serve(async (req) => {
     }
     const OUT: Record<string, [string, string | null, boolean]> = {
       no_answer: ["No answer", "called", false], callback: ["Call back", "called", true], not_interested: ["Not interested", "lost", false],
-      meeting: ["Meeting booked", "meeting", true], trial: ["Started a free trial", "trial", true], signed: ["Signed up", "signed", true], wrong_number: ["Wrong number", "lost", false],
+      meeting: ["Meeting booked", "meeting", true], signed: ["Signed up (paid plan)", "signed", true], wrong_number: ["Wrong number", "lost", false],
     };
     const o = OUT[String(body.outcome)];
     if (!o) return json({ error: "Pick what happened." }, 400);

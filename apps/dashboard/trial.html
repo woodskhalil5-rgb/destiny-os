@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Start your free trial · Destiny OS</title>
-<meta name="description" content="Try Destiny OS free for 14 days: a team of six AI coworkers that research, write, post and follow up for your business.">
+<title>Get started · Destiny OS</title>
+<meta name="description" content="Set up Destiny OS: a team of six AI coworkers that research, write, post and follow up for your business.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -73,12 +73,12 @@ textarea{resize:vertical;min-height:96px}
       <li><b>Nora</b>Keeps track of your money and unpaid invoices</li>
     </ul>
     <div class="terms">
-      <b style="color:var(--ink)">Your free trial</b>
+      <b style="color:var(--ink)">How it works</b>
       <ul>
-        <li>14 days, no card needed to start.</li>
-        <li>We cover the team's AI work during the trial.</li>
-        <li>Keep going after: $650 a month plus the team's AI usage, billed monthly. Add a card any time; you're only billed from the day the trial ends.</li>
-        <li>No card at the end? The team simply pauses. Nothing is charged.</li>
+        <li>Tell us about your business. Your team is set up for it right away, so you can see who does what.</li>
+        <li>When you're ready, pay your first month in your dashboard: $650 for 30 days. Then start the team.</li>
+        <li>After that: $650 a month plus the team's AI usage, billed on the 1st, with a monthly limit you control.</li>
+        <li>Cancel any time.</li>
       </ul>
     </div>
   </section>
@@ -86,7 +86,7 @@ textarea{resize:vertical;min-height:96px}
   <form id="f" novalidate>
     <div id="s1">
       <div style="display:flex;flex-direction:column;gap:14px">
-        <h2>Start your free trial</h2>
+        <h2>Set up your team</h2>
         <p>Tell us about your business and your team is set up for it before you sign in.</p>
         <label>Business name<input id="business" autocomplete="organization" required></label>
         <div class="two"><label>Your name<input id="name" autocomplete="name" required></label>
@@ -113,7 +113,7 @@ textarea{resize:vertical;min-height:96px}
     <div class="err" id="err" role="alert"></div>
     <button class="btn" id="go" type="submit">Email me a code</button>
     <button class="btn quiet" id="back" type="button" hidden>Change my details or send a new code</button>
-    <p class="legal">By starting a trial you agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>. Already have an account? <a href="/">Sign in</a>.</p>
+    <p class="legal">By signing up you agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>. Already have an account? <a href="/">Sign in</a>.</p>
   </form>
 </main>
 <script>
@@ -128,7 +128,7 @@ async function send(action, extra){
 }
 function show(n){
   step = n; $("s1").hidden = n !== 1; $("s2").hidden = n !== 2; $("back").hidden = n !== 2;
-  $("go").textContent = n === 1 ? "Email me a code" : "Start my free trial";
+  $("go").textContent = n === 1 ? "Email me a code" : "Set up my team";
   if (n === 2) $("code").focus();
 }
 $("back").addEventListener("click", () => { $("err").textContent = ""; $("code").value = ""; show(1); });

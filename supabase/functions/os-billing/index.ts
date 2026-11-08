@@ -76,6 +76,22 @@ async function onEvent(ev: any) {
     await post(b.id, "system", "Card on file saved. Invoices will be charged to it automatically.", { status: "handled" });
     return;
   }
+  // The first month, paid at sign-up (os-signup pay_start): covers 30 days of platform fee, saves the card, unlocks Start team.
+  if (ev.type === "checkout.session.completed" && o.mode === "payment" && o.metadata?.kind === "first_month") {
+    if (o.payment_status !== "paid") return;
+    const [b] = await sql`select * from os.businesses where id = ${o.client_reference_id ?? o.metadata?.business_id ?? null} and stripe_customer_id = ${o.customer}`;
+    if (!b) return;
+    const pi = await stripe("GET", `payment_intents/${o.payment_intent}`);
+    if (pi.payment_method) await stripe("POST", `customers/${o.customer}`, { invoice_settings: { default_payment_method: pi.payment_method } });
+    const [upd] = await sql`update os.businesses set fee_paid_until = now() + interval '30 days', billing_status = 'active'
+      where id = ${b.id} and fee_paid_until is null returning fee_paid_until`;
+    if (!upd) return; // already recorded
+    const paid = (o.amount_total ?? 0) / 100;
+    await audit(b.id, "system", "billing", "first_month_paid", o.payment_intent, { usd: paid });
+    await post(b.id, "system", `Payment received: $${paid.toFixed(2)} for your first 30 days. Your card is saved for the monthly invoices. Click Start team whenever you're ready.`, { status: "handled" });
+    await sql`select os.alert(${b.id}, 'platform', 'first_payment', ${b.name + " paid their first month"}, ${`${b.name} paid $${paid.toFixed(2)} for their first 30 days. Their team can start now.`}, ${"paid1:" + b.id})`;
+    return;
+  }
   if (!ev.type.startsWith("invoice.")) return;
   await sql`update os.invoices set status = ${o.status}, amount_usd = ${o.total / 100}, hosted_url = ${o.hosted_invoice_url ?? null}, updated_at = now() where stripe_invoice_id = ${o.id}`;
   const [b] = await sql`select * from os.businesses where stripe_customer_id = ${o.customer}`;

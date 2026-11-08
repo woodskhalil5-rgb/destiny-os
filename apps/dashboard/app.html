@@ -314,7 +314,7 @@ details.agent .inner{padding:0 18px 18px}
     <button class="btn go" type="submit" id="gateBtn">Email me a code</button>
     <button class="btn quiet" type="button" id="backBtn" hidden>Use a different email or send a new code</button>
     <p class="legal">By signing in you agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</p>
-    <p class="legal">New to Destiny OS? <a href="/trial">Start a 14-day free trial</a> or <a href="/?home">see what it does</a>.</p>
+    <p class="legal">New to Destiny OS? <a href="/trial">Get started</a> or <a href="/?home">see what it does</a>.</p>
   </form>
 </div>
 
@@ -391,9 +391,10 @@ const OUTCOMES = [["talked", "Talked"], ["interested", "Interested"], ["callback
 let callsData = null, callsAt = 0, device = null, deviceBiz = null, active = null, incoming = null, callStart = 0, callWho = "", pending = null, barTimer = null;
 const fmtPhone = (p) => { const d = String(p || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : String(p || ""); };
 
-// Free trials live in their own small service.
+// Sign-up, the first payment and (older) trials live in their own small service.
 const SIGNUP = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-signup";
-let trialInfo = {};
+let trialInfo = {}, payInfo = {};
+const payDue = () => !!payInfo[biz];
 async function sCall(action, extra = {}) {
   const r = await fetch(SIGNUP, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
   const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
@@ -416,7 +417,7 @@ const usd0 = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("en-US");
 const winOf = (k) => (growth?.wins || []).find(w => w.kind === k) || {n: 0, usd: 0};
 async function loadTrial(){
   const id = biz;
-  try { const r = await sCall("trial_status"); trialInfo[id] = r.trial; aiDown = !!r.ai_down; } catch { trialInfo[id] = null; }
+  try { const r = await sCall("trial_status"); trialInfo[id] = r.trial; payInfo[id] = r.pay || null; aiDown = !!r.ai_down; } catch { trialInfo[id] = null; }
   if (id === biz) { rendered = ""; render(true); }
 }
 let aiDown = false, statusTimer = null;
@@ -448,7 +449,14 @@ async function pushOn(){
 }
 function trialBanner(){
   const pause = aiDown ? `<div class="box alert" style="margin-bottom:20px"><p style="margin:0;color:var(--ink)"><b>Your team is paused for a moment.</b> Our AI service is having trouble, so the team is waiting rather than making mistakes. Anything you send is saved, and they pick back up on their own as soon as it's fixed.</p></div>` : "";
-  const t = trialInfo[biz];
+  const p = payInfo[biz], t = trialInfo[biz];
+  if (p) {
+    const can = ["owner", "admin"].includes(data.role);
+    const waiting = /[?&]billing=paid\b/.test(location.search);
+    return pause + `<div class="box" style="margin-bottom:20px;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px"><p style="margin:0;color:var(--ink)">${waiting
+      ? "<b>Thanks, we're confirming your payment.</b> This takes a few seconds."
+      : `<b>Your team is set up and ready.</b> Pay your first month (${usd0(p.amount_usd)} for 30 days) to start it. AI usage is billed with your invoice on the 1st, and you can cancel any time.`}</p>${can && !waiting ? `<button class="btn go small" data-bact="pay">Pay and start</button>` : ""}</div>`;
+  }
   if (!t) return pause;
   const end = new Date(t.ends_at).toLocaleDateString([], {month: "long", day: "numeric"});
   const left = `${t.days_left} day${t.days_left === 1 ? "" : "s"} left`;
@@ -494,7 +502,7 @@ function waiting(){
 
 // ---------- views ----------
 // WhatsApp call sheet for African businesses: who to call, the plan, one tap to WhatsApp, and log what happened.
-const WA_OUT = [["no_answer", "No answer"], ["callback", "Call back"], ["meeting", "Meeting booked"], ["trial", "Free trial"], ["signed", "Signed up"], ["not_interested", "Not interested"], ["wrong_number", "Wrong number"]];
+const WA_OUT = [["no_answer", "No answer"], ["callback", "Call back"], ["meeting", "Meeting booked"], ["signed", "Signed up (paid)"], ["not_interested", "Not interested"], ["wrong_number", "Wrong number"]];
 function planText(p) {
   if (!p) return "";
   if (typeof p === "string") return p;
@@ -904,7 +912,6 @@ const VIEWS = {
       <label class="field">Rules the team must follow<textarea data-n="rules" rows="3"></textarea></label>
       <div class="grid2"><label class="field">Time zone<input data-n="timezone" value="America/New_York"></label><label class="field">Platform fee ($ a month)<input data-n="platform_fee_usd" type="number" min="0" value="650"></label>
         <label class="field">Markup on AI usage (%)<input data-n="markup_pct" type="number" min="0" value="30"></label><label class="field">AI limit ($ a month)<input data-n="monthly_budget_usd" type="number" min="0" value="200"></label></div>
-      <label class="check"><input type="checkbox" data-n="trial"> Start with a 14-day free trial (no platform fee; you cover their AI use up to $40)</label>
       <div class="acts"><button class="btn go" data-nact="create">Create business</button><button class="btn quiet" data-nact="cancel">Cancel</button></div></form>`;
   },
 };
@@ -1004,8 +1011,9 @@ function setupSteps(){
     {done: mail, t: "Connect your email", s: "So the team can send what you approve and catch replies", btn: `<button class="btn small" data-go="settings" data-st="connections">Connect</button>`},
     {done: fb, t: "Connect your Facebook Page", s: "So Grayson can publish the posts you approve", btn: `<button class="btn small" data-go="settings" data-st="connections">Connect</button>`},
     {done: pics, t: "Add your photos and videos", s: "Job photos, before and afters, videos. Grayson makes posts from them.", btn: `<button class="btn small" data-go="media">Add</button>`},
-    ...(data.admin ? [] : [{done: card, t: "Add a card", s: t && !t.ended ? "Any time before your trial ends, to keep the team working" : "Billed on the 1st for the month before", btn: `<button class="btn small" data-go="money">Add card</button>`}]),
-    {done: live, t: "Start the team", s: "They begin on their next work hour", btn: can ? `<button class="btn small go" data-start>Start team</button>` : ""},
+    ...(payInfo[id] ? [{done: false, t: "Pay your first month", s: `${usd0(payInfo[id].amount_usd)} for your first 30 days. AI usage is billed on the 1st. Cancel any time.`, btn: can ? `<button class="btn small go" data-bact="pay">Pay</button>` : ""}]
+      : data.admin ? [] : [{done: card, t: "Add a card", s: t && !t.ended ? "Any time before your trial ends, to keep the team working" : "Billed on the 1st for the month before", btn: `<button class="btn small" data-go="money">Add card</button>`}]),
+    {done: live, t: "Start the team", s: payInfo[id] ? "Once your first month is paid" : "They begin on their next work hour", btn: can && !payInfo[id] ? `<button class="btn small go" data-start>Start team</button>` : ""},
   ];
   const left = steps.filter(x => !x.done).length;
   if (live && !left) return "";
@@ -1111,7 +1119,7 @@ function topbar(){
   const st = $("state");
   st.className = "state " + (b.status === "live" ? "live" : b.status === "paused" ? "paused" : "");
   st.textContent = b.status === "live" ? (data.working?.length ? "Working now" : "Team on") : b.status === "paused" ? "Paused" : "Not started";
-  $("pauseBtn").hidden = !can;
+  $("pauseBtn").hidden = !can || (payDue() && b.status !== "live");
   $("pauseBtn").textContent = b.status === "live" ? "Pause team" : "Start team";
   $("pauseBtn").classList.toggle("go", b.status !== "live");
   const caller = data.role === "caller", showCalls = caller || !!data.calling?.number || data.admin;
@@ -1427,6 +1435,11 @@ V.addEventListener("click", async e => {
     try { const r = await gCall("billing_portal"); location.href = r.url; } catch (err) { fail(t, t.closest(".box"), err); }
     return;
   }
+  if (d.bact === "pay") {
+    t.disabled = true;
+    try { const r = await sCall("pay_start"); location.href = r.url; } catch (err) { fail(t, t.closest(".box"), err); }
+    return;
+  }
   if (d.bact === "card") {
     t.disabled = true;
     try { const r = await call("billing_link"); location.href = r.url; } catch (err) { fail(t, t.closest(".box"), err); }
@@ -1484,7 +1497,6 @@ V.addEventListener("click", async e => {
     try {
       const r = await call("create_business", {name: v("name"), owner_name: v("owner_name"), owner_email: v("owner_email"), mission: v("mission"), facts: v("facts"), rules: v("rules"),
         timezone: v("timezone"), platform_fee_usd: v("platform_fee_usd"), markup_pct: v("markup_pct"), monthly_budget_usd: v("monthly_budget_usd")});
-      if (f.querySelector('[data-n="trial"]').checked) await sCall("admin_trial", {business_id: r.business_id});
       editing.clear(); try { localStorage.setItem("osBiz", r.business_id); } catch {}
       view = "home"; await start();
     } catch (err) { fail(t, f, err); }
@@ -1590,6 +1602,14 @@ async function start(){
   lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
   await tick(); clearInterval(timer); timer = setInterval(tick, 3000);
   loadTrial(); clearInterval(statusTimer); statusTimer = setInterval(loadTrial, 120000);
+  // Back from paying: check every few seconds until the payment shows up (about a minute at most), then tidy the address.
+  if (/[?&]billing=paid\b/.test(location.search)) {
+    let n = 0; const id = biz;
+    const poll = setInterval(async () => {
+      await loadTrial();
+      if (!payInfo[id] || ++n > 20) { clearInterval(poll); history.replaceState(null, "", location.pathname); rendered = ""; render(true); }
+    }, 3000);
+  }
 }
 function switchBiz(id){
   biz = id; $("bizSel").value = id; $("bizSelM").value = id; try { localStorage.setItem("osBiz", biz); } catch {}

@@ -1,13 +1,15 @@
-// os-signup: free trials.
-//  - signup_request / signup_verify (public): a business starts a 14-day trial on /trial after confirming its email.
-//  - trial_status (signed in): days left, for the dashboard banner.
-//  - admin_trial (platform owner): put a business on a 14-day trial.
-// During a trial the platform fee is waived and DMG covers AI usage up to TRIAL_CAP (the monthly limit); os.trial_sweep()
-// moves it to the full plan (card on file) or pauses it (no card) when it ends.
+// os-signup: self sign-up. There is no free trial: a business signs up on /trial (email code), its team is set up
+// from its answers, and it pays its first month (the platform fee, Stripe Checkout, card saved) before the team can start.
+//  - signup_request / signup_verify (public): create the business after confirming the email.
+//  - trial_status (signed in): what the dashboard banner shows (first payment due; old trials' days left).
+//  - pay_start (owner/admin): the Stripe Checkout link for the first month. os-billing's webhook records the payment.
+//  - admin_trial (platform owner): still puts a business on a 14-day trial by hand, for special cases.
 import { audit, business, claude, post, secret, sql } from "../_core/core.ts";
 import { appUrl, platformMail } from "../_core/mail.ts";
+import { ensureCustomer, stripe, stripeAccount } from "../_core/stripe.ts";
 
-const TRIAL_DAYS = 14, TRIAL_CAP = 40, PUBLIC_PER_DAY = 10;
+const TRIAL_DAYS = 14, TRIAL_CAP = 40, PUBLIC_PER_DAY = 10, START_BUDGET = 200;
+const FORBIDDEN_ACCOUNTS = ["acct_1UWNu2ISquyuV0hE"]; // JHP / Destiny Marketing Group's own Stripe: never used here
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, x-os-token", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, "content-type": "application/json" } });
 const clip = (v: unknown, n: number) => (v == null ? "" : String(v)).trim().slice(0, n);
@@ -99,11 +101,11 @@ agents: for each slot, 2 to 4 sentences of concrete instructions for THIS busine
       if (ins) await tx`update os.business_agents set role_instructions = ${ins} where business_id = ${bid} and slot = ${a.slot}`;
     }
   });
-  await post(bid, "system", "Your team is set up for your business from what you told us: each teammate has their job, and the team knows your services, area and rules. Check Settings to add anything (prices, offers, phone number), then click Start team.", { status: "handled" });
+  await post(bid, "system", `Your team is set up for your business from what you told us: each teammate has their job, and the team knows your services, area and rules. Check Settings to add anything (prices, offers, phone number).${(b as any).pay_to_start ? " When you're ready, pay your first month on the Money tab and click Start team." : " Then click Start team."}`, { status: "handled" });
   await audit(bid, "system", "setup", "team_setup", bid, { record_types: Object.keys(types) });
 }
 
-/** A new business on a trial, owned by this person. Starts "not started": nothing runs until they click Start team. */
+/** A new business owned by this person. Starts "not started": nothing runs until the first month is paid and they click Start team. */
 async function createTrialBusiness(d: Record<string, string>, uid: string) {
   let slug = slugify(d.business);
   for (let i = 2; (await sql`select 1 from os.businesses where slug = ${slug}`).length; i++) slug = `${slugify(d.business)}-${i}`;
@@ -117,18 +119,18 @@ async function createTrialBusiness(d: Record<string, string>, uid: string) {
     tool_packs: [],
   };
   const bid = await sql.begin(async (tx: any) => {
-    const [nb] = await tx`insert into os.businesses (slug, name, status, timezone, platform_fee_usd, markup_pct, monthly_budget_usd, plan, trial_ends_at)
-      values (${slug}, ${d.business}, 'setup', ${tz}, 650, 30, ${TRIAL_CAP}, 'customer', now() + make_interval(days => ${TRIAL_DAYS})) returning id`;
+    const [nb] = await tx`insert into os.businesses (slug, name, status, timezone, platform_fee_usd, markup_pct, monthly_budget_usd, plan, pay_to_start, billing_status)
+      values (${slug}, ${d.business}, 'setup', ${tz}, 650, 30, ${START_BUDGET}, 'customer', true, 'card_needed') returning id`;
     await tx`insert into os.business_config (business_id, version, config, note, created_by, active) values (${nb.id}, 1, ${tx.json(config)}, 'free trial sign-up', ${d.email}, true)`;
     await tx`insert into os.business_agents (business_id, slot, enabled, role_instructions) select ${nb.id}, slot, true, '' from os.agents`;
     await tx`insert into os.business_members (business_id, user_id, role) values (${nb.id}, ${uid}, 'owner') on conflict (business_id, user_id) do update set role = 'owner'`;
     return nb.id as string;
   });
-  await post(bid, "system", `Welcome to Destiny OS. Your ${TRIAL_DAYS}-day free trial has started. Your team is being set up from what you told us; this takes about a minute.`, { status: "handled" });
+  await post(bid, "system", "Welcome to Destiny OS. Your team is being set up from what you told us; this takes about a minute.", { status: "handled" });
   await audit(bid, "user", d.email, "trial_signup", slug, { phone: d.phone || undefined });
-  const heads = [`${d.name} started a ${TRIAL_DAYS}-day free trial for ${d.business}.${d.phone ? ` Give them a call today: ${d.phone}.` : ""}`, "",
+  const heads = [`${d.name} signed up ${d.business} (first month not paid yet).${d.phone ? ` Give them a call today: ${d.phone}.` : ""}`, "",
     `Name: ${d.name}`, `Email: ${d.email}`, d.phone ? `Phone: ${d.phone}` : null, "", briefOf(d)].filter((x) => x !== null).join("\n");
-  await sql`select os.alert(${bid}, 'platform', 'trial_signup', ${"New free trial: " + d.business + (d.industry ? ` (${d.industry})` : "")}, ${heads}, ${"trial:" + bid})`;
+  await sql`select os.alert(${bid}, 'platform', 'trial_signup', ${"New sign-up: " + d.business + (d.industry ? ` (${d.industry})` : "")}, ${heads}, ${"trial:" + bid})`;
   return bid;
 }
 
@@ -160,11 +162,11 @@ Deno.serve(async (req) => {
       (select count(*)::int from os.trial_signups where ip = ${ip} and created_at > now() - interval '1 day') as by_ip,
       (select count(*)::int from os.trial_signups where used and created_at > now() - interval '1 day') as today`;
     if (lim.by_email >= 3 || (ip && lim.by_ip >= 6)) return json({ error: "Too many tries. Please wait an hour and try again." }, 429);
-    if (lim.today >= PUBLIC_PER_DAY) return json({ error: "We've started all the trials we can today. Please try again tomorrow." }, 429);
+    if (lim.today >= PUBLIC_PER_DAY) return json({ error: "We've set up all the new businesses we can today. Please try again tomorrow." }, 429);
     const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, "0");
     await sql`insert into os.trial_signups (email, ip, details, code_hash, expires_at) values (${d.email}, ${ip}, ${sql.json(d)}, ${await sha256(code)}, now() + interval '15 minutes')`;
     try {
-      await platformMail(d.email, `Destiny OS code: ${code}`, `Your code to start the Destiny OS free trial for ${d.business} is ${code}\n\nIt works for 15 minutes. If you didn't ask for it, ignore this email.`);
+      await platformMail(d.email, `Destiny OS code: ${code}`, `Your code to set up Destiny OS for ${d.business} is ${code}\n\nIt works for 15 minutes. If you didn't ask for it, ignore this email.`);
     } catch { return json({ error: "We couldn't send the email. Try again in a minute." }, 503); }
     return json({ ok: true });
   }
@@ -220,7 +222,7 @@ Deno.serve(async (req) => {
       const token = Array.from(crypto.getRandomValues(new Uint8Array(32))).map((x) => x.toString(16).padStart(2, "0")).join("");
       await sql`insert into os.sessions (token_hash, user_id, expires_at) values (${await sha256(token)}, ${uid}, now() + interval '90 days')`;
       try {
-        await platformMail(email, "Your Destiny OS free trial has started", `Welcome to Destiny OS. Your ${TRIAL_DAYS}-day free trial for ${s.details.business} has started.\n\nSign in any time at ${await appUrl()}/login with this email; we'll send you a code, no password needed.\n\nFirst steps: tell the team about your business in Settings, then click Start team.\n\nTerms: ${await appUrl()}/terms\nPrivacy: ${await appUrl()}/privacy`);
+        await platformMail(email, "Welcome to Destiny OS", `Welcome to Destiny OS. Your team for ${s.details.business} is being set up now.\n\nSign in any time at ${await appUrl()}/login with this email; we'll send you a code, no password needed.\n\nNext steps: check what your team knows in Settings, pay your first month on the Money tab ($650 for your first 30 days; AI usage is billed on the 1st of each month), then click Start team. Cancel any time.\n\nTerms: ${await appUrl()}/terms\nPrivacy: ${await appUrl()}/privacy`);
       } catch { /* the trial stands even if the welcome email fails */ }
       return json({ ok: true, token, business_id: bid });
     } catch (e) {
@@ -248,11 +250,38 @@ Deno.serve(async (req) => {
   if (action === "trial_status") {
     const [m] = isAdmin ? [{ ok: 1 }] : await sql`select 1 as ok from os.business_members where user_id = ${user.id} and business_id = ${bid}`;
     if (!m) return json({ error: "You don't have access to that business." }, 403);
-    const [b] = await sql`select trial_ends_at, trial_converted, billing_status from os.businesses where id = ${bid}`;
+    const [b] = await sql`select trial_ends_at, trial_converted, billing_status, pay_to_start, fee_paid_until, platform_fee_usd from os.businesses where id = ${bid}`;
     const [{ down }] = await sql`select os.ai_down() as down`;
-    if (!b?.trial_ends_at || b.trial_converted) return json({ trial: null, ai_down: down });
+    const pay = b?.pay_to_start && !b.fee_paid_until && b.billing_status !== "active" ? { amount_usd: Number(b.platform_fee_usd) } : null;
+    if (!b?.trial_ends_at || b.trial_converted) return json({ trial: null, pay, ai_down: down });
     const ms = new Date(b.trial_ends_at).getTime() - Date.now();
     return json({ trial: { ends_at: b.trial_ends_at, days_left: Math.max(0, Math.ceil(ms / 86400000)), ended: ms <= 0, card_on_file: b.billing_status === "active", cap_usd: TRIAL_CAP }, ai_down: down });
+  }
+
+  // The first month, paid up front through Stripe Checkout (the card is saved for the monthly invoices).
+  if (action === "pay_start") {
+    const [m] = await sql`select role from os.business_members where user_id = ${user.id} and business_id = ${bid}`;
+    if (!isAdmin && !["owner", "admin"].includes(m?.role)) return json({ error: "Only owners and admins can pay." }, 403);
+    const [b] = await sql`select id, name, pay_to_start, fee_paid_until, billing_status, platform_fee_usd from os.businesses where id = ${bid}`;
+    if (!b) return json({ error: "Not found." }, 404);
+    if (!b.pay_to_start || b.fee_paid_until || b.billing_status === "active") return json({ error: "Your first month is already paid." }, 400);
+    try {
+      const acct = await stripeAccount();
+      if (FORBIDDEN_ACCOUNTS.includes(acct.id) || /destiny marketing group/i.test(acct.name)) return json({ error: "Payments aren't available right now. Please contact us." }, 503);
+      const cfg = (await sql`select config from os.business_config where business_id = ${bid} and active`)[0]?.config ?? {};
+      const customer = await ensureCustomer(bid, isAdmin && cfg.owner?.email ? cfg.owner.email : user.email);
+      const app = await appUrl();
+      const s = await stripe("POST", "checkout/sessions", {
+        mode: "payment", customer, client_reference_id: bid, metadata: { business_id: bid, kind: "first_month" },
+        line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: Math.round(Number(b.platform_fee_usd) * 100),
+          product_data: { name: "Destiny OS: your first 30 days", description: "The platform fee for your team's first 30 days. AI usage is billed with your monthly invoice on the 1st." } } }],
+        payment_intent_data: { setup_future_usage: "off_session", metadata: { business_id: bid, kind: "first_month" } },
+        managed_payments: { enabled: false },
+        success_url: `${app}/app?billing=paid`, cancel_url: `${app}/app?billing=cancelled`,
+      });
+      await audit(bid, "user", user.email, "pay_start_link", customer);
+      return json({ url: s.url });
+    } catch (e) { return json({ error: `Couldn't open the payment page: ${(e as Error).message}` }, 502); }
   }
 
   if (action === "admin_trial") {
