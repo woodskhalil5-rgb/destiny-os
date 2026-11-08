@@ -570,6 +570,20 @@ const VIEWS = {
         ${rows.length > 5 ? `<div class="row click" data-go="approve"><div class="grow s">and ${rows.length - 5} more</div></div>` : ""}</div></div>`;
     }
 
+    // Today: customers waiting on an answer and money that's late (from the Customers screen)
+    if (growth) {
+      const td = new Date().toISOString().slice(0, 10), fresh = (growth.inquiries || []).filter(i => i.status === "new");
+      const late = (growth.invoices || []).filter(i => ["unpaid", "reminded"].includes(i.status) && i.data?.due_on && i.data.due_on < td);
+      const lateSum = late.reduce((n, i) => n + (Number(i.data?.amount) || 0), 0);
+      const today = [
+        ...fresh.slice(0, 3).map(i => ({icon: "mail", t: `Answer ${i.title}`, s: `New inquiry ${ago(i.created_at)}${i.data?.phone ? " · fastest: call " + i.data.phone : ""}`})),
+        ...(fresh.length > 3 ? [{icon: "mail", t: `${fresh.length - 3} more new ${fresh.length - 3 === 1 ? "inquiry" : "inquiries"}`, s: "The first business to answer usually wins the job"}] : []),
+        ...(late.length ? [{icon: "money", t: `${usd0(lateSum)} overdue from ${late.length === 1 ? late[0].data?.name || late[0].title : late.length + " customers"}`, s: "Nora drafts the reminders for your OK. Tap Got paid when it comes in."}] : []),
+      ];
+      if (today.length) out += `<div class="section"><h3>Today<button class="btn small quiet" data-go="customers">Customers</button></h3><div class="list">${today.map(r =>
+        `<div class="row click" data-go="customers"><span class="kind"><svg><use href="#i-${r.icon}"/></svg></span><div class="grow"><div class="t">${esc(r.t)}</div><div class="s">${esc(r.s)}</div></div></div>`).join("")}</div></div>`;
+    }
+
     const crew = (data.team || []).filter(t => t.enabled);
     out += `<div class="section"><h3>Your team<button class="btn small quiet" data-go="chat">Open chat</button></h3><div class="crew">${crew.map(t => {
       const last = [...msgs].reverse().find(m => m.sender === t.slot), busy = working.includes(t.slot);
