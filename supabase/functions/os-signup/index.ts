@@ -252,7 +252,7 @@ Deno.serve(async (req) => {
     if (!m) return json({ error: "You don't have access to that business." }, 403);
     const [b] = await sql`select trial_ends_at, trial_converted, billing_status, pay_to_start, fee_paid_until, platform_fee_usd from os.businesses where id = ${bid}`;
     const [{ down }] = await sql`select os.ai_down() as down`;
-    const pay = b?.pay_to_start && !b.fee_paid_until && b.billing_status !== "active" ? { amount_usd: Number(b.platform_fee_usd) } : null;
+    const pay = b?.pay_to_start && !b.fee_paid_until ? { amount_usd: Number(b.platform_fee_usd) } : null;
     if (!b?.trial_ends_at || b.trial_converted) return json({ trial: null, pay, ai_down: down });
     const ms = new Date(b.trial_ends_at).getTime() - Date.now();
     return json({ trial: { ends_at: b.trial_ends_at, days_left: Math.max(0, Math.ceil(ms / 86400000)), ended: ms <= 0, card_on_file: b.billing_status === "active", cap_usd: TRIAL_CAP }, ai_down: down });
@@ -264,7 +264,7 @@ Deno.serve(async (req) => {
     if (!isAdmin && !["owner", "admin"].includes(m?.role)) return json({ error: "Only owners and admins can pay." }, 403);
     const [b] = await sql`select id, name, pay_to_start, fee_paid_until, billing_status, platform_fee_usd from os.businesses where id = ${bid}`;
     if (!b) return json({ error: "Not found." }, 404);
-    if (!b.pay_to_start || b.fee_paid_until || b.billing_status === "active") return json({ error: "Your first month is already paid." }, 400);
+    if (!b.pay_to_start || b.fee_paid_until) return json({ error: "Your first month is already paid." }, 400);
     try {
       const acct = await stripeAccount();
       if (FORBIDDEN_ACCOUNTS.includes(acct.id) || /destiny marketing group/i.test(acct.name)) return json({ error: "Payments aren't available right now. Please contact us." }, 503);

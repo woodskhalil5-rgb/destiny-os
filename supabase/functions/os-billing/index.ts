@@ -73,7 +73,9 @@ async function onEvent(ev: any) {
     const open = await stripe("GET", "invoices", { customer: o.customer, status: "open", limit: 10 });
     for (const inv of open.data ?? []) { try { await stripe("POST", `invoices/${inv.id}/pay`, { payment_method: si.payment_method }); } catch { /* the failure event follows */ } }
     if (!(open.data ?? []).length) await sql`update os.businesses set billing_status = 'active' where id = ${b.id}`;
-    await post(b.id, "system", "Card on file saved. Invoices will be charged to it automatically.", { status: "handled" });
+    await post(b.id, "system", b.pay_to_start && !b.fee_paid_until
+      ? "Card on file saved. To start your team, pay your first month on the Money tab."
+      : "Card on file saved. Invoices will be charged to it automatically.", { status: "handled" });
     return;
   }
   // The first month, paid at sign-up (os-signup pay_start): covers 30 days of platform fee, saves the card, unlocks Start team.

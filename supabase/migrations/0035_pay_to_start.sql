@@ -10,7 +10,7 @@ alter table os.businesses add column if not exists fee_paid_until timestamptz;
 create or replace function os.require_first_payment() returns trigger language plpgsql as $$
 begin
   if new.status = 'live' and old.status is distinct from 'live' and new.pay_to_start
-     and new.fee_paid_until is null and new.billing_status <> 'active' then
+     and new.fee_paid_until is null then
     raise exception 'Pay your first month to start your team. It''s on the Money tab.';
   end if;
   return new;
@@ -32,6 +32,7 @@ returns table(line text, kind text, amount_usd numeric, our_cost_usd numeric) la
                                          when t.fs >= month + interval '1 month' then 0
                                          else extract(epoch from (month + interval '1 month' - t.fs)) / extract(epoch from (month + interval '1 month' - month::timestamptz)) end, 2), 0
     from os.businesses b, t where b.id = bid and b.platform_fee_usd > 0 and (t.fs is null or t.fs < month + interval '1 month')
+      and not (b.pay_to_start and b.fee_paid_until is null)   -- nothing to bill until the first month is paid
   union all
   select 'Phone calls (' || coalesce(sum(minutes), 0) || ' min)', 'calls', coalesce(sum(billed_usd), 0), coalesce(sum(cost_usd), 0)
     from os.calls where business_id = bid and started_at >= month and started_at < month + interval '1 month'
@@ -56,7 +57,7 @@ begin
       (trial_ends_at > now() and not trial_converted)
       or (pay_to_start and trial_ends_at is null and created_at > now() - interval '8 days')) loop
     started := coalesce(b.trial_ends_at - interval '14 days', b.created_at);
-    unpaid := b.pay_to_start and b.fee_paid_until is null and b.billing_status <> 'active';
+    unpaid := b.pay_to_start and b.fee_paid_until is null;
     if b.status = 'setup' and now() between started + interval '20 hours' and started + interval '3 days' then
       perform os.alert(b.id, 'business', 'start_nudge', 'Your team is ready to start',
         'Your Destiny OS team for ' || b.name || E' is set up and waiting. Nothing runs until you say so.\n\n'
