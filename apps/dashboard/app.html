@@ -107,6 +107,7 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--go)}
 .mate{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .mate .id{display:flex;align-items:center;gap:10px}
 .av{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:15px;color:#fff;background:var(--c)}
+.av.mz{background:none;border-radius:0;object-fit:contain;transform:scale(1.15)}
 .mate .nm{font-weight:700;line-height:1.2}
 .mate .jb{font-size:13px;color:var(--muted)}
 .mate .said{font-size:14px;color:var(--soft);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:0}
@@ -486,7 +487,9 @@ function ago(d){
   return when(d);
 }
 const label = (k) => String(k).replace(/_/g, " ").replace(/^./, c => c.toUpperCase());
-const av = (slot, name) => `<span class="av" style="--c:var(--c-${slot})">${esc((name || "?")[0])}</span>`;
+const MASCOTS = new Set(["research", "analysis", "production", "coordination", "media", "finance"]);
+const av = (slot, name) => MASCOTS.has(slot) ? `<img class="av mz" src="/mascots/${slot}.svg" alt="" title="${esc(name || "")}">`
+  : `<span class="av" style="--c:var(--c-${slot})">${esc((name || "?")[0])}</span>`;
 function fmtBody(t){
   let h = esc(t);
   for (const a of data?.team || []) h = h.replace(new RegExp(`@${a.handle}\\b`, "gi"), m => `<b style="color:var(--c-${a.slot})">${m}</b>`);

@@ -90,7 +90,9 @@ async function onEvent(ev: any) {
     if (!upd) return; // already recorded
     const paid = (o.amount_total ?? 0) / 100;
     await audit(b.id, "system", "billing", "first_month_paid", o.payment_intent, { usd: paid });
-    await post(b.id, "system", `Payment received: $${paid.toFixed(2)} for your first 30 days. Your card is saved for the monthly invoices. Click Start team whenever you're ready.`, { status: "handled" });
+    // "Pay and start": the team starts right away (on its next work hour). The owner can pause it any time.
+    const [started] = await sql`update os.businesses set status = 'live' where id = ${b.id} and status = 'setup' returning id`;
+    await post(b.id, "system", `Payment received: $${paid.toFixed(2)} for your first 30 days, and your card is saved for the monthly invoices. ${started ? "Your team is on and starts on its next work hour. Nothing goes out without your OK." : "Click Start team whenever you're ready."}`, { status: "handled" });
     await sql`select os.alert(${b.id}, 'platform', 'first_payment', ${b.name + " paid their first month"}, ${`${b.name} paid $${paid.toFixed(2)} for their first 30 days. Their team can start now.`}, ${"paid1:" + b.id})`;
     return;
   }

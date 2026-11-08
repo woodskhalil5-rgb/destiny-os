@@ -108,6 +108,9 @@ section.alt .steps li{background:var(--bg)}
 section.alt .mate{background:var(--bg)}
 .mate .id{display:flex;gap:12px;align-items:center}
 .mate .id .av{width:42px;height:42px;font-size:18px}
+.av.mz{background:none;border-radius:0;width:44px;height:44px;object-fit:contain}
+.crew .av.mz{width:38px;height:38px;border:0;margin-left:-6px}
+.mate .id .av.mz{width:76px;height:76px;margin:-6px 0 -6px -8px}
 .mate .role{font-size:14px;font-weight:700;color:var(--c);text-transform:uppercase;letter-spacing:.06em}
 .mate ul{margin:0;padding-left:18px;color:var(--soft);font-size:15px}
 .mate li{margin:3px 0}
@@ -212,11 +215,11 @@ footer a{color:var(--muted)}
 
       <div class="mock" aria-label="An example of the Destiny OS Home screen">
         <div class="hd"><b>2 things need you.</b><span class="pill need">To approve</span></div>
-        <div class="mrow"><span class="av" style="--c:var(--c-production)">K</span><div class="grow"><div class="t">Intro email to a property manager</div><div class="s">Written by Kole · checked by Emily</div></div><span class="ok">Approve</span></div>
-        <div class="mrow"><span class="av" style="--c:var(--c-media)">G</span><div class="grow"><div class="t">Before-and-after post from your job photos</div><div class="s">Made by Grayson for your Facebook Page</div></div><span class="ok">Approve</span></div>
-        <div class="mrow"><span class="av" style="--c:var(--c-coordination)">D</span><div class="grow"><div class="t">"Today: James is finding new leads and partners, Emily is checking them, Nora is checking who still owes you."</div><div class="s">DeMarcus · your team manager</div></div></div>
+        <div class="mrow"><img class="av mz" src="/mascots/production.svg" alt="" width="40" height="40"><div class="grow"><div class="t">Intro email to a property manager</div><div class="s">Written by Kole · checked by Emily</div></div><span class="ok">Approve</span></div>
+        <div class="mrow"><img class="av mz" src="/mascots/media.svg" alt="" width="40" height="40"><div class="grow"><div class="t">Before-and-after post from your job photos</div><div class="s">Made by Grayson for your Facebook Page</div></div><span class="ok">Approve</span></div>
+        <div class="mrow"><img class="av mz" src="/mascots/coordination.svg" alt="" width="40" height="40"><div class="grow"><div class="t">"Today: James is finding new leads and partners, Emily is checking them, Nora is checking who still owes you."</div><div class="s">DeMarcus · your team manager</div></div></div>
         <div class="foot"><div class="crew">
-          <span class="av" style="--c:var(--c-research)">J</span><span class="av" style="--c:var(--c-analysis)">E</span><span class="av" style="--c:var(--c-production)">K</span><span class="av" style="--c:var(--c-coordination)">D</span><span class="av" style="--c:var(--c-media)">G</span><span class="av" style="--c:var(--c-finance)">N</span>
+          <img class="av mz" src="/mascots/research.svg" alt="" width="40" height="40"><img class="av mz" src="/mascots/analysis.svg" alt="" width="40" height="40"><img class="av mz" src="/mascots/production.svg" alt="" width="40" height="40"><img class="av mz" src="/mascots/coordination.svg" alt="" width="40" height="40"><img class="av mz" src="/mascots/media.svg" alt="" width="40" height="40"><img class="av mz" src="/mascots/finance.svg" alt="" width="40" height="40">
         </div><span>Your team, working now</span></div>
         <p class="cap">An example of your Home screen</p>
       </div>
@@ -226,8 +229,8 @@ footer a{color:var(--muted)}
   <section class="demo" id="demo">
     <div class="in">
       <div class="demo-head"><p class="kicker">See it in action</p><h2>One minute with a sample business.</h2></div>
-      <div class="player"><video controls preload="none" playsinline poster="/demo-poster.jpg" aria-label="A one-minute walkthrough of Destiny OS">
-        <source src="/demo.mp4?v=2" type="video/mp4"></video></div>
+      <div class="player"><video controls preload="none" playsinline poster="/demo-poster.jpg?v=3" aria-label="A one-minute walkthrough of Destiny OS">
+        <source src="/demo.mp4?v=3" type="video/mp4"></video></div>
       <p class="demo-note">A walkthrough using a made-up roofing company. The names, leads and numbers are examples, not real customer data.</p>
     </div>
   </section>
@@ -251,17 +254,17 @@ footer a{color:var(--muted)}
       <h2>Six coworkers, each with a job.</h2>
       <p class="sub">They talk to each other, hand work off by name and report back to you, like a real team.</p>
       <div class="team">
-        <div class="mate" style="--c:var(--c-research)"><div class="id"><span class="av">J</span><div><h3>James</h3><div class="role">Research</div></div></div>
+        <div class="mate" style="--c:var(--c-research)"><div class="id"><img class="av mz" src="/mascots/research.svg" alt="" width="76" height="76"><div><h3>James</h3><div class="role">Research</div></div></div>
           <ul><li>Finds businesses and people worth reaching out to</li><li>Finds partners who can send you work</li><li>Researches your market and competitors</li><li>Saves every lead with where he found it</li></ul></div>
-        <div class="mate" style="--c:var(--c-analysis)"><div class="id"><span class="av">E</span><div><h3>Emily</h3><div class="role">Analysis</div></div></div>
+        <div class="mate" style="--c:var(--c-analysis)"><div class="id"><img class="av mz" src="/mascots/analysis.svg" alt="" width="76" height="76"><div><h3>Emily</h3><div class="role">Analysis</div></div></div>
           <ul><li>Checks the facts before anything is sent</li><li>Sorts out the best leads</li><li>Spots what's working and what isn't</li></ul></div>
-        <div class="mate" style="--c:var(--c-production)"><div class="id"><span class="av">K</span><div><h3>Kole</h3><div class="role">Writing</div></div></div>
+        <div class="mate" style="--c:var(--c-production)"><div class="id"><img class="av mz" src="/mascots/production.svg" alt="" width="76" height="76"><div><h3>Kole</h3><div class="role">Writing</div></div></div>
           <ul><li>Writes outreach and follow-up emails</li><li>Keeps them short, personal and honest</li><li>Sends only what you approved</li></ul></div>
-        <div class="mate" style="--c:var(--c-coordination)"><div class="id"><span class="av">D</span><div><h3>DeMarcus</h3><div class="role">Manager</div></div></div>
+        <div class="mate" style="--c:var(--c-coordination)"><div class="id"><img class="av mz" src="/mascots/coordination.svg" alt="" width="76" height="76"><div><h3>DeMarcus</h3><div class="role">Manager</div></div></div>
           <ul><li>Hands out the day's work</li><li>Keeps every lead moving to the next step</li><li>Sends you a plain-English report</li></ul></div>
-        <div class="mate" style="--c:var(--c-media)"><div class="id"><span class="av">G</span><div><h3>Grayson</h3><div class="role">Media</div></div></div>
+        <div class="mate" style="--c:var(--c-media)"><div class="id"><img class="av mz" src="/mascots/media.svg" alt="" width="76" height="76"><div><h3>Grayson</h3><div class="role">Media</div></div></div>
           <ul><li>Turns your job photos and videos into posts</li><li>Looks at your photos to pick the best ones</li><li>Publishes to your Facebook Page once approved</li></ul></div>
-        <div class="mate" style="--c:var(--c-finance)"><div class="id"><span class="av">N</span><div><h3>Nora</h3><div class="role">Money</div></div></div>
+        <div class="mate" style="--c:var(--c-finance)"><div class="id"><img class="av mz" src="/mascots/finance.svg" alt="" width="76" height="76"><div><h3>Nora</h3><div class="role">Money</div></div></div>
           <ul><li>Keeps track of jobs won, open quotes and unpaid invoices</li><li>Drafts friendly payment reminders for your OK</li><li>Sends a money snapshot every Monday</li></ul></div>
       </div>
     </div>
