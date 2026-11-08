@@ -262,7 +262,9 @@ Deno.serve(async (req) => {
     const [biz] = await sql`select slug from os.businesses where id = ${bid}`;
     const campaigns = await sql`select id, status, summary, payload->>'subject' as subject, note, created_at, decided_at from os.approvals
       where business_id = ${bid} and kind = 'campaign' order by id desc limit 5`;
-    return json({ wins, quotes, customers: c.n, reachable: await recipients(bid), optouts: o.n, settings: s ?? { review_link: null, sender_name: null, follow_ups: true, review_asks: true, weekly_recap: true, morning_message: true }, playbook: playbook ?? null, campaigns, inquiries, slug: biz?.slug, can_edit: canEdit });
+    const invoices = await sql`select id, title, status, data, next_step, created_at from os.records where business_id = ${bid} and type = 'invoice'
+      order by (status in ('unpaid', 'reminded')) desc, case when status in ('unpaid', 'reminded') then data->>'due_on' end nulls last, updated_at desc limit 60`;
+    return json({ wins, quotes, invoices, customers: c.n, reachable: await recipients(bid), optouts: o.n, settings: s ?? { review_link: null, sender_name: null, follow_ups: true, review_asks: true, weekly_recap: true, morning_message: true }, playbook: playbook ?? null, campaigns, inquiries, slug: biz?.slug, can_edit: canEdit });
   }
 
   if (action === "quote_add") {
@@ -291,6 +293,50 @@ Deno.serve(async (req) => {
     if (status !== "sent") await sql`update os.approvals set status = 'rejected', note = 'Quote was marked ' || ${status} || '; follow-up not needed.', decided_at = now(), decided_by = 'system'
       where business_id = ${bid} and status = 'pending' and payload->>'ref_record' = ${String(id)} and summary like 'Follow-up%'`;
     await audit(bid, "user", user.email, `quote_${status}`, String(id), { amount: amount || undefined });
+    return json({ ok: true });
+  }
+
+  // Money owed: log an invoice by hand (or from a won quote in one tap), and mark it paid when the money comes in.
+  // Nora drafts a friendly reminder (for the owner's OK) the day after it's due; marking it paid drops any reminder still waiting.
+  if (action === "invoice_add") {
+    const day = (v: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(v ?? "")) ? String(v) : null;
+    const today = new Date().toISOString().slice(0, 10);
+    let d: Record<string, string>, fromQuote: number | null = null;
+    if (body.from_quote) {
+      const [q] = await sql`select id, data from os.records where id = ${Number(body.from_quote)} and business_id = ${bid} and type in ('quote', 'customer', 'lead')`;
+      if (!q) return json({ error: "Not found." }, 404);
+      if (q.data?.invoice_id) return json({ error: "That job already has an invoice logged." }, 409);
+      const x = q.data ?? {};
+      d = { name: clip(x.name, 120), email: clip(x.email, 200).toLowerCase(), phone: clip(x.phone, 40), job: clip(x.job, 200), amount: String(x.amount ?? "").replace(/[^0-9.]/g, ""), number: "",
+        due_on: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10) };
+      fromQuote = q.id;
+      if (!d.amount) return json({ error: "That quote has no amount. Add the invoice with the form instead." }, 400);
+    } else {
+      d = { name: clip(body.name, 120), email: clip(body.email, 200).toLowerCase(), phone: clip(body.phone, 40), job: clip(body.job, 200),
+        amount: clip(body.amount, 20).replace(/[^0-9.]/g, ""), number: clip(body.number, 40), due_on: day(body.due_on) ?? new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10) };
+    }
+    if (d.name.length < 2) return json({ error: "Add the customer's name." }, 400);
+    if (!d.amount || !(Number(d.amount) > 0)) return json({ error: "Add the amount." }, 400);
+    if (d.email && !EMAIL.test(d.email)) return json({ error: "That email doesn't look right." }, 400);
+    const data = Object.fromEntries(Object.entries({ ...d, issued_on: today, ...(fromQuote ? { quote_id: String(fromQuote) } : {}), source: "logged by the owner" }).filter(([, v]) => v));
+    const nextDue = new Date(Date.parse(d.due_on) + 86400000).toISOString().slice(0, 10);
+    const [r] = await sql`insert into os.records (business_id, type, status, title, data, owner_slot, created_by, next_step, next_step_due)
+      values (${bid}, 'invoice', 'unpaid', ${d.name + (d.number ? ` · #${d.number}` : d.job ? ` · ${d.job.slice(0, 80)}` : "")}, ${sql.json(data)}, 'finance', 'owner',
+        ${d.email ? "friendly payment reminder if it's still unpaid after the due date (for your OK)" : "add their email so Nora can send reminders"}, ${nextDue}) returning id`;
+    if (fromQuote) await sql`update os.records set data = data || ${sql.json({ invoice_id: String(r.id) })} where id = ${fromQuote} and business_id = ${bid}`;
+    await audit(bid, "user", user.email, "invoice_add", String(r.id), { amount: d.amount });
+    return json({ ok: true, id: r.id, due_on: d.due_on });
+  }
+
+  if (action === "invoice_paid") {
+    const id = Number(body.id);
+    const [r] = await sql`update os.records set status = 'paid', next_step = null, next_step_due = null, updated_at = now(),
+        data = data || ${sql.json({ paid_on: new Date().toISOString().slice(0, 10) })}
+      where id = ${id} and business_id = ${bid} and type = 'invoice' and status <> 'paid' returning id, title`;
+    if (!r) return json({ error: "Not found, or already paid." }, 404);
+    await sql`update os.approvals set status = 'rejected', note = 'Invoice was marked paid; reminder not needed.', decided_at = now(), decided_by = 'system'
+      where business_id = ${bid} and status = 'pending' and record_id = ${id}`;
+    await audit(bid, "user", user.email, "invoice_paid", String(id), {});
     return json({ ok: true });
   }
 

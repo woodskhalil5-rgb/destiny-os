@@ -725,7 +725,7 @@ const VIEWS = {
     const open = g.quotes.filter(q => ["sent", "following up"].includes(q.status)), closed = g.quotes.filter(q => !["sent", "following up"].includes(q.status)).slice(0, 15);
     const qrow = (q) => { const d = q.data || {}, isOpen = ["sent", "following up"].includes(q.status);
       return `<div class="row" data-qid="${q.id}"><div class="grow"><div class="t">${esc(q.title)}</div><div class="s">${[d.amount ? usd0(Number(d.amount)) : null, d.sent_on ? "sent " + esc(d.sent_on) : null, d.email ? null : "no email, so no follow-ups", isOpen && d.email && q.next_step ? "next: " + esc(q.next_step) : null].filter(Boolean).join(" · ")}</div></div>
-        ${isOpen && can ? `<button class="btn small go" data-gr="won">Won it</button><button class="btn small" data-gr="lost">Lost</button>` : `<span class="pill ${q.status === "won" ? "go" : ""}">${esc(label(q.status))}</span>`}</div>`; };
+        ${isOpen && can ? `<button class="btn small go" data-gr="won">Won it</button><button class="btn small" data-gr="lost">Lost</button>` : q.status === "won" && can && !d.invoice_id && d.amount ? `<button class="btn small go" data-gr="inv_quote" title="Due in 14 days">Log the invoice</button>` : `<span class="pill ${q.status === "won" ? "go" : ""}">${esc(q.status === "won" && d.invoice_id ? "Won · invoiced" : label(q.status))}</span>`}</div>`; };
     h += `<div class="section"><h3>Quotes <span class="s" style="font-weight:500;color:var(--muted)">${open.length} open</span></h3>
       <p class="s" style="margin:-4px 0 12px">Log every estimate you send. If the customer goes quiet, the team follows up on day 2, 5 and 10. Each follow-up waits for your OK, and it stops the moment you mark the quote won or lost.</p>
       ${can ? `<details class="box form" id="quoteBox"${g.quotes.length ? "" : " open"}><summary style="cursor:pointer;font-weight:700">Log a quote you sent</summary>
@@ -735,6 +735,22 @@ const VIEWS = {
         <div class="acts"><button class="btn go" data-gr="quote_add">Save quote</button></div></details>` : ""}
       ${open.length ? `<div class="list">${open.map(qrow).join("")}</div>` : `<div class="empty"><b>No open quotes.</b>Log the estimates you send and none of them will slip through the cracks.</div>`}
       ${closed.length ? `<details style="margin-top:12px"><summary class="s" style="cursor:pointer">Closed quotes (${closed.length})</summary><div class="list" style="margin-top:8px">${closed.map(qrow).join("")}</div></details>` : ""}</div>`;
+
+    // Money owed (Nora's): invoices the owner sent, with one tap when the money comes in
+    const invs = g.invoices || [], owed = invs.filter(i => ["unpaid", "reminded"].includes(i.status)), paid = invs.filter(i => !["unpaid", "reminded"].includes(i.status)).slice(0, 15);
+    const owedSum = owed.reduce((n, i) => n + (Number(i.data?.amount) || 0), 0), late = owed.filter(i => i.data?.due_on && i.data.due_on < today);
+    const irow = (i) => { const d = i.data || {}, open = ["unpaid", "reminded"].includes(i.status), isLate = open && d.due_on && d.due_on < today;
+      return `<div class="row" data-vid="${i.id}"><div class="grow"><div class="t">${esc(i.title)}</div><div class="s">${[d.amount ? usd0(Number(d.amount)) : null, open && d.due_on ? (isLate ? `<b style="color:var(--warn,#b45309)">overdue since ${esc(d.due_on)}</b>` : "due " + esc(d.due_on)) : null, d.paid_on && !open ? "paid " + esc(d.paid_on) : null, open && d.reminders ? `${esc(String(d.reminders))} reminder${d.reminders == 1 ? "" : "s"} sent` : null, open && !d.email ? "no email, so no reminders" : null].filter(Boolean).join(" · ")}</div></div>
+        ${open && can ? `<button class="btn small go" data-gr="inv_paid">Got paid</button>` : `<span class="pill ${i.status === "paid" ? "go" : ""}">${esc(label(i.status))}</span>`}</div>`; };
+    h += `<div class="section"><h3>Money owed <span class="s" style="font-weight:500;color:var(--muted)">${owed.length ? usd0(owedSum) + " on " + owed.length + " invoice" + (owed.length === 1 ? "" : "s") + (late.length ? `, ${late.length} overdue` : "") : "all paid"}</span></h3>
+      <p class="s" style="margin:-4px 0 12px">Log each invoice you send. If it's still unpaid the day after it's due, Nora drafts a friendly reminder for your OK. Tap "Got paid" when the money comes in and the reminders stop.</p>
+      ${can ? `<details class="box form" id="invBox"><summary style="cursor:pointer;font-weight:700">Log an invoice you sent</summary>
+        <div class="grid2"><label class="field">Customer name<input data-iv="name" placeholder="e.g. Maria Lopez"></label><label class="field">Their email<input data-iv="email" type="email" placeholder="So Nora can send reminders"></label></div>
+        <div class="grid2"><label class="field">Amount ($)<input data-iv="amount" inputmode="decimal" placeholder="e.g. 6200"></label><label class="field">Due date<input data-iv="due_on" type="date" value="${new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10)}"></label></div>
+        <div class="grid2"><label class="field">What it's for (optional)<input data-iv="job" placeholder="e.g. Roof replacement"></label><label class="field">Invoice number (optional)<input data-iv="number"></label></div>
+        <div class="acts"><button class="btn go" data-gr="inv_add">Save invoice</button></div></details>` : ""}
+      ${owed.length ? `<div class="list">${owed.map(irow).join("")}</div>` : `<div class="empty"><b>Nobody owes you money right now.</b>Log your invoices here (or add a list below) and Nora keeps track.</div>`}
+      ${paid.length ? `<details style="margin-top:12px"><summary class="s" style="cursor:pointer">Paid (${paid.length})</summary><div class="list" style="margin-top:8px">${paid.map(irow).join("")}</div></details>` : ""}</div>`;
 
     // Past customers
     h += `<div class="section"><h3>Past customers <span class="s" style="font-weight:500;color:var(--muted)">${g.customers}</span></h3>
@@ -1304,8 +1320,11 @@ V.addEventListener("click", async e => {
     try {
       let msg = "";
       if (d.gr === "quote_add") await gCall("quote_add", {name: v('[data-q="name"]'), email: v('[data-q="email"]'), phone: v('[data-q="phone"]'), job: v('[data-q="job"]'), amount: v('[data-q="amount"]'), sent_on: v('[data-q="sent_on"]')});
-      else if (d.gr === "won" || d.gr === "lost") await gCall("quote_set", {id: Number(row.dataset.qid), status: d.gr});
+      else if (d.gr === "won" || d.gr === "lost") { await gCall("quote_set", {id: Number(row.dataset.qid), status: d.gr}); if (d.gr === "won") msg = "Marked won. When you send the bill, tap \"Log the invoice\" on it under Closed quotes and Nora keeps track of it."; }
       else if (d.gr === "inq_done") await gCall("inquiry_done", {id: Number(t.closest("[data-iid]").dataset.iid)});
+      else if (d.gr === "inv_add") { const r = await gCall("invoice_add", {name: v('[data-iv="name"]'), email: v('[data-iv="email"]'), amount: v('[data-iv="amount"]'), due_on: v('[data-iv="due_on"]'), job: v('[data-iv="job"]'), number: v('[data-iv="number"]')}); msg = `Invoice saved. It's due ${r.due_on}; Nora follows up if it isn't paid by then.`; }
+      else if (d.gr === "inv_quote") { const r = await gCall("invoice_add", {from_quote: Number(row.dataset.qid)}); msg = `Invoice logged, due ${r.due_on}. Nora follows up if it isn't paid by then.`; }
+      else if (d.gr === "inv_paid") { await gCall("invoice_paid", {id: Number(t.closest("[data-vid]").dataset.vid)}); msg = "Marked paid. Nice."; }
       else if (d.gr === "extract") {
         const fromFile = await fileForImport($("impFile")?.files?.[0]), pasted = v('[data-c="text"]');
         if (!fromFile.image && !fromFile.text && !pasted) throw new Error("Pick a file or paste your list first.");
