@@ -1716,6 +1716,7 @@ async function start(){
   biz = me.businesses.some(b => b.id === saved) ? saved : me.businesses[0].id;
   $("bizSel").value = biz; $("bizSelM").value = biz;
   $("gate").hidden = true; $("app").hidden = false;
+  if (isAdmin && /^#markets\b/.test(location.hash)) view = "markets"; // a bookmark straight to Markets
   lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
   await tick(); clearInterval(timer); timer = setInterval(tick, 3000);
   loadTrial(); clearInterval(statusTimer); statusTimer = setInterval(loadTrial, 120000);
