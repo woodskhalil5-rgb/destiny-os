@@ -959,7 +959,7 @@ const VIEWS = {
     const px = (n) => n == null ? "…" : "$" + (Number(n) >= 100 ? Math.round(Number(n)).toLocaleString("en-US") : Number(n) >= 1 ? Number(n).toFixed(2) : Number(n).toPrecision(3));
     const ch = (w) => w.change_pct == null ? "" : `<b style="color:${Number(w.change_pct) >= 0 ? "var(--go,#106b55)" : "var(--bad,#b42318)"}">${Number(w.change_pct) >= 0 ? "+" : ""}${Number(w.change_pct).toFixed(1)}%</b> ${w.kind === "crypto" ? "in 24 hours" : "since the last close"}`;
     const ruleTxt = (r) => ({above: "goes above $", below: "drops below $", up_pct: "is up ", down_pct: "is down "}[r.kind]) + (r.kind.endsWith("pct") ? Number(r.value) + "% in a day" : Number(r.value).toLocaleString("en-US"));
-    let h = `<p class="s" style="color:var(--muted);font-size:14px;margin:0 2px 14px">Watch any coin or stock. When a rule hits you get a phone notification and an email (once a day per rule), plus a price brief at 7:30 AM. Prices only: nothing here trades or connects to an exchange. Prices can lag a few minutes.</p>
+    let h = `<p class="s" style="color:var(--muted);font-size:14px;margin:0 2px 14px">Watch any coin or stock. When a rule hits you get a phone notification and an email (once a day per rule), plus a price brief at 7:30 AM. Prices can lag a few minutes.</p>
       <div class="box form"><div class="grid2"><label class="field">Coin or stock<input id="mkSym" placeholder="BTC, ETH, AAPL, SPY"></label>
         <label class="field">Type<select id="mkKind"><option value="crypto">Crypto</option><option value="stock">Stock</option></select></label></div>
         <div class="acts"><button class="btn go" data-mk="add">Add to watchlist</button></div></div>`;
