@@ -290,7 +290,6 @@ details.agent .inner{padding:0 18px 18px}
   <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5 11.5 14 16 9"/><rect x="3" y="3" width="18" height="18" rx="4"/></symbol>
   <symbol id="i-work" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></symbol>
-  <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-7"/></symbol>
   <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></symbol>
   <symbol id="i-money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/></symbol>
   <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
@@ -336,7 +335,6 @@ details.agent .inner{padding:0 18px 18px}
     </nav>
     <div class="foot nav">
       <button data-v="overview" id="ovBtn" hidden><svg><use href="#i-grid"/></svg>All businesses</button>
-      <button data-v="markets" id="mkBtn" hidden><svg><use href="#i-chart"/></svg>Markets</button>
       <button data-v="new" id="newBizBtn" hidden><svg><use href="#i-plus"/></svg>Add a business</button>
       <button data-v="settings"><svg><use href="#i-gear"/></svg>Settings</button>
       <button id="outBtn" type="button"><svg><use href="#i-out"/></svg>Sign out</button>
@@ -350,7 +348,6 @@ details.agent .inner{padding:0 18px 18px}
         <span class="state" id="state">Not started</span>
         <button class="btn small" id="pauseBtn" type="button">Start team</button>
         <button class="btn quiet small mobile-only" data-v="overview" id="ovBtnM" hidden aria-label="All businesses"><svg width="20" height="20"><use href="#i-grid"/></svg></button>
-        <button class="btn quiet small mobile-only" data-v="markets" id="mkBtnM" hidden aria-label="Markets"><svg width="20" height="20"><use href="#i-chart"/></svg></button>
         <button class="btn quiet small mobile-only" data-v="settings" aria-label="Settings"><svg width="20" height="20"><use href="#i-gear"/></svg></button>
       </div>
     </div>
@@ -376,7 +373,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&l
 let token = ""; try { token = localStorage.getItem("osToken") || ""; } catch {}
 let biz = null, lastId = 0, data = null, msgs = [], view = "home", workTab = "pipeline", setTab = "business", isAdmin = false, timer;
 let editing = new Set(), people = null, settingsData = null, conns = null, rendered = "", lastHtml = "";
-const SLOW = new Set(["settings", "new", "media", "customers", "overview", "markets"]);
+const SLOW = new Set(["settings", "new", "media", "customers", "overview"]);
 let mediaData = null, mediaFilter = "all", upBusy = false;
 const urlCache = {};
 const TAGS = [["before", "Before"], ["after", "After"], ["job", "Job photo"], ["reel", "Finished reel / video"], ["music", "Music"], ["brand", "Logo / brand"], ["other", "Other"]];
@@ -389,7 +386,7 @@ function mediaHtml(c){
 }
 const ROLE = {research: "Research", analysis: "Analysis", production: "Writing", coordination: "Manager", media: "Media", distribution: "Outreach", finance: "Money"};
 const RETIRED = new Set(["distribution"]); // Benjamin retired; his work moved to James, Kole and Emily
-const TITLES = {home: "Home", chat: "Team chat", approve: "To approve", work: "Work", media: "Media", calls: "Calls", money: "Money", settings: "Settings", new: "Add a business", overview: "All businesses", markets: "Markets"};
+const TITLES = {home: "Home", chat: "Team chat", approve: "To approve", work: "Work", media: "Media", calls: "Calls", money: "Money", settings: "Settings", new: "Add a business", overview: "All businesses"};
 const CALLER_VIEWS = new Set(["calls", "chat"]);
 const OUTCOMES = [["talked", "Talked"], ["interested", "Interested"], ["callback", "Call back later"], ["no_answer", "No answer"], ["voicemail", "Left a voicemail"], ["not_interested", "Not interested"], ["wrong_number", "Wrong number"], ["do_not_call", "Do not call again"]];
 let callsData = null, callsAt = 0, device = null, deviceBiz = null, active = null, incoming = null, callStart = 0, callWho = "", pending = null, barTimer = null;
@@ -407,15 +404,6 @@ async function sCall(action, extra = {}) {
 }
 const GROWTH = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-growth";
 let growth = null, growthBusy = false, aiPhone = null, ovData = null, ovBusy = false, waData = null, waBusy = false, waLog = {};
-// Markets (platform owner only): the watchlist, price alerts and morning brief. Prices only; nothing here trades.
-const MARKETS = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-markets";
-let mkData = null, mkBusy = false;
-async function mCall(action, extra = {}) {
-  const r = await fetch(MARKETS, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, ...extra})});
-  const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
-  if (!r.ok) throw new Error(j.error || r.statusText);
-  return j;
-}
 async function gCall(action, extra = {}) {
   const r = await fetch(GROWTH, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
   const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
@@ -945,36 +933,6 @@ const VIEWS = {
         ${R.slice(1).map(r => `<details class="box" style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">${esc(mo(r.month))}</summary><div style="white-space:pre-wrap;line-height:1.55;margin-top:8px">${esc(r.body)}</div></details>`).join("")}`
         : `<div class="empty"><b>The first report comes on December 1.</b>You can also write one now from this month's numbers so far.</div>`}
       <div style="margin-top:10px"><button class="btn" data-ov="report">Write a report now (this month so far)</button></div></div>`;
-    return h;
-  },
-
-  markets(){
-    if (!isAdmin) return `<div class="empty"><b>Only the platform owner sees this.</b></div>`;
-    if (!mkData) {
-      if (!mkBusy) { mkBusy = true; mCall("list").then(r => { mkData = r; }).catch(e => { mkData = {error: e.message}; }).finally(() => { mkBusy = false; rendered = ""; render(true); }); }
-      return `<p class="s">Loading…</p>`;
-    }
-    if (mkData.error) return `<div class="err">${esc(mkData.error)}</div>`;
-    const W = mkData.watch || [], R = mkData.rules || [];
-    const px = (n) => n == null ? "…" : "$" + (Number(n) >= 100 ? Math.round(Number(n)).toLocaleString("en-US") : Number(n) >= 1 ? Number(n).toFixed(2) : Number(n).toPrecision(3));
-    const ch = (w) => w.change_pct == null ? "" : `<b style="color:${Number(w.change_pct) >= 0 ? "var(--go,#106b55)" : "var(--bad,#b42318)"}">${Number(w.change_pct) >= 0 ? "+" : ""}${Number(w.change_pct).toFixed(1)}%</b> ${w.kind === "crypto" ? "in 24 hours" : "since the last close"}`;
-    const ruleTxt = (r) => ({above: "goes above $", below: "drops below $", up_pct: "is up ", down_pct: "is down "}[r.kind]) + (r.kind.endsWith("pct") ? Number(r.value) + "% in a day" : Number(r.value).toLocaleString("en-US"));
-    let h = `<p class="s" style="color:var(--muted);font-size:14px;margin:0 2px 14px">Watch any coin or stock. When a rule hits you get a phone notification and an email (once a day per rule), plus a price brief at 7:30 AM. Prices can lag a few minutes.</p>
-      <div class="box form"><div class="grid2"><label class="field">Coin or stock<input id="mkSym" placeholder="BTC, ETH, AAPL, SPY"></label>
-        <label class="field">Type<select id="mkKind"><option value="crypto">Crypto</option><option value="stock">Stock</option></select></label></div>
-        <div class="acts"><button class="btn go" data-mk="add">Add to watchlist</button></div></div>`;
-    if (!W.length) h += `<div class="empty" style="margin-top:14px"><b>Nothing on your watchlist yet.</b>Add a coin or stock above, then set the alerts you want for it.</div>`;
-    for (const w of W) {
-      const mine = R.filter(r => r.watch_id === w.id);
-      h += `<div class="box" style="margin-top:14px" data-wid="${w.id}">
-        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><div class="t" style="font-size:19px;font-weight:800">${esc(w.symbol)}</div><div class="s">${esc(w.name || "")}</div><div style="flex:1"></div><button class="btn small quiet" data-mk="rm_sym">Remove</button></div>
-        <div style="font-size:24px;font-weight:800;margin:6px 0 2px">${px(w.last_price)}</div><div class="s">${ch(w)}${w.price_at ? ` · updated ${esc(ago(w.price_at))}` : ""}</div>
-        <div class="list" style="margin-top:12px">${mine.map(r => `<div class="row" data-rid="${r.id}"><div class="grow"><div class="t" style="white-space:normal">Alert me when ${esc(w.symbol)} ${esc(ruleTxt(r))}</div>${r.last_fired_on ? `<div class="s">Last alert ${esc(r.last_fired_on)}</div>` : ""}</div><button class="btn small quiet" data-mk="rm_rule">Remove</button></div>`).join("") || `<div class="row"><div class="s">No alerts yet for ${esc(w.symbol)}.</div></div>`}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center"><select data-rk><option value="down_pct">Drops by % in a day</option><option value="up_pct">Rises by % in a day</option><option value="below">Price goes below $</option><option value="above">Price goes above $</option></select>
-          <input data-rv inputmode="decimal" placeholder="e.g. 5" style="width:120px"><button class="btn small go" data-mk="add_rule">Add alert</button></div></div>`;
-    }
-    h += `<div class="section"><h3>Morning brief</h3><label style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="mkBrief" ${mkData.brief ? "checked" : ""}> Email me my watchlist prices at 7:30 AM</label>
-      <div style="margin-top:10px"><button class="btn small" data-mk="brief">Save</button></div></div>`;
     return h;
   },
 
@@ -1521,19 +1479,6 @@ V.addEventListener("click", async e => {
       return;
     }
   }
-  if (d.mk) {
-    const holder = t.closest(".box, .section") || $("view"); t.disabled = true; holder.querySelectorAll(".err").forEach(x => x.remove());
-    try {
-      const box = t.closest("[data-wid]"), wid = Number(box?.dataset.wid);
-      if (d.mk === "add") mkData = await mCall("add_symbol", {symbol: $("mkSym").value, kind: $("mkKind").value});
-      else if (d.mk === "rm_sym") mkData = await mCall("remove_symbol", {id: wid});
-      else if (d.mk === "add_rule") mkData = await mCall("add_rule", {watch_id: wid, kind: box.querySelector("[data-rk]").value, value: box.querySelector("[data-rv]").value});
-      else if (d.mk === "rm_rule") mkData = await mCall("remove_rule", {id: Number(t.closest("[data-rid]").dataset.rid)});
-      else if (d.mk === "brief") mkData = await mCall("set_brief", {on: $("mkBrief").checked});
-      editing.delete("mk"); rendered = ""; render(true);
-    } catch (err) { fail(t, holder, err); }
-    return;
-  }
   if (d.ov === "open") { switchBiz(d.id); go("home"); return; }
   if (d.ov === "report") {
     t.disabled = true; t.textContent = "Writing… about a minute";
@@ -1707,7 +1652,7 @@ async function tick(){
 }
 async function start(){
   const me = await call("me");
-  isAdmin = !!me.admin; $("newBizBtn").hidden = !isAdmin; $("ovBtn").hidden = !isAdmin; $("ovBtnM").hidden = !isAdmin; $("mkBtn").hidden = !isAdmin; $("mkBtnM").hidden = !isAdmin;
+  isAdmin = !!me.admin; $("newBizBtn").hidden = !isAdmin; $("ovBtn").hidden = !isAdmin; $("ovBtnM").hidden = !isAdmin;
   if (!me.businesses.length && isAdmin) { $("gate").hidden = true; $("app").hidden = false; view = "new"; data = {team: [], working: [], approvals: [], content: [], records: [], tasks: [], business: {status: "setup"}, role: "owner"}; render(true); return; }
   if (!me.businesses.length) return showGate("You're signed in, but nobody has added you to a business yet. Ask the business owner to add you under Settings, People.");
   const opts = me.businesses.map(b => `<option value="${b.id}">${esc(b.name)}${b.status === "live" ? "" : b.status === "paused" ? " (paused)" : " (not started)"}</option>`).join("");
@@ -1716,7 +1661,6 @@ async function start(){
   biz = me.businesses.some(b => b.id === saved) ? saved : me.businesses[0].id;
   $("bizSel").value = biz; $("bizSelM").value = biz;
   $("gate").hidden = true; $("app").hidden = false;
-  if (isAdmin && /^#markets\b/.test(location.hash)) view = "markets"; // a bookmark straight to Markets
   lastId = 0; msgs = []; feedDrawn = 0; rendered = ""; data = null;
   await tick(); clearInterval(timer); timer = setInterval(tick, 3000);
   loadTrial(); clearInterval(statusTimer); statusTimer = setInterval(loadTrial, 120000);
