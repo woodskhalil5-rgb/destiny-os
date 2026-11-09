@@ -35,7 +35,8 @@ async function sendAlerts() {
   // Group per recipient so a burst becomes one email.
   const groups = new Map<string, any[]>();
   for (const a of rest) {
-    const to = a.audience === "platform" ? platformTo : await ownerEmailFor(a.business_id);
+    // "person" alerts go to one named person (ref.to), e.g. a rep's daily brief from DeMarcus.
+    const to = a.audience === "platform" ? platformTo : a.audience === "person" ? (a.ref?.to ?? null) : await ownerEmailFor(a.business_id);
     if (!to) { await sql`update os.alerts set sent_at = now(), error = 'no recipient' where id = ${a.id}`; continue; }
     groups.set(to, [...(groups.get(to) ?? []), a]);
   }
@@ -52,7 +53,7 @@ async function sendAlerts() {
       // Same news on their phone, for anyone who turned notifications on. Never holds up the email.
       try {
         const audience = list[0].audience, bid = audience === "platform" ? null : list[0].business_id;
-        await pushTo(await pushUsersFor(bid, audience), { title: subject.slice(0, 80), body: list.map((a) => a.subject).join(" · ").slice(0, 160), url: "/app", tag: "alerts" });
+        if (audience !== "person") await pushTo(await pushUsersFor(bid, audience), { title: subject.slice(0, 80), body: list.map((a) => a.subject).join(" · ").slice(0, 160), url: "/app", tag: "alerts" });
       } catch (e) { console.error("push", (e as Error).message); }
     } catch (e) {
       await sql`update os.alerts set sent_at = null, error = ${(e as Error).message.slice(0, 300)} where id = any(${ids}::bigint[])`;
