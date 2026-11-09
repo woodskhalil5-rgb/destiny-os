@@ -739,7 +739,7 @@ const VIEWS = {
     const open = g.quotes.filter(q => ["sent", "following up"].includes(q.status)), closed = g.quotes.filter(q => !["sent", "following up"].includes(q.status)).slice(0, 15);
     const qrow = (q) => { const d = q.data || {}, isOpen = ["sent", "following up"].includes(q.status);
       return `<div class="row" data-qid="${q.id}"><div class="grow"><div class="t">${esc(q.title)}</div><div class="s">${[d.amount ? usd0(Number(d.amount)) : null, d.sent_on ? "sent " + esc(d.sent_on) : null, d.email ? null : "no email, so no follow-ups", isOpen && d.email && q.next_step ? "next: " + esc(q.next_step) : null].filter(Boolean).join(" · ")}</div>${isOpen && can && !d.email ? `<div class="s" style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><input data-em type="email" placeholder="Add their email" style="flex:1;min-width:160px;padding:6px 10px;font-size:14px"><button class="btn small" data-gr="set_email">Save</button></div>` : ""}</div>
-        ${isOpen && can ? `<button class="btn small go" data-gr="won">Won it</button><button class="btn small" data-gr="lost">Lost</button>` : q.status === "won" && can && !d.invoice_id && d.amount ? `<button class="btn small go" data-gr="inv_quote" title="Due in 14 days">Log the invoice</button>` : `<span class="pill ${q.status === "won" ? "go" : ""}">${esc(q.status === "won" && d.invoice_id ? "Won · invoiced" : label(q.status))}</span>`}</div>`; };
+        ${isOpen && can ? `<button class="btn small go" data-gr="won">Won it</button><button class="btn small" data-gr="lost">Lost</button>` : q.status === "won" && can && !d.invoice_id ? `<button class="btn small go" data-gr="${d.amount ? "inv_quote" : "inv_prefill"}" title="${d.amount ? "Due in 14 days" : "Add the amount and due date"}">Log the invoice</button>` : `<span class="pill ${q.status === "won" ? "go" : ""}">${esc(q.status === "won" && d.invoice_id ? "Won · invoiced" : label(q.status))}</span>`}</div>`; };
     h += `<div class="section"><h3>Quotes <span class="s" style="font-weight:500;color:var(--muted)">${open.length} open</span></h3>
       <p class="s" style="margin:-4px 0 12px">Log every estimate you send. If the customer goes quiet, the team follows up on day 2, 5 and 10. Each follow-up waits for your OK, and it stops the moment you mark the quote won or lost.</p>
       ${can ? `<details class="box form" id="quoteBox"${g.quotes.length ? "" : " open"}><summary style="cursor:pointer;font-weight:700">Log a quote you sent</summary>
@@ -755,7 +755,7 @@ const VIEWS = {
     const owedSum = owed.reduce((n, i) => n + (Number(i.data?.amount) || 0), 0), late = owed.filter(i => i.data?.due_on && i.data.due_on < today);
     const irow = (i) => { const d = i.data || {}, open = ["unpaid", "reminded"].includes(i.status), isLate = open && d.due_on && d.due_on < today;
       return `<div class="row" data-vid="${i.id}"><div class="grow"><div class="t">${esc(i.title)}</div><div class="s">${[d.amount ? usd0(Number(d.amount)) : null, open && d.due_on ? (isLate ? `<b style="color:var(--warn,#b45309)">overdue since ${esc(d.due_on)}</b>` : "due " + esc(d.due_on)) : null, d.paid_on && !open ? "paid " + esc(d.paid_on) : null, open && d.reminders ? `${esc(String(d.reminders))} reminder${d.reminders == 1 ? "" : "s"} sent` : null, open && !d.email ? "no email, so no reminders" : null].filter(Boolean).join(" · ")}</div>${open && can && !d.email ? `<div class="s" style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><input data-em type="email" placeholder="Add their email" style="flex:1;min-width:160px;padding:6px 10px;font-size:14px"><button class="btn small" data-gr="set_email">Save</button></div>` : ""}</div>
-        ${open && can ? `<button class="btn small go" data-gr="inv_paid">Got paid</button>` : `<span class="pill ${i.status === "paid" ? "go" : ""}">${esc(label(i.status))}</span>`}</div>`; };
+        ${open && can ? `<button class="btn small go" data-gr="inv_paid">Got paid</button><button class="btn small quiet" data-gr="inv_remove" title="Logged by mistake, or it won't be paid">Remove</button>` : `<span class="pill ${i.status === "paid" ? "go" : ""}">${esc(label(i.status))}</span>`}</div>`; };
     h += `<div class="section"><h3>Money owed <span class="s" style="font-weight:500;color:var(--muted)">${owed.length ? usd0(owedSum) + " on " + owed.length + " invoice" + (owed.length === 1 ? "" : "s") + (late.length ? `, ${late.length} overdue` : "") : "all paid"}</span></h3>
       <p class="s" style="margin:-4px 0 12px">Log each invoice you send. If it's still unpaid the day after it's due, Nora drafts a friendly reminder for your OK. Tap "Got paid" when the money comes in and the reminders stop.</p>
       ${can ? `<details class="box form" id="invBox"><summary style="cursor:pointer;font-weight:700">Log an invoice you sent</summary>
@@ -1330,16 +1330,25 @@ V.addEventListener("click", async e => {
   if (d.gr) { // Customers screen
     const box = $("grow"), v = (sel) => box.querySelector(sel)?.value?.trim() ?? "", chk = (sel) => !!box.querySelector(sel)?.checked;
     const row = t.closest("[data-qid]"), holder = t.closest(".box, .row, .section") || box;
+    // A won quote with no amount: open the invoice form filled in from the quote, linked to it.
+    if (d.gr === "inv_prefill") { const q = (growth?.quotes || []).find(x => String(x.id) === row.dataset.qid), qd = q?.data || {}, ib = $("invBox"); if (!ib) return;
+      ib.open = true; ib.dataset.quote = row.dataset.qid; editing.add("grow");
+      const set = (k, val) => { const el = ib.querySelector(`[data-iv="${k}"]`); if (el && val) el.value = val; };
+      set("name", qd.name); set("email", qd.email); set("job", qd.job);
+      ib.scrollIntoView({behavior: "smooth", block: "center"}); ib.querySelector('[data-iv="amount"]')?.focus(); return; }
+    // Removing an invoice takes two taps.
+    if (d.gr === "inv_remove" && !d.armed) { d.armed = "1"; t.textContent = "Tap again to remove"; t.classList.add("bad"); setTimeout(() => { if (t.isConnected) { delete t.dataset.armed; t.textContent = "Remove"; t.classList.remove("bad"); } }, 5000); return; }
     t.disabled = true; holder.querySelectorAll(".err,.okmsg").forEach(x => x.remove());
     try {
       let msg = "";
       if (d.gr === "quote_add") await gCall("quote_add", {name: v('[data-q="name"]'), email: v('[data-q="email"]'), phone: v('[data-q="phone"]'), job: v('[data-q="job"]'), amount: v('[data-q="amount"]'), sent_on: v('[data-q="sent_on"]')});
       else if (d.gr === "won" || d.gr === "lost") { await gCall("quote_set", {id: Number(row.dataset.qid), status: d.gr}); if (d.gr === "won") msg = "Marked won. When you send the bill, tap \"Log the invoice\" on it under Closed quotes and Nora keeps track of it."; }
       else if (d.gr === "inq_done") await gCall("inquiry_done", {id: Number(t.closest("[data-iid]").dataset.iid)});
-      else if (d.gr === "inv_add") { const r = await gCall("invoice_add", {name: v('[data-iv="name"]'), email: v('[data-iv="email"]'), amount: v('[data-iv="amount"]'), due_on: v('[data-iv="due_on"]'), job: v('[data-iv="job"]'), number: v('[data-iv="number"]')}); msg = `Invoice saved. It's due ${r.due_on}; Nora follows up if it isn't paid by then.`; }
+      else if (d.gr === "inv_add") { const r = await gCall("invoice_add", {name: v('[data-iv="name"]'), email: v('[data-iv="email"]'), amount: v('[data-iv="amount"]'), due_on: v('[data-iv="due_on"]'), job: v('[data-iv="job"]'), number: v('[data-iv="number"]'), quote_id: Number($("invBox")?.dataset.quote) || undefined}); msg = `Invoice saved. It's due ${r.due_on}; Nora follows up if it isn't paid by then.`; }
       else if (d.gr === "inv_quote") { const r = await gCall("invoice_add", {from_quote: Number(row.dataset.qid)}); msg = `Invoice logged, due ${r.due_on}. Nora follows up if it isn't paid by then.`; }
       else if (d.gr === "set_email") { const rr = t.closest("[data-qid],[data-vid]"), em = rr.querySelector("[data-em]")?.value?.trim() || "";
         const r = await gCall("record_email", {id: Number(rr.dataset.qid || rr.dataset.vid), email: em}); msg = r.type === "quote" ? "Email added. The team follows up on day 2, 5 and 10, each waiting for your OK." : "Email added. Nora can send reminders now, each waiting for your OK."; }
+      else if (d.gr === "inv_remove") { await gCall("invoice_cancel", {id: Number(t.closest("[data-vid]").dataset.vid)}); msg = "Invoice removed. Nora won't chase it."; }
       else if (d.gr === "inv_paid") { await gCall("invoice_paid", {id: Number(t.closest("[data-vid]").dataset.vid)}); msg = "Marked paid. Nice."; }
       else if (d.gr === "extract") {
         const fromFile = await fileForImport($("impFile")?.files?.[0]), pasted = v('[data-c="text"]');

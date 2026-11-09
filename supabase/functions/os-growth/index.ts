@@ -318,12 +318,15 @@ Deno.serve(async (req) => {
     if (d.name.length < 2) return json({ error: "Add the customer's name." }, 400);
     if (!d.amount || !(Number(d.amount) > 0)) return json({ error: "Add the amount." }, 400);
     if (d.email && !EMAIL.test(d.email)) return json({ error: "That email doesn't look right." }, 400);
-    const data = Object.fromEntries(Object.entries({ ...d, issued_on: today, ...(fromQuote ? { quote_id: String(fromQuote) } : {}), source: "logged by the owner" }).filter(([, v]) => v));
+    const linkQuote = fromQuote ?? (Number(body.quote_id) || null);
+    const data = Object.fromEntries(Object.entries({ ...d, issued_on: today, ...(linkQuote ? { quote_id: String(linkQuote) } : {}), source: "logged by the owner" }).filter(([, v]) => v));
     const nextDue = new Date(Date.parse(d.due_on) + 86400000).toISOString().slice(0, 10);
     const [r] = await sql`insert into os.records (business_id, type, status, title, data, owner_slot, created_by, next_step, next_step_due)
       values (${bid}, 'invoice', 'unpaid', ${d.name + (d.number ? ` · #${d.number}` : d.job ? ` · ${d.job.slice(0, 80)}` : "")}, ${sql.json(data)}, 'finance', 'owner',
         ${d.email ? "friendly payment reminder if it's still unpaid after the due date (for your OK)" : "add their email so Nora can send reminders"}, ${nextDue}) returning id`;
-    if (fromQuote) await sql`update os.records set data = data || ${sql.json({ invoice_id: String(r.id) })} where id = ${fromQuote} and business_id = ${bid}`;
+    // Linked to a won quote (one tap, or the form filled in from it), so the quote shows as invoiced.
+    if (linkQuote) await sql`update os.records set data = data || ${sql.json({ invoice_id: String(r.id) })}
+      where id = ${linkQuote} and business_id = ${bid} and type in ('quote', 'customer', 'lead') and not (data ? 'invoice_id')`;
     await audit(bid, "user", user.email, "invoice_add", String(r.id), { amount: d.amount });
     return json({ ok: true, id: r.id, due_on: d.due_on });
   }
@@ -337,6 +340,20 @@ Deno.serve(async (req) => {
     await sql`update os.approvals set status = 'rejected', note = 'Invoice was marked paid; reminder not needed.', decided_at = now(), decided_by = 'system'
       where business_id = ${bid} and status = 'pending' and record_id = ${id}`;
     await audit(bid, "user", user.email, "invoice_paid", String(id), {});
+    return json({ ok: true });
+  }
+
+  // An invoice logged by mistake, or one that won't be paid: it leaves Money owed and Nora stops chasing it.
+  if (action === "invoice_cancel") {
+    const id = Number(body.id);
+    const [r] = await sql`update os.records set status = 'cancelled', next_step = null, next_step_due = null, updated_at = now(),
+        data = data || ${sql.json({ cancelled_on: new Date().toISOString().slice(0, 10), cancelled_by: user.email })}
+      where id = ${id} and business_id = ${bid} and type = 'invoice' and status in ('unpaid', 'reminded') returning id, data`;
+    if (!r) return json({ error: "Not found, or it's already paid." }, 404);
+    await sql`update os.approvals set status = 'rejected', note = 'Invoice was removed; reminder not needed.', decided_at = now(), decided_by = 'system'
+      where business_id = ${bid} and status = 'pending' and record_id = ${id}`;
+    if (r.data?.quote_id) await sql`update os.records set data = data - 'invoice_id' where id = ${Number(r.data.quote_id)} and business_id = ${bid} and data->>'invoice_id' = ${String(id)}`;
+    await audit(bid, "user", user.email, "invoice_cancel", String(id), {});
     return json({ ok: true });
   }
 
