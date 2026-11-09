@@ -828,7 +828,7 @@ const VIEWS = {
         <label class="field">Monthly platform fee ($)<input data-p="platform_fee_usd" type="number" min="0" step="1" value="${esc(b.platform_fee_usd)}"></label></div>
         <div class="grid2"><label class="field">Calls: fee per minute on top of cost ($)<input data-p="call_fee_per_min" type="number" min="0" step="0.01" value="${esc(b.call_fee_per_min ?? 0.5)}"></label>
         <label class="field">Phone number ($ a month)<input data-p="phone_fee_usd" type="number" min="0" step="1" value="${esc(b.phone_fee_usd ?? 5)}"></label></div>
-        <label class="field">Monthly AI limit ($)<input data-p="monthly_budget_usd" type="number" min="0" step="1" value="${esc(b.monthly_budget_usd ?? "")}"><small>Leave blank for no limit. The team pauses when it's reached.</small></label>
+        <label class="field">Monthly AI limit ($)<input data-p="monthly_budget_usd" type="number" min="0" step="1" value="${esc(b.monthly_budget_usd ?? "")}"><small>Leave blank for no limit. The team pauses when it's reached, and it also stops for the day after spending a twentieth of it${b.monthly_budget_usd ? ` (${usd0(Number(b.monthly_budget_usd) / 20)} a day)` : ""}, so one busy day can't use up the month.</small></label>
         <div><button class="btn go" data-pact="save">Save pricing</button></div>
         <h4 style="margin-top:8px">Other charges</h4>
         ${(data.charges || []).length ? `<div class="list">${data.charges.map(c => `<div class="row"><div class="grow"><div class="t">${esc(c.description)}</div><div class="s">${esc(label(c.kind))} · ${money(c.amount_usd)}${c.recurring ? " a month" : " once"}</div></div><button class="btn small bad" data-pact="end" data-id="${c.id}">Remove</button></div>`).join("")}</div>` : `<p>None.</p>`}
