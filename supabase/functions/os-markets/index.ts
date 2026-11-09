@@ -1,6 +1,6 @@
 // os-markets: the platform owner's Markets screen. A watchlist of coins and stocks, price rules that send a phone and
-// email alert when they hit (once a day each), and a 7:30 AM brief. Prices only: it never trades and holds no
-// exchange keys. Prices: CoinGecko (crypto) and Yahoo Finance (stocks), both public; they can lag a few minutes.
+// email alert when they hit (once a day each), and a 7:30 AM brief.
+// Prices: CoinGecko (crypto) and Yahoo Finance (stocks), both public; they can lag a few minutes.
 import { audit, secret, sql } from "../_core/core.ts";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, x-os-token", "Access-Control-Allow-Methods": "POST, OPTIONS" };
@@ -82,7 +82,7 @@ async function tick() {
       : `${h.symbol} ${pct(ch)} ${span}: now ${money(price)}`;
     const rule = h.kind === "above" || h.kind === "below" ? `${h.symbol} ${RULES[h.kind]} ${money(Number(h.value))}` : `${h.symbol} ${RULES[h.kind]} ${Number(h.value)}% ${span}`;
     await sql`select os.alert(null, 'platform', 'market', ${subject},
-      ${`Your rule hit: ${rule}.\n\n${h.symbol} is at ${money(price)}${ch == null ? "" : ` (${pct(ch)} ${span})`}.\n\nThis rule won't alert again until tomorrow. Prices can lag a few minutes. Destiny OS only watches prices; what you do next is your call.`},
+      ${`Your rule hit: ${rule}.\n\n${h.symbol} is at ${money(price)}${ch == null ? "" : ` (${pct(ch)} ${span})`}.\n\nThis rule won't alert again until tomorrow. Prices can lag a few minutes.`},
       ${"mkt:" + h.id + ":" + day})`;
   }
   // The morning brief, once, between 7:30 and 7:44 AM New York time.
@@ -95,7 +95,7 @@ async function tick() {
     const body = [rows.filter((r: any) => r.kind === "crypto").length ? "Crypto\n" + rows.filter((r: any) => r.kind === "crypto").map(line).join("\n") : "",
       rows.filter((r: any) => r.kind === "stock").length ? "Stocks\n" + rows.filter((r: any) => r.kind === "stock").map(line).join("\n") : "",
       rules.length ? "Your alerts\n" + rules.map((r: any) => `• ${r.symbol} ${RULES[r.kind]} ${r.kind.endsWith("pct") ? Number(r.value) + "%" : money(Number(r.value))}`).join("\n") : "No alerts set yet: add them on the Markets screen."]
-      .filter(Boolean).join("\n\n") + "\n\nPrices only, for your information. Turn this off on the Markets screen.";
+      .filter(Boolean).join("\n\n") + "\n\nTurn this off on the Markets screen.";
     await sql`select os.alert(null, 'platform', 'market_brief', ${"Markets this morning"}, ${body}, ${"mktbrief:" + day})`;
     brief = true;
   }
