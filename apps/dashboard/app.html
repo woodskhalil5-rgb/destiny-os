@@ -403,6 +403,16 @@ async function sCall(action, extra = {}) {
   return j;
 }
 const GROWTH = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-growth";
+// "Call from your own phone" call sheet (businesses with config.call_sheet = own_phone, e.g. JHP).
+const CALLSHEET = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-callsheet";
+let csState = {}; // business id -> true (own-phone sheet on) / false
+async function csCall(action, extra = {}) {
+  const r = await fetch(CALLSHEET, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
+  const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+const isPhoneSheet = () => csState[biz] === true && !String(data.business?.timezone || "").startsWith("Africa/");
 let growth = null, growthBusy = false, aiPhone = null, ovData = null, ovBusy = false, waData = null, waBusy = false, waLog = {};
 async function gCall(action, extra = {}) {
   const r = await fetch(GROWTH, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
@@ -513,7 +523,7 @@ function planText(p) {
 }
 function waSheet() {
   if (!waData) {
-    if (!waBusy) { waBusy = true; gCall("wa_sheet").then(r => { waData = r; }).catch(e => { waData = {error: e.message}; }).finally(() => { waBusy = false; rendered = ""; render(true); }); }
+    if (!waBusy) { waBusy = true; (isPhoneSheet() ? csCall("sheet") : gCall("wa_sheet")).then(r => { waData = r; }).catch(e => { waData = {error: e.message}; }).finally(() => { waBusy = false; rendered = ""; render(true); }); }
     return `<p class="s">Loading…</p>`;
   }
   if (waData.error) return `<div class="err">${esc(waData.error)}</div>`;
@@ -531,7 +541,7 @@ function waSheet() {
         ${r.priority ? `<span class="pill${String(r.priority).toUpperCase() === "A" ? " go" : ""}">${esc(String(r.priority).toUpperCase())}${r.score != null ? " · " + esc(r.score) + "/10" : ""}</span>` : ""}<span class="pill">${esc(label(r.status))}</span></div>
       ${r.area || r.gaps ? `<div class="s">${esc([r.area, Array.isArray(r.gaps) ? r.gaps.map(g => typeof g === "object" ? Object.values(g)[0] : g)[0] : r.gaps].filter(Boolean).join(" · ")).slice(0, 220)}</div>` : ""}
       ${last ? `<div class="s" style="color:var(--muted)">${last}</div>` : ""}
-      <div class="acts">${r.wa ? `<a class="btn go" href="https://wa.me/${esc(r.wa)}" target="_blank" rel="noopener">WhatsApp</a>` : `<span class="s">No WhatsApp number saved${r.phone ? ` · ${esc(r.phone)}` : ""}</span>`}
+      <div class="acts">${r.tel ? `<a class="btn go" href="tel:${esc(r.tel)}">Call ${esc(r.phone || r.tel)}</a>` : r.wa ? `<a class="btn go" href="https://wa.me/${esc(r.wa)}" target="_blank" rel="noopener">WhatsApp</a>` : `<span class="s">No ${isPhoneSheet() ? "phone" : "WhatsApp"} number saved${r.phone ? ` · ${esc(r.phone)}` : ""}</span>`}
         ${r.wa && fu ? `<a class="btn" href="https://wa.me/${esc(r.wa)}?text=${encodeURIComponent(fu)}" target="_blank" rel="noopener">Send follow-up</a>` : ""}
         <button class="btn" data-wa="open" data-id="${r.id}">${L.open ? "Close" : "Log the call"}</button></div>
       ${plan ? `<details><summary style="cursor:pointer;font-weight:700">Call plan</summary><div style="white-space:pre-wrap;line-height:1.55;margin-top:8px">${esc(plan)}</div>${fu ? `<div class="s" style="margin-top:10px;white-space:pre-wrap"><b>Follow-up message:</b>\n${esc(fu)}</div>` : ""}</details>` : ""}
@@ -843,6 +853,13 @@ const VIEWS = {
 
   calls(){
     if (String(data.business?.timezone || "").startsWith("Africa/")) return waSheet();
+    if (csState[biz] === undefined) {
+      const id = biz; csState[id] = null;
+      csCall("sheet").then(r => { csState[id] = !!r.enabled; if (r.enabled && id === biz) waData = r; }).catch(() => { csState[id] = false; }).finally(() => { if (id === biz) { rendered = ""; render(true); } });
+      return `<p class="s">Loading…</p>`;
+    }
+    if (csState[biz] === null) return `<p class="s">Loading…</p>`;
+    if (csState[biz] === true) return waSheet();
     if (!callsData) { loadCalls(true); return `<p class="s">Loading…</p>`; }
     const c = callsData;
     if (!c.platform_ready) return c.can_buy ? twilioSetup() : `<div class="empty"><b>Calling isn't turned on yet.</b>Ask Destiny OS to turn on calling for this business.</div>`;
@@ -1474,7 +1491,7 @@ V.addEventListener("click", async e => {
       keep();
       if (!L.outcome) { fail(t, t.closest(".box"), new Error("Pick what happened first.")); return; }
       t.disabled = true;
-      try { await gCall("wa_log", {id: Number(id), outcome: L.outcome, note: L.note || "", when: L.when || ""}); delete waLog[id]; if (!Object.values(waLog).some(x => x.open)) editing.delete("wa"); waData = null; rendered = ""; render(true); }
+      try { await (isPhoneSheet() ? csCall : gCall)(isPhoneSheet() ? "log" : "wa_log", {id: Number(id), outcome: L.outcome, note: L.note || "", when: L.when || ""}); delete waLog[id]; if (!Object.values(waLog).some(x => x.open)) editing.delete("wa"); waData = null; rendered = ""; render(true); }
       catch (err) { fail(t, t.closest(".box"), err); }
       return;
     }
