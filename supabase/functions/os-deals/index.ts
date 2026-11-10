@@ -52,13 +52,17 @@ Deno.serve(async (req) => {
     // Optional loan (e.g. a DSCR loan) that funds the down payment; whatever is left after the down payment, lender fee and
     // closing costs is the take-home at closing (the residual).
     const loan = num(body.loan) ?? 0, loanRate = num(body.loan_rate) ?? 0, loanYears = num(body.loan_years) ?? 30, lenderFee = num(body.lender_fee) ?? 0, closing = num(body.closing) ?? 0;
+    // What the seller still owes (mortgage, liens) is cleared at closing by the loan too; equity = how much of the price is free and clear.
+    const payoff = num(body.payoff) ?? 0;
     if (!price) return json({ error: "Enter the purchase price." }, 400);
-    if (down > price) return json({ error: "The down payment can't be more than the price." }, 400);
-    const pmt = payment(price - down, rate, years), mort = payment(loan, loanRate, loanYears);
+    if (down + (num(body.payoff) ?? 0) > price) return json({ error: "The down payment plus what the seller owes can't be more than the price." }, 400);
+    const mort = payment(loan, loanRate, loanYears);
     patch = { offer_mode: mode, price: r0(price), down: r0(down), rate, years, rent: r0(rent), costs: r0(costs), emd: r0(emd), appraisal: r0(appraisal), other: r0(other),
-      loan: r0(loan), loan_rate: loanRate, loan_years: loanYears, lender_fee: r0(lenderFee), closing: r0(closing),
-      seller_carry: r0(price - down), payment: r0(pmt), mortgage: r0(mort), cash_flow: r0(rent - pmt - mort - costs),
-      residual: loan ? r0(loan - down - lenderFee - closing) : null, cash_to_close: r0(emd + appraisal + other), lender_covers: r0(loan || down) };
+      loan: r0(loan), loan_rate: loanRate, loan_years: loanYears, lender_fee: r0(lenderFee), closing: r0(closing), payoff: r0(payoff),
+      equity_pct: Math.round((price - payoff) / price * 100),
+      seller_carry: r0(price - down - payoff), payment: r0(payment(price - down - payoff, rate, years)), mortgage: r0(mort),
+      cash_flow: r0(rent - payment(price - down - payoff, rate, years) - mort - costs),
+      residual: loan ? r0(loan - down - payoff - lenderFee - closing) : null, cash_to_close: r0(emd + appraisal + other), lender_covers: r0(loan || down) };
   }
   const [r] = await sql`update os.records set data = data || ${sql.json(patch as any)}, updated_at = now()
     where id = ${Number(body.record_id)} and business_id = ${bid} returning id`;

@@ -424,7 +424,7 @@ async function socCall(action, extra = {}) {
 const DEALS = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-deals";
 // Offer calculator: shown on property-type records, or any record that already has an after-repair value.
 const isDeal = (r) => /propert|house|home|deal|listing/i.test(r.type || "") || (r.data && (r.data.arv != null || r.data.price != null));
-const DEAL_KEYS = ["offer_mode", "arv", "repairs", "fee", "offer_pct", "max_offer", "offer", "price", "down", "rate", "years", "rent", "costs", "emd", "appraisal", "other", "seller_carry", "payment", "cash_flow", "cash_to_close", "lender_covers", "loan", "loan_rate", "loan_years", "lender_fee", "closing", "mortgage", "residual"];
+const DEAL_KEYS = ["offer_mode", "arv", "repairs", "fee", "offer_pct", "max_offer", "offer", "price", "down", "rate", "years", "rent", "costs", "emd", "appraisal", "other", "seller_carry", "payment", "cash_flow", "cash_to_close", "lender_covers", "loan", "loan_rate", "loan_years", "lender_fee", "closing", "mortgage", "residual", "payoff", "equity_pct"];
 const usdN = (n) => n == null || n === "" || isNaN(+n) ? "" : (+n < 0 ? "−$" : "$") + Math.abs(Math.round(Number(n))).toLocaleString("en-US");
 const maxOffer = (arv, pct, repairs, fee) => Math.max(0, Math.round((+arv || 0) * (+pct || 70) / 100 - (+repairs || 0) - (+fee || 0)));
 const pmtOf = (loan, rate, years) => { const n = Math.round((+years || 0) * 12), r = (+rate || 0) / 1200; if (loan <= 0 || n <= 0) return 0; return r === 0 ? loan / n : loan * r / (1 - Math.pow(1 + r, -n)); };
@@ -432,10 +432,11 @@ const pmtOf = (loan, rate, years) => { const n = Math.round((+years || 0) * 12),
 function dealCalc(mode, v){
   if (mode === "cash") return v.arv ? `Max offer: <b>${usdN(maxOffer(v.arv, v.pct, v.repairs, v.fee))}</b>` : "Enter the after-repair value.";
   if (!+v.price) return "Enter the purchase price.";
-  const pmt = pmtOf((+v.price || 0) - (+v.down || 0), v.rate, v.years || 30), mort = pmtOf(+v.loan || 0, v.loan_rate, v.loan_years || 30);
+  const owed = +v.payoff || 0, eq = Math.round(((+v.price || 0) - owed) / (+v.price || 1) * 100);
+  const pmt = pmtOf((+v.price || 0) - (+v.down || 0) - owed, v.rate, v.years || 30), mort = pmtOf(+v.loan || 0, v.loan_rate, v.loan_years || 30);
   const flow = (+v.rent || 0) - pmt - mort - (+v.costs || 0), bring = (+v.emd || 0) + (+v.appraisal || 0) + (+v.other || 0);
-  const residual = (+v.loan || 0) - (+v.down || 0) - (+v.lender_fee || 0) - (+v.closing || 0);
-  return `Payment to seller: <b>${usdN(pmt)}/mo</b>${+v.loan ? ` · Mortgage: <b>${usdN(mort)}/mo</b>` : ""} · Cash flow: <b>${usdN(flow)}/mo</b><br>`
+  const residual = (+v.loan || 0) - (+v.down || 0) - owed - (+v.lender_fee || 0) - (+v.closing || 0);
+  return `Seller's equity: <b style="color:${eq < 50 ? "var(--bad)" : "inherit"}">${eq}%</b>${eq < 50 ? " (under 50%)" : ""} · Payment to seller: <b>${usdN(pmt)}/mo</b>${+v.loan ? ` · Mortgage: <b>${usdN(mort)}/mo</b>` : ""}<br>Cash flow: <b>${usdN(flow)}/mo</b> · `
     + (+v.loan ? `Take-home at closing: <b>${usdN(residual)}</b> · ` : `Lender covers: <b>${usdN(+v.down || 0)}</b> · `) + `You bring: <b>${usdN(bring)}</b>`;
 }
 function dealBox(r){
@@ -445,18 +446,19 @@ function dealBox(r){
     ? `<div class="two">${f("arv", "After-repair value ($)", d.arv)}${f("repairs", "Repairs ($)", d.repairs)}</div>
        <div class="two">${f("fee", "Your fee / profit ($)", d.fee)}${f("pct", "Percent of value (%)", d.offer_pct ?? 70)}</div>${f("offer", "Offer made ($, optional)", d.offer)}`
     : `<div class="two">${f("price", "Purchase price ($)", d.price)}${f("down", "Down payment ($)", d.down)}</div>
+       ${f("payoff", "What the seller still owes ($, mortgage and liens)", d.payoff)}
        <div class="two">${f("rate", "Seller's interest rate (%)", d.rate)}${f("years", "Term (years)", d.years ?? 30)}</div>
        <div class="two">${f("rent", "Expected rent ($/mo)", d.rent)}${f("costs", "Taxes, insurance, other ($/mo)", d.costs)}</div>
        <div class="two">${f("emd", "Earnest money ($)", d.emd)}${f("appraisal", "Appraisal ($)", d.appraisal)}</div>${f("other", "Other cash you bring ($, optional)", d.other)}
        <details${d.loan ? " open" : ""} style="margin-top:6px"><summary style="cursor:pointer;font-weight:600;color:var(--go)">Loan that funds the down payment (e.g. DSCR)</summary>
        <div class="two">${f("loan", "Loan amount ($)", d.loan)}${f("loan_rate", "Loan rate (%)", d.loan_rate)}</div>
        <div class="two">${f("loan_years", "Loan term (years)", d.loan_years ?? 30)}${f("lender_fee", "Lender fee ($)", d.lender_fee)}</div>${f("closing", "Closing costs ($)", d.closing)}</details>`;
-  const vals = mode === "cash" ? {arv: d.arv, pct: d.offer_pct ?? 70, repairs: d.repairs, fee: d.fee} : {price: d.price, down: d.down, rate: d.rate, years: d.years ?? 30, rent: d.rent, costs: d.costs, emd: d.emd, appraisal: d.appraisal, other: d.other, loan: d.loan, loan_rate: d.loan_rate, loan_years: d.loan_years ?? 30, lender_fee: d.lender_fee, closing: d.closing};
+  const vals = mode === "cash" ? {arv: d.arv, pct: d.offer_pct ?? 70, repairs: d.repairs, fee: d.fee} : {price: d.price, down: d.down, payoff: d.payoff, rate: d.rate, years: d.years ?? 30, rent: d.rent, costs: d.costs, emd: d.emd, appraisal: d.appraisal, other: d.other, loan: d.loan, loan_rate: d.loan_rate, loan_years: d.loan_years ?? 30, lender_fee: d.lender_fee, closing: d.closing};
   return `<div class="box form deal" data-deal-id="${r.id}" data-mode="${mode}" style="margin:0 18px 16px"><h4>Deal numbers</h4>
     <div class="seg" role="group" style="margin-bottom:10px">${[["cash", "Cash offer"], ["seller_finance", "Seller financing"]].map(([k, n]) => `<button data-dmode="${k}" aria-pressed="${mode === k}"${can ? "" : " disabled"}>${n}</button>`).join("")}</div>
     ${fields}
     <p class="dealOut" style="margin:8px 0 0">${dealCalc(mode, vals)}</p>
-    <p class="s">${mode === "cash" ? `After-repair value × ${esc(String(d.offer_pct ?? 70))}% − repairs − fee.` : "Cash flow = rent − seller payment − mortgage − taxes and insurance. Take-home at closing = loan − down payment − lender fee − closing costs. You bring the earnest money and appraisal."}</p>
+    <p class="s">${mode === "cash" ? `After-repair value × ${esc(String(d.offer_pct ?? 70))}% − repairs − fee.` : "Seller carries the price minus the down payment and what they owe. Cash flow = rent − seller payment − mortgage − taxes and insurance. Take-home at closing = loan − down payment − payoff − lender fee − closing costs."}</p>
     ${can ? `<div class="acts"><button class="btn go small" data-deal="save">Save numbers</button></div>` : ""}</div>`;
 }
 const isPhoneSheet = () => csState[biz] === true && !String(data.business?.timezone || "").startsWith("Africa/");
