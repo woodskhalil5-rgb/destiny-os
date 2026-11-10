@@ -423,18 +423,34 @@ async function socCall(action, extra = {}) {
 }
 const DEALS = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-deals";
 // Offer calculator: shown on property-type records, or any record that already has an after-repair value.
-const isDeal = (r) => /propert|house|home|deal|listing/i.test(r.type || "") || (r.data && r.data.arv != null);
-const usdN = (n) => n == null || n === "" ? "" : "$" + Math.round(Number(n)).toLocaleString("en-US");
+const isDeal = (r) => /propert|house|home|deal|listing/i.test(r.type || "") || (r.data && (r.data.arv != null || r.data.price != null));
+const DEAL_KEYS = ["offer_mode", "arv", "repairs", "fee", "offer_pct", "max_offer", "offer", "price", "down", "rate", "years", "rent", "costs", "emd", "appraisal", "other", "seller_carry", "payment", "cash_flow", "cash_to_close", "lender_covers"];
+const usdN = (n) => n == null || n === "" || isNaN(+n) ? "" : (+n < 0 ? "−$" : "$") + Math.abs(Math.round(Number(n))).toLocaleString("en-US");
 const maxOffer = (arv, pct, repairs, fee) => Math.max(0, Math.round((+arv || 0) * (+pct || 70) / 100 - (+repairs || 0) - (+fee || 0)));
+const pmtOf = (loan, rate, years) => { const n = Math.round((+years || 0) * 12), r = (+rate || 0) / 1200; if (loan <= 0 || n <= 0) return 0; return r === 0 ? loan / n : loan * r / (1 - Math.pow(1 + r, -n)); };
+// The numbers the box shows for a set of inputs (same math as the server).
+function dealCalc(mode, v){
+  if (mode === "cash") return v.arv ? `Max offer: <b>${usdN(maxOffer(v.arv, v.pct, v.repairs, v.fee))}</b>` : "Enter the after-repair value.";
+  if (!+v.price) return "Enter the purchase price.";
+  const pmt = pmtOf((+v.price || 0) - (+v.down || 0), v.rate, v.years || 30), flow = (+v.rent || 0) - pmt - (+v.costs || 0);
+  return `Payment to seller: <b>${usdN(pmt)}/mo</b> · Cash flow: <b>${usdN(flow)}/mo</b><br>Lender covers: <b>${usdN(+v.down || 0)}</b> · You bring: <b>${usdN((+v.emd || 0) + (+v.appraisal || 0) + (+v.other || 0))}</b>`;
+}
 function dealBox(r){
-  const d = r.data || {}, pct = d.offer_pct || 70, can = ["owner", "admin", "operator"].includes(data.role);
+  const d = r.data || {}, mode = d.offer_mode === "seller_finance" ? "seller_finance" : "cash", can = ["owner", "admin", "operator"].includes(data.role);
   const f = (k, lbl, v) => `<label class="field">${lbl}<input data-dl="${k}" inputmode="decimal" value="${esc(v ?? "")}"${can ? "" : " disabled"}></label>`;
-  return `<div class="box form deal" data-deal-id="${r.id}" style="margin:0 18px 16px"><h4>Offer calculator</h4>
-    <div class="two">${f("arv", "After-repair value ($)", d.arv)}${f("repairs", "Repairs ($)", d.repairs)}</div>
-    <div class="two">${f("fee", "Your fee / profit ($)", d.fee)}${f("pct", "Percent of value (%)", pct)}</div>
-    ${f("offer", "Offer made ($, optional)", d.offer)}
-    <p style="margin:6px 0 0">Max offer: <b class="dealMax">${d.arv ? usdN(maxOffer(d.arv, pct, d.repairs, d.fee)) : "enter the after-repair value"}</b></p>
-    <p class="s">After-repair value × ${esc(String(pct))}% − repairs − fee.</p>
+  const fields = mode === "cash"
+    ? `<div class="two">${f("arv", "After-repair value ($)", d.arv)}${f("repairs", "Repairs ($)", d.repairs)}</div>
+       <div class="two">${f("fee", "Your fee / profit ($)", d.fee)}${f("pct", "Percent of value (%)", d.offer_pct ?? 70)}</div>${f("offer", "Offer made ($, optional)", d.offer)}`
+    : `<div class="two">${f("price", "Purchase price ($)", d.price)}${f("down", "Down payment ($)", d.down)}</div>
+       <div class="two">${f("rate", "Seller's interest rate (%)", d.rate)}${f("years", "Term (years)", d.years ?? 30)}</div>
+       <div class="two">${f("rent", "Expected rent ($/mo)", d.rent)}${f("costs", "Taxes, insurance, other ($/mo)", d.costs)}</div>
+       <div class="two">${f("emd", "Earnest money ($)", d.emd)}${f("appraisal", "Appraisal ($)", d.appraisal)}</div>${f("other", "Other cash you bring ($, optional)", d.other)}`;
+  const vals = mode === "cash" ? {arv: d.arv, pct: d.offer_pct ?? 70, repairs: d.repairs, fee: d.fee} : {price: d.price, down: d.down, rate: d.rate, years: d.years ?? 30, rent: d.rent, costs: d.costs, emd: d.emd, appraisal: d.appraisal, other: d.other};
+  return `<div class="box form deal" data-deal-id="${r.id}" data-mode="${mode}" style="margin:0 18px 16px"><h4>Deal numbers</h4>
+    <div class="seg" role="group" style="margin-bottom:10px">${[["cash", "Cash offer"], ["seller_finance", "Seller financing"]].map(([k, n]) => `<button data-dmode="${k}" aria-pressed="${mode === k}"${can ? "" : " disabled"}>${n}</button>`).join("")}</div>
+    ${fields}
+    <p class="dealOut" style="margin:8px 0 0">${dealCalc(mode, vals)}</p>
+    <p class="s">${mode === "cash" ? `After-repair value × ${esc(String(d.offer_pct ?? 70))}% − repairs − fee.` : "Payment on the price minus the down payment at the seller's rate and term. The lender covers the down payment; you bring the earnest money and appraisal."}</p>
     ${can ? `<div class="acts"><button class="btn go small" data-deal="save">Save numbers</button></div>` : ""}</div>`;
 }
 const isPhoneSheet = () => csState[biz] === true && !String(data.business?.timezone || "").startsWith("Africa/");
@@ -693,7 +709,7 @@ const VIEWS = {
         return `<div class="section" style="margin-top:0;margin-bottom:28px"><h3>${esc(label(t))}s <span class="s" style="font-weight:500;color:var(--muted)">${rs.length}</span></h3>
           <div class="stages">${Object.entries(by).map(([k, v]) => `<span class="stage">${esc(label(k))}<b>${v}</b></span>`).join("")}</div>
           <div class="list">${rs.slice(0, 80).map(r => `<details class="rec" data-k="r${r.id}"><summary class="row click">${av(t === "brand" ? "coordination" : "research", r.title)}<div class="grow"><div class="t">${esc(r.title)}</div><div class="s">${r.next_step ? "Next: " + esc(r.next_step) + (r.next_step_due ? ` (${esc(String(r.next_step_due).slice(0, 10))})` : "") : "Updated " + esc(ago(r.updated_at))}</div></div><span class="pill">${esc(label(r.status))}</span></summary>
-            <dl class="facts">${Object.entries(r.data || {}).filter(([k, v]) => v !== "" && v != null && !(isDeal(r) && ["arv", "repairs", "fee", "offer_pct", "max_offer", "offer"].includes(k))).map(([k, v]) => `<dt>${esc(label(k))}</dt><dd>${typeof v === "string" ? fmtBody(v) : esc(JSON.stringify(v))}</dd>`).join("") || "<dt>No details yet</dt><dd></dd>"}</dl>${isDeal(r) ? dealBox(r) : ""}</details>`).join("")}</div></div>`;
+            <dl class="facts">${Object.entries(r.data || {}).filter(([k, v]) => v !== "" && v != null && !(isDeal(r) && DEAL_KEYS.includes(k))).map(([k, v]) => `<dt>${esc(label(k))}</dt><dd>${typeof v === "string" ? fmtBody(v) : esc(JSON.stringify(v))}</dd>`).join("") || "<dt>No details yet</dt><dd></dd>"}</dl>${isDeal(r) ? dealBox(r) : ""}</details>`).join("")}</div></div>`;
       }).join("");
     }
     function tasks(){
@@ -1384,8 +1400,8 @@ V.addEventListener("input", e => {
   const dl = e.target.closest(".deal");
   if (dl) {
     editing.add("deal");
-    const v = (k) => dl.querySelector(`[data-dl="${k}"]`).value.replace(/[$,\s]/g, "");
-    dl.querySelector(".dealMax").textContent = v("arv") ? usdN(maxOffer(v("arv"), v("pct"), v("repairs"), v("fee"))) : "enter the after-repair value";
+    const v = {}; dl.querySelectorAll("[data-dl]").forEach(x => v[x.dataset.dl] = x.value.replace(/[$,%\s]/g, ""));
+    dl.querySelector(".dealOut").innerHTML = dealCalc(dl.dataset.mode, v);
   }
   if (e.target.closest("#settingsForm")) editing.add("settings");
   if (e.target.dataset?.s === "raw_config") editing.add("raw");
@@ -1596,17 +1612,22 @@ V.addEventListener("click", async e => {
       editing.delete("invite"); people = null; render(true);
     } catch (err) { fail(t, t.closest(".box,.row"), err); }
   }
-  if (d.deal) { // offer calculator
+  if (d.dmode) { // switch a deal between cash and seller financing (saved with the numbers)
+    const box = t.closest(".deal"), rec = data.records.find(x => x.id === +box.dataset.dealId);
+    if (rec) { (rec.data ||= {}).offer_mode = d.dmode; editing.add("deal"); const open = box.closest("details"); open.querySelector(".deal").outerHTML = dealBox(rec); }
+    return;
+  }
+  if (d.deal) { // deal calculator
     const box = t.closest(".deal"); t.disabled = true; box.querySelectorAll(".err,.ok").forEach(x => x.remove());
-    const v = (k) => box.querySelector(`[data-dl="${k}"]`).value.replace(/[$,\s]/g, "");
+    const v = {}; box.querySelectorAll("[data-dl]").forEach(x => v[x.dataset.dl] = x.value.replace(/[$,%\s]/g, ""));
     try {
       const r = await fetch(DEALS, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token},
-        body: JSON.stringify({business_id: biz, record_id: +box.dataset.dealId, arv: v("arv"), repairs: v("repairs"), fee: v("fee"), pct: v("pct"), offer: v("offer") || null})});
+        body: JSON.stringify({business_id: biz, record_id: +box.dataset.dealId, mode: box.dataset.mode, ...v})});
       const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
       if (!r.ok) throw new Error(j.error || r.statusText);
       const rec = data.records.find(x => x.id === +box.dataset.dealId); if (rec) Object.assign(rec.data ||= {}, j);
       editing.delete("deal"); t.disabled = false;
-      box.insertAdjacentHTML("beforeend", `<p class="ok">Saved. Max offer ${esc(usdN(j.max_offer))}.</p>`);
+      box.insertAdjacentHTML("beforeend", `<p class="ok">Saved.</p>`);
     } catch (err) { fail(t, box, err); }
   }
   if (d.soc) { // social media connections
