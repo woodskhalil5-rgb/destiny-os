@@ -282,6 +282,7 @@ details.agent .inner{padding:0 18px 18px}
   .tabbar .badge{position:absolute;top:0;left:calc(50% + 6px);margin:0;min-width:18px;height:18px;font-size:11px;padding:0 5px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.deal .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media (max-width:520px){.deal .two{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -419,6 +420,22 @@ async function socCall(action, extra = {}) {
   const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
+}
+const DEALS = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-deals";
+// Offer calculator: shown on property-type records, or any record that already has an after-repair value.
+const isDeal = (r) => /propert|house|home|deal|listing/i.test(r.type || "") || (r.data && r.data.arv != null);
+const usdN = (n) => n == null || n === "" ? "" : "$" + Math.round(Number(n)).toLocaleString("en-US");
+const maxOffer = (arv, pct, repairs, fee) => Math.max(0, Math.round((+arv || 0) * (+pct || 70) / 100 - (+repairs || 0) - (+fee || 0)));
+function dealBox(r){
+  const d = r.data || {}, pct = d.offer_pct || 70, can = ["owner", "admin", "operator"].includes(data.role);
+  const f = (k, lbl, v) => `<label class="field">${lbl}<input data-dl="${k}" inputmode="decimal" value="${esc(v ?? "")}"${can ? "" : " disabled"}></label>`;
+  return `<div class="box form deal" data-deal-id="${r.id}" style="margin:0 18px 16px"><h4>Offer calculator</h4>
+    <div class="two">${f("arv", "After-repair value ($)", d.arv)}${f("repairs", "Repairs ($)", d.repairs)}</div>
+    <div class="two">${f("fee", "Your fee / profit ($)", d.fee)}${f("pct", "Percent of value (%)", pct)}</div>
+    ${f("offer", "Offer made ($, optional)", d.offer)}
+    <p style="margin:6px 0 0">Max offer: <b class="dealMax">${d.arv ? usdN(maxOffer(d.arv, pct, d.repairs, d.fee)) : "enter the after-repair value"}</b></p>
+    <p class="s">After-repair value × ${esc(String(pct))}% − repairs − fee.</p>
+    ${can ? `<div class="acts"><button class="btn go small" data-deal="save">Save numbers</button></div>` : ""}</div>`;
 }
 const isPhoneSheet = () => csState[biz] === true && !String(data.business?.timezone || "").startsWith("Africa/");
 let growth = null, growthBusy = false, aiPhone = null, ovData = null, ovBusy = false, waData = null, waBusy = false, waLog = {};
@@ -676,7 +693,7 @@ const VIEWS = {
         return `<div class="section" style="margin-top:0;margin-bottom:28px"><h3>${esc(label(t))}s <span class="s" style="font-weight:500;color:var(--muted)">${rs.length}</span></h3>
           <div class="stages">${Object.entries(by).map(([k, v]) => `<span class="stage">${esc(label(k))}<b>${v}</b></span>`).join("")}</div>
           <div class="list">${rs.slice(0, 80).map(r => `<details class="rec" data-k="r${r.id}"><summary class="row click">${av(t === "brand" ? "coordination" : "research", r.title)}<div class="grow"><div class="t">${esc(r.title)}</div><div class="s">${r.next_step ? "Next: " + esc(r.next_step) + (r.next_step_due ? ` (${esc(String(r.next_step_due).slice(0, 10))})` : "") : "Updated " + esc(ago(r.updated_at))}</div></div><span class="pill">${esc(label(r.status))}</span></summary>
-            <dl class="facts">${Object.entries(r.data || {}).filter(([, v]) => v !== "" && v != null).map(([k, v]) => `<dt>${esc(label(k))}</dt><dd>${typeof v === "string" ? fmtBody(v) : esc(JSON.stringify(v))}</dd>`).join("") || "<dt>No details yet</dt><dd></dd>"}</dl></details>`).join("")}</div></div>`;
+            <dl class="facts">${Object.entries(r.data || {}).filter(([k, v]) => v !== "" && v != null && !(isDeal(r) && ["arv", "repairs", "fee", "offer_pct", "max_offer", "offer"].includes(k))).map(([k, v]) => `<dt>${esc(label(k))}</dt><dd>${typeof v === "string" ? fmtBody(v) : esc(JSON.stringify(v))}</dd>`).join("") || "<dt>No details yet</dt><dd></dd>"}</dl>${isDeal(r) ? dealBox(r) : ""}</details>`).join("")}</div></div>`;
       }).join("");
     }
     function tasks(){
@@ -1364,6 +1381,12 @@ V.addEventListener("input", e => {
   if (e.target.closest("#upBox")) editing.add("upload");
   if (e.target.closest("#grow")) editing.add("grow");
   if (e.target.closest("#invite")) editing.add("invite");
+  const dl = e.target.closest(".deal");
+  if (dl) {
+    editing.add("deal");
+    const v = (k) => dl.querySelector(`[data-dl="${k}"]`).value.replace(/[$,\s]/g, "");
+    dl.querySelector(".dealMax").textContent = v("arv") ? usdN(maxOffer(v("arv"), v("pct"), v("repairs"), v("fee"))) : "enter the after-repair value";
+  }
   if (e.target.closest("#settingsForm")) editing.add("settings");
   if (e.target.dataset?.s === "raw_config") editing.add("raw");
 });
@@ -1572,6 +1595,19 @@ V.addEventListener("click", async e => {
       if (d.mact === "remove") await call("remove_member", {user_id: d.uid});
       editing.delete("invite"); people = null; render(true);
     } catch (err) { fail(t, t.closest(".box,.row"), err); }
+  }
+  if (d.deal) { // offer calculator
+    const box = t.closest(".deal"); t.disabled = true; box.querySelectorAll(".err,.ok").forEach(x => x.remove());
+    const v = (k) => box.querySelector(`[data-dl="${k}"]`).value.replace(/[$,\s]/g, "");
+    try {
+      const r = await fetch(DEALS, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token},
+        body: JSON.stringify({business_id: biz, record_id: +box.dataset.dealId, arv: v("arv"), repairs: v("repairs"), fee: v("fee"), pct: v("pct"), offer: v("offer") || null})});
+      const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
+      if (!r.ok) throw new Error(j.error || r.statusText);
+      const rec = data.records.find(x => x.id === +box.dataset.dealId); if (rec) Object.assign(rec.data ||= {}, j);
+      editing.delete("deal"); t.disabled = false;
+      box.insertAdjacentHTML("beforeend", `<p class="ok">Saved. Max offer ${esc(usdN(j.max_offer))}.</p>`);
+    } catch (err) { fail(t, box, err); }
   }
   if (d.soc) { // social media connections
     const box = $("socialBox"); t.disabled = true; box?.querySelectorAll(".err").forEach(x => x.remove());

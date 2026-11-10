@@ -32,3 +32,25 @@ begin
   return format('%s set up for acquisitions (%s agents updated, call sheet on, offers at %s%%).', b.name, n, p_pct);
 end $$;
 revoke all on function os.setup_acquisitions(text, int) from public;
+
+-- Any business that buys houses gets this on its own: every 10 minutes, businesses whose mission or facts say so
+-- (and whose team exists) are set up once (config.kind = 'acquisitions' marks it done), and DeMarcus is told.
+create or replace function os.auto_acquisitions() returns integer language plpgsql security definer set search_path = os as $$
+declare r record; n int := 0;
+begin
+  for r in select b.slug from os.businesses b join os.business_config c on c.business_id = b.id and c.active
+    where b.status <> 'archived' and c.config->>'kind' is null
+      and (coalesce(c.config->>'mission', '') || ' ' || coalesce(c.config->>'facts', '')) ~* '(we buy (houses|homes)|buy(ing)? (houses|homes|properties|real estate)|wholesal(e|er|ers|ing) (real estate|houses|homes|properties)|house flip|fix[ -]and[ -]flip|flipping (houses|homes)|real estate invest|off[ -]market (houses|homes|properties|deals)|motivated sellers)'
+      and (select count(*) from os.business_agents a where a.business_id = b.id) >= 4
+  loop
+    perform os.setup_acquisitions(r.slug);
+    insert into os.messages (business_id, sender, body, status)
+      select id, 'system', '@demarcus This business buys houses, so the acquisitions setup is on: property records with an offer calculator, deal stages (found, checked, contacted, offer sent, under contract, closed), the own-phone call sheet, and the rules for listing agents vs homeowners. Read your updated instructions.', 'queued'
+      from os.businesses where slug = r.slug;
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+revoke all on function os.auto_acquisitions() from public;
+select cron.unschedule('os-auto-acquisitions') where exists (select 1 from cron.job where jobname = 'os-auto-acquisitions');
+select cron.schedule('os-auto-acquisitions', '*/10 * * * *', 'select os.auto_acquisitions()');
