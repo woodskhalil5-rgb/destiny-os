@@ -77,10 +77,18 @@ Write this business's setup as JSON, and nothing else:
   "agents": { ${agents.map((a: any) => `"${a.slot}": "..."`).join(", ")} }
 }
 record_types: 1 to 3 types that fit how this business finds and wins work (for example "lead" for customers it wants, "partner" for referral sources).
-agents: for each slot, 2 to 4 sentences of concrete instructions for THIS business: exactly what to look for or make, where, how many per run (5 to 8), and who to hand it to by @handle (${agents.map((a: any) => "@" + a.handle).join(", ")}). Keep every instruction within the platform rules.`;
-  const res = await claude(b, "coordination", { model: b.model, max_tokens: 3000, messages: [{ role: "user", content: prompt }] }, 90_000);
-  const text = (res.content ?? []).filter((x: any) => x.type === "text").map((x: any) => x.text).join("");
-  const j = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+agents: for each slot, 2 to 4 sentences of concrete instructions for THIS business: exactly what to look for or make, where, how many per run (5 to 8), and who to hand it to by @handle (${agents.map((a: any) => "@" + a.handle).join(", ")}). Keep every instruction within the platform rules.
+The answer must be valid JSON: inside text values use single quotes, never double quotes, and use \n for line breaks.`;
+  // Long sign-up answers (a detailed strategy, say) used to overflow a short answer or break the JSON; give it room,
+  // and if the JSON still doesn't parse, ask once more for a tighter version.
+  const ask = async (extra: string) => {
+    const res = await claude(b, "coordination", { model: b.model, max_tokens: 8000, messages: [{ role: "user", content: prompt + extra }] }, 150_000);
+    const text = (res.content ?? []).filter((x: any) => x.type === "text").map((x: any) => x.text).join("");
+    return JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+  };
+  let j: any;
+  try { j = await ask(""); }
+  catch { j = await ask("\n\nYour last answer was not valid JSON. Return strictly valid JSON only, keep each agent's instructions to 2 or 3 sentences, and never put double quotes inside a text value."); }
   const str = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
   const types: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(j.record_types ?? {}).slice(0, 3) as [string, any][]) {
@@ -222,8 +230,10 @@ Deno.serve(async (req) => {
       const token = Array.from(crypto.getRandomValues(new Uint8Array(32))).map((x) => x.toString(16).padStart(2, "0")).join("");
       await sql`insert into os.sessions (token_hash, user_id, expires_at) values (${await sha256(token)}, ${uid}, now() + interval '90 days')`;
       try {
-        await platformMail(email, "Welcome to Destiny OS", `Welcome to Destiny OS. Your team for ${s.details.business} is being set up now.\n\nSign in any time at ${await appUrl()}/login with this email; we'll send you a code, no password needed.\n\nNext steps: check what your team knows in Settings, pay your first month on the Money tab ($650 for your first 30 days; AI usage is billed on the 1st of each month), then click Start team. Cancel any time.\n\nTerms: ${await appUrl()}/terms\nPrivacy: ${await appUrl()}/privacy`);
-      } catch { /* the trial stands even if the welcome email fails */ }
+        // The price shown is this business's own (an invite offer may have set it below the standard fee).
+        const [{ fee }] = await sql`select platform_fee_usd as fee from os.businesses where id = ${bid}`;
+        await platformMail(email, "Welcome to Destiny OS", `Welcome to Destiny OS. Your team for ${s.details.business} is being set up now.\n\nSign in any time at ${await appUrl()}/login with this email; we'll send you a code, no password needed.\n\nNext steps: check what your team knows in Settings, pay your first month on the Money tab ($${Number(fee)} for your first 30 days; AI usage is billed on the 1st of each month), then click Start team. Cancel any time.\n\nTerms: ${await appUrl()}/terms\nPrivacy: ${await appUrl()}/privacy`);
+      } catch { /* the sign-up stands even if the welcome email fails */ }
       return json({ ok: true, token, business_id: bid });
     } catch (e) {
       await sql`update os.trial_signups set used = false where id = ${s.id}`;
