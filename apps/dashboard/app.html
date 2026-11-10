@@ -436,7 +436,8 @@ function dealCalc(mode, v){
   const pmt = pmtOf((+v.price || 0) - (+v.down || 0) - owed, v.rate, v.years || 30), mort = pmtOf(+v.loan || 0, v.loan_rate, v.loan_years || 30);
   const flow = (+v.rent || 0) - pmt - mort - (+v.costs || 0), bring = (+v.emd || 0) + (+v.appraisal || 0) + (+v.other || 0);
   const residual = (+v.loan || 0) - (+v.down || 0) - owed - (+v.lender_fee || 0) - (+v.closing || 0);
-  return `Seller's equity: <b style="color:${eq < 50 ? "var(--bad)" : "inherit"}">${eq}%</b>${eq < 50 ? " (under 50%)" : ""} · Payment to seller: <b>${usdN(pmt)}/mo</b>${+v.loan ? ` · Mortgage: <b>${usdN(mort)}/mo</b>` : ""}<br>Cash flow: <b>${usdN(flow)}/mo</b> · `
+  const covered = +v.loan && residual >= 0, eqNote = eq >= 50 ? "" : covered ? " (under 50%, but the loan covers it)" : +v.loan ? " (under 50%, and the loan doesn't cover it)" : " (under 50%: check the loan covers it)";
+  return `Seller's equity: <b style="color:${eq >= 50 || covered ? "inherit" : "var(--bad)"}">${eq}%</b>${eqNote} · Payment to seller: <b>${usdN(pmt)}/mo</b>${+v.loan ? ` · Mortgage: <b>${usdN(mort)}/mo</b>` : ""}<br>Cash flow: <b>${usdN(flow)}/mo</b> · `
     + (+v.loan ? `Take-home at closing: <b>${usdN(residual)}</b> · ` : `Lender covers: <b>${usdN(+v.down || 0)}</b> · `) + `You bring: <b>${usdN(bring)}</b>`;
 }
 function dealBox(r){
