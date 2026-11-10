@@ -76,3 +76,24 @@ begin
 end $$;
 revoke all on function os.auto_acquisitions() from public;
 revoke all on function os.apply_signup_offer() from public;
+
+-- Founding price lowered to $100/month until the first deal closes; then pricing is set on a call.
+update os.signup_offers set fee_usd = 100, note = 'Founding price for /acquisitions: $100/month until the first deal closes, then pricing on a call' where tag = 'Real estate investing (acquisitions)';
+alter table os.signup_offer_uses add column if not exists first_close_at timestamptz;
+create or replace function os.first_deal_closed() returns trigger language plpgsql security definer set search_path = os as $$
+declare u os.signup_offer_uses; bname text;
+begin
+  if new.status is distinct from 'closed' or old.status = 'closed' or new.type <> 'property' then return new; end if;
+  select * into u from os.signup_offer_uses where business_id = new.business_id and first_close_at is null for update;
+  if u.business_id is null then return new; end if;
+  update os.signup_offer_uses set first_close_at = now() where business_id = new.business_id;
+  select name into bname from os.businesses where id = new.business_id;
+  perform os.alert(new.business_id, 'platform', 'first_deal_closed', 'First deal closed: ' || bname,
+    bname || ' closed its first deal (' || new.title || '). Their founding price ($100/month) was until now; set up the pricing call with them.', 'firstclose:' || new.business_id);
+  insert into os.messages (business_id, sender, body, status) values (new.business_id, 'system',
+    'Congratulations on closing your first deal (' || new.title || ')! Your founding price covered the time up to now. Our team will reach out to set up a short call about your plan going forward.', 'handled');
+  return new;
+end $$;
+revoke all on function os.first_deal_closed() from public;
+drop trigger if exists first_deal_closed on os.records;
+create trigger first_deal_closed after update of status on os.records for each row execute function os.first_deal_closed();
