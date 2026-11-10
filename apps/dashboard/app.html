@@ -412,6 +412,14 @@ async function csCall(action, extra = {}) {
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
 }
+const SOCIAL = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-social";
+let social = null, socialNote = ""; // Facebook / Instagram / YouTube connection status for the open business
+async function socCall(action, extra = {}) {
+  const r = await fetch(SOCIAL, {method: "POST", headers: {"content-type": "application/json", "x-os-token": token}, body: JSON.stringify({action, business_id: biz, ...extra})});
+  const j = await r.json().catch(() => ({error: "The server sent a bad response."}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
 const isPhoneSheet = () => csState[biz] === true && !String(data.business?.timezone || "").startsWith("Africa/");
 let growth = null, growthBusy = false, aiPhone = null, ovData = null, ovBusy = false, waData = null, waBusy = false, waLog = {};
 async function gCall(action, extra = {}) {
@@ -1111,8 +1119,33 @@ function setBusiness(){
   </div>`;
 }
 
+function socialBox(){
+  if (!social) return "";
+  if (social.error) return `<div class="box" style="margin-bottom:12px"><h4>Social media</h4><p class="err">${esc(social.error)}</p></div>`;
+  const pill = (st) => st === "connected" ? `<span class="pill go">Connected</span>` : st === "choose_page" ? `<span class="pill">Pick a Page</span>` : `<span class="pill">Not connected</span>`;
+  const ed = social.can_edit, fb = social.facebook, ig = social.instagram, yt = social.youtube;
+  const row = (name, st, detail, acts) => `<div class="row"><div class="grow"><div class="t">${name} ${pill(st)}</div>${detail ? `<div class="s">${detail}</div>` : ""}</div>${ed ? acts : ""}</div>`;
+  const fbActs = fb.status === "connected" ? `<button class="btn small" data-soc="connect" data-p="facebook">Reconnect</button><button class="btn small bad" data-soc="disconnect" data-p="facebook">Disconnect</button>`
+    : `<button class="btn small go" data-soc="connect" data-p="facebook">Connect Facebook</button>`;
+  const pages = fb.status === "choose_page" && ed ? `<div class="list" style="margin-top:8px">${(fb.pages || []).map(p => `<div class="row"><div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${p.instagram ? "Instagram @" + esc(p.instagram) : "No Instagram linked"}</div></div><button class="btn small go" data-soc="page" data-page="${esc(p.id)}">Post to this Page</button></div>`).join("")}</div>` : "";
+  return `<div class="box" id="socialBox" style="margin-bottom:12px"><h4>Social media</h4>
+    <p>Connect once and approved posts go out on their own at their scheduled time. Nothing posts without your OK.</p>
+    ${socialNote ? `<p class="${/^Not connected|expired/.test(socialNote) ? "err" : "ok"}">${esc(socialNote)}</p>` : ""}
+    <div class="list">
+      ${row("Facebook", fb.status, fb.page_name ? "Page: " + esc(fb.page_name) : (fb.status === "choose_page" ? "Pick which Page to post to:" : "Posts, photos and videos to your Facebook Page."), fbActs)}
+      ${row("Instagram", ig.status, ig.status === "connected" ? "@" + esc(ig.username || "") + " (through your Facebook Page)" : esc(ig.reason || "Connects with Facebook. Your Instagram must be a business or creator account linked to the Page."),
+        ig.status === "connected" ? `<button class="btn small bad" data-soc="disconnect" data-p="instagram">Turn off</button>` : "")}
+      ${row("YouTube", yt.status, yt.channel ? "Channel: " + esc(yt.channel) : "Videos and Shorts to your YouTube channel.",
+        yt.status === "connected" ? `<button class="btn small bad" data-soc="disconnect" data-p="youtube">Disconnect</button>` : `<button class="btn small go" data-soc="connect" data-p="youtube">Connect YouTube</button>`)}
+    </div>${pages}
+    <p class="s" style="margin-top:10px">Instagram needs a photo or video on each post, and YouTube needs a video. Facebook takes anything.</p></div>`;
+}
 function setConnections(){
-  if (!conns) { call("integrations").then(r => { conns = r; render(true); }).catch(e => showErr(e)); return `<p class="s">Loading…</p>`; }
+  if (!conns) {
+    Promise.all([call("integrations"), socCall("status").catch(e => ({error: e.message}))])
+      .then(([r, s]) => { conns = r; social = s; render(true); }).catch(e => showErr(e));
+    return `<p class="s">Loading…</p>`;
+  }
   const HOW = {
     gmail: `<ol><li>Turn on 2-Step Verification for the Gmail account.</li><li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a> and make an app password named "Destiny OS".</li><li>Paste the 16-letter password here.</li></ol>`,
     resend: `<ol><li>Sign up at <a href="https://resend.com" target="_blank">resend.com</a> and add your domain. Resend shows the DNS records to add.</li><li>Create an API key with "Sending access".</li><li>For From, use your name and an address on that domain, like <i>Acme Roofing &lt;hello@acmeroofing.com&gt;</i>.</li></ol>`,
@@ -1120,8 +1153,8 @@ function setConnections(){
   };
   const LBL = {user: "Gmail address", from_name: "Name people see", from: "From, e.g. Acme &lt;hi@acme.com&gt;", reply_to: "Replies go to (optional)", page_id: "Facebook Page ID", GMAIL_APP_PASSWORD: "App password", RESEND_API_KEY: "Resend API key", FACEBOOK_PAGE_TOKEN: "Page access token"};
   const pill = (st) => st === "connected" ? `<span class="pill go">Connected</span>` : st === "error" ? `<span class="pill bad">Not working</span>` : `<span class="pill">Not connected</span>`;
-  return `<p style="color:var(--muted);margin:0 0 16px">Connect the accounts your team works through. Passwords and keys are stored encrypted and never shown again. Emails go out through Resend if it's connected, otherwise Gmail.</p>` +
-    conns.integrations.map(i => i.readonly ? `<div class="box" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center"><h4>${esc(i.label)}</h4>${pill(i.status)}</div></div>` :
+  return `<p style="color:var(--muted);margin:0 0 16px">Connect the accounts your team works through. Passwords and keys are stored encrypted and never shown again. Emails go out through Resend if it's connected, otherwise Gmail.</p>` + socialBox() +
+    conns.integrations.filter(i => !["facebook", "instagram", "youtube"].includes(i.provider) || (i.provider === "facebook" && social?.error)).map(i => i.readonly ? `<div class="box" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center"><h4>${esc(i.label)}</h4>${pill(i.status)}</div></div>` :
     `<div class="box" data-conn="${i.provider}" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h4>${esc(i.label)}</h4>${pill(i.status)}</div>
       ${i.settings.page_name ? `<p>Page: ${esc(i.settings.page_name)}</p>` : ""}
       ${conns.can_edit ? `<details${i.status === "connected" ? "" : " open"}><summary style="cursor:pointer;font-weight:600;color:var(--go)">${i.status === "connected" ? "Change" : "Set up"}</summary>
@@ -1540,6 +1573,18 @@ V.addEventListener("click", async e => {
       editing.delete("invite"); people = null; render(true);
     } catch (err) { fail(t, t.closest(".box,.row"), err); }
   }
+  if (d.soc) { // social media connections
+    const box = $("socialBox"); t.disabled = true; box?.querySelectorAll(".err").forEach(x => x.remove());
+    try {
+      if (d.soc === "connect") { const r = await socCall("connect", {platform: d.p}); location.href = r.url; return; }
+      if (d.soc === "page") { const r = await socCall("choose_page", {page_id: d.page}); socialNote = r.detail || ""; }
+      if (d.soc === "disconnect") {
+        if (!d.armed) { t.disabled = false; d.armed = "1"; const was = t.textContent; t.textContent = "Tap again to disconnect"; setTimeout(() => { if (t.isConnected) { delete t.dataset.armed; t.textContent = was; } }, 5000); return; }
+        await socCall("disconnect", {platform: d.p}); socialNote = "";
+      }
+      conns = null; social = null; render(true);
+    } catch (err) { fail(t, box, err); }
+  }
   if (d.xact) { // connections
     const box = t.closest("[data-conn]"), provider = box.dataset.conn;
     t.disabled = true; box.querySelectorAll(".err,.ok").forEach(x => x.remove());
@@ -1724,6 +1769,12 @@ $("gateForm").addEventListener("submit", async e => {
     }
   } catch (err) { $("gateErr").textContent = err.message; } finally { $("gateBtn").disabled = false; }
 });
+const socialBack = new URLSearchParams(location.search);
+if (socialBack.has("social")) {
+  socialNote = socialBack.get("social") || ""; view = "settings"; setTab = "connections";
+  if (/^[0-9a-f-]{36}$/i.test(socialBack.get("b") || "")) { try { localStorage.setItem("osBiz", socialBack.get("b")); } catch {} }
+  history.replaceState(null, "", location.pathname);
+}
 const back = new URLSearchParams(location.search).get("billing");
 if (back) { view = "money"; history.replaceState(null, "", location.pathname); }
 if (token && location.pathname === "/login") history.replaceState(null, "", "/app" + location.search);
