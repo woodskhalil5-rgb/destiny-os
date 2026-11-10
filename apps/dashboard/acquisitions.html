@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Acquisitions team · Destiny OS</title>
+<meta name="description" content="An AI acquisitions team for house buyers: finds listings and listing agents, runs your numbers, writes your offers and keeps every deal moving.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f5f2; --surface:#ffffff; --sunk:#eef1ed; --ink:#18222d; --soft:#3c4854; --muted:#68737e; --line:#dfe4de;
+  --go:#106b55; --go-ink:#ffffff; --go-tint:#e3f1ec; --bad:#b42318; --bad-tint:#fbe9e7; --r-sm:10px; --r-lg:18px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171c; --surface:#1a2027; --sunk:#151b21; --ink:#e9edf0; --soft:#c3cbd2; --muted:#93a0ab; --line:#2a323a;
+  --go:#4cc7a3; --go-ink:#06231b; --go-tint:#173229; --bad:#ff8a80; --bad-tint:#3a1f1d;
+}}
+:root[data-theme="dark"]{
+  --bg:#12171c; --surface:#1a2027; --sunk:#151b21; --ink:#e9edf0; --soft:#c3cbd2; --muted:#93a0ab; --line:#2a323a;
+  --go:#4cc7a3; --go-ink:#06231b; --go-tint:#173229; --bad:#ff8a80; --bad-tint:#3a1f1d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Figtree,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--go)}
+.wrap{max-width:1040px;margin:0 auto;padding:40px 16px 64px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,440px);gap:48px;align-items:start}
+.mark{display:inline-flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.01em}
+.mark i{width:26px;height:26px;border-radius:8px;background:var(--go);display:grid;place-items:center;color:var(--go-ink);font-style:normal;font-size:15px}
+h1{font-size:44px;line-height:1.05;letter-spacing:-.025em;font-weight:800;margin:28px 0 14px;text-wrap:balance}
+.lede{font-size:19px;color:var(--soft);margin:0 0 28px;max-width:34em}
+.team{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0;padding:0;list-style:none}
+.team li{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px 14px;font-size:15px;color:var(--soft)}
+.team b{display:block;color:var(--ink);font-size:16px}
+.terms{margin-top:28px;color:var(--muted);font-size:15px}
+.terms ul{margin:8px 0 0;padding-left:20px}
+.terms li{margin:4px 0}
+form{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px;display:flex;flex-direction:column;gap:14px;position:sticky;top:24px}
+form h2{margin:0;font-size:22px;letter-spacing:-.01em}
+form p{margin:0;color:var(--muted);font-size:15px}
+label{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;color:var(--soft)}
+label small{font-weight:400;color:var(--muted)}
+input,textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 12px;width:100%}
+input:focus,textarea:focus{outline:2px solid var(--go);outline-offset:1px;border-color:transparent}
+textarea{resize:vertical;min-height:96px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn{font:inherit;font-weight:700;font-size:16px;border:0;border-radius:var(--r-sm);padding:13px 16px;background:var(--go);color:var(--go-ink);cursor:pointer}
+.btn:disabled{opacity:.6;cursor:default}
+.quiet{background:none;color:var(--go);padding:6px 0;font-weight:600;font-size:15px}
+.err{color:var(--bad);background:var(--bad-tint);border-radius:var(--r-sm);padding:10px 12px;font-size:15px}
+.err:empty{display:none}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.legal{font-size:13px;color:var(--muted)}
+@media (max-width:860px){
+  .wrap{grid-template-columns:1fr;gap:28px;padding-top:24px}
+  h1{font-size:34px}
+  form{position:static}
+}
+@media (max-width:420px){ .two,.team{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section>
+    <span class="mark"><i>D</i>Destiny OS</span>
+    <h1>Your acquisitions team, working every day.</h1>
+    <p class="lede">Six AI coworkers find listings and listing agents in your areas, run each house through your own numbers, write your offers and keep every deal moving. They follow your buying strategy, and nothing goes out without your OK.</p>
+    <ul class="team">
+      <li><img src="/mascots/research.svg" alt="" width="40" height="40" style="float:left;margin:-2px 10px 0 -4px"><b>James</b>Finds listings and their listing agents in your areas</li>
+      <li><img src="/mascots/analysis.svg" alt="" width="40" height="40" style="float:left;margin:-2px 10px 0 -4px"><b>Emily</b>Checks each house and fills in your deal numbers</li>
+      <li><img src="/mascots/production.svg" alt="" width="40" height="40" style="float:left;margin:-2px 10px 0 -4px"><b>Kole</b>Writes your offers to agents and your call plans</li>
+      <li><img src="/mascots/coordination.svg" alt="" width="40" height="40" style="float:left;margin:-2px 10px 0 -4px"><b>DeMarcus</b>Chases follow-ups and sends you a daily brief</li>
+      <li><img src="/mascots/media.svg" alt="" width="40" height="40" style="float:left;margin:-2px 10px 0 -4px"><b>Grayson</b>Posts your deals and "we buy houses" content</li>
+      <li><img src="/mascots/finance.svg" alt="" width="40" height="40" style="float:left;margin:-2px 10px 0 -4px"><b>Nora</b>Tracks earnest money, closings and what's owed</li>
+    </ul>
+    <div class="terms">
+      <b style="color:var(--ink)">How it works</b>
+      <ul>
+        <li>Tell us where you buy and how. Your team is set up around your strategy right away.</li>
+        <li>Every house gets a deal calculator: cash offer, or seller financing with payment, cash flow and what you bring to closing.</li>
+        <li>A tap-to-call sheet for you or your caller, with a call plan for each agent.</li>
+        <li><b style="color:var(--ink)">Founding price: $200 a month</b> plus the team's AI usage (what the bots cost to run), billed on the 1st, with a monthly limit you control. Pay your first month in your dashboard, then start the team.</li>
+        <li>Cancel any time. Your welcome email shows our standard price; your account is set to $200.</li>
+      </ul>
+    </div>
+  </section>
+
+  <form id="f" novalidate>
+    <div id="s1">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <h2>Set up your acquisitions team</h2>
+        <p>Your team is set up from these answers before you sign in. You can change any of it later in Settings.</p>
+        <label>Business name<input id="business" autocomplete="organization" required></label>
+        <div class="two"><label>Your name<input id="name" autocomplete="name" required></label>
+          <label><span>Phone <small>(optional)</small></span><input id="phone" type="tel" autocomplete="tel"></label></div>
+        <label>Email<input id="email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" required></label>
+        <input type="hidden" id="industry" value="Real estate investing (acquisitions)">
+        <label>What does your business do?<textarea id="about" rows="2" required>We buy single-family houses from listing agents and homeowners.</textarea></label>
+        <label>Where do you buy?<input id="area" placeholder="e.g. Atlanta metro: Fulton, DeKalb and Cobb County, GA" required></label>
+        <label>Who do you buy from?<input id="customers" value="Listing agents (stale and price-reduced listings) and homeowners who contact us" required></label>
+        <label>What do you want more of?<input id="goal" value="Houses under contract on our terms" required></label>
+        <label><span>How you buy <small>(your strategy; the team follows it exactly)</small></span><textarea id="offer" rows="6" required>We buy with seller financing. We offer at or above the asking price in exchange for the seller carrying the financing (we agree a down payment, interest rate and term). A transactional lender funds what's needed at closing, including the down payment; we bring only the earnest money deposit and the appraisal. Our target terms: (add your usual down payment, rate, term and minimum monthly cash flow).</textarea></label>
+        <label><span>Website <small>(optional)</small></span><input id="website" type="url" inputmode="url" placeholder="https://"></label>
+        <div class="hp" aria-hidden="true"><label>Company URL<input id="company_url" tabindex="-1" autocomplete="off"></label></div>
+      </div>
+    </div>
+    <div id="s2" hidden>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <h2>Check your email</h2>
+        <p id="sentTo"></p>
+        <label>The 6-digit code<input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" style="font-size:22px;letter-spacing:.3em"></label>
+      </div>
+    </div>
+    <div class="err" id="err" role="alert"></div>
+    <button class="btn" id="go" type="submit">Email me a code</button>
+    <button class="btn quiet" id="back" type="button" hidden>Change my details or send a new code</button>
+    <p class="legal">By signing up you agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>. Already have an account? <a href="/">Sign in</a>.</p>
+  </form>
+</main>
+<script>
+const API = "https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-signup";
+const $ = (id) => document.getElementById(id);
+let step = 1;
+async function send(action, extra){
+  const r = await fetch(API, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({action, ...extra})});
+  const j = await r.json().catch(() => ({error: "Something went wrong. Try again."}));
+  if (!r.ok) throw new Error(j.error || "Something went wrong. Try again.");
+  return j;
+}
+function show(n){
+  step = n; $("s1").hidden = n !== 1; $("s2").hidden = n !== 2; $("back").hidden = n !== 2;
+  $("go").textContent = n === 1 ? "Email me a code" : "Set up my team";
+  if (n === 2) $("code").focus();
+}
+$("back").addEventListener("click", () => { $("err").textContent = ""; $("code").value = ""; show(1); });
+$("f").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("err").textContent = ""; $("go").disabled = true;
+  try {
+    if (step === 1) {
+      const v = (id) => $(id).value.trim();
+      let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch {}
+      await send("signup_request", {business: v("business"), name: v("name"), phone: v("phone"), email: v("email"), industry: v("industry"), about: v("about"), area: v("area"), customers: v("customers"), goal: v("goal"), offer: v("offer"), website: v("website"), timezone: tz, company_url: $("company_url").value});
+      $("sentTo").textContent = `We sent a code to ${v("email")}. Check spam if it isn't there in a minute.`;
+      show(2);
+    } else {
+      const r = await send("signup_verify", {email: $("email").value.trim(), code: $("code").value});
+      try { localStorage.setItem("osToken", r.token); localStorage.setItem("osBiz", r.business_id); } catch {}
+      location.href = "/app";
+    }
+  } catch (err) { $("err").textContent = err.message; } finally { $("go").disabled = false; }
+});
+</script>
+</body>
+</html>
