@@ -49,11 +49,16 @@ Deno.serve(async (req) => {
   } else {
     const price = num(body.price), down = num(body.down) ?? 0, rate = num(body.rate) ?? 0, years = num(body.years) ?? 30;
     const rent = num(body.rent) ?? 0, costs = num(body.costs) ?? 0, emd = num(body.emd) ?? 0, appraisal = num(body.appraisal) ?? 0, other = num(body.other) ?? 0;
+    // Optional loan (e.g. a DSCR loan) that funds the down payment; whatever is left after the down payment, lender fee and
+    // closing costs is the take-home at closing (the residual).
+    const loan = num(body.loan) ?? 0, loanRate = num(body.loan_rate) ?? 0, loanYears = num(body.loan_years) ?? 30, lenderFee = num(body.lender_fee) ?? 0, closing = num(body.closing) ?? 0;
     if (!price) return json({ error: "Enter the purchase price." }, 400);
     if (down > price) return json({ error: "The down payment can't be more than the price." }, 400);
-    const pmt = payment(price - down, rate, years);
+    const pmt = payment(price - down, rate, years), mort = payment(loan, loanRate, loanYears);
     patch = { offer_mode: mode, price: r0(price), down: r0(down), rate, years, rent: r0(rent), costs: r0(costs), emd: r0(emd), appraisal: r0(appraisal), other: r0(other),
-      seller_carry: r0(price - down), payment: r0(pmt), cash_flow: r0(rent - pmt - costs), cash_to_close: r0(emd + appraisal + other), lender_covers: r0(down) };
+      loan: r0(loan), loan_rate: loanRate, loan_years: loanYears, lender_fee: r0(lenderFee), closing: r0(closing),
+      seller_carry: r0(price - down), payment: r0(pmt), mortgage: r0(mort), cash_flow: r0(rent - pmt - mort - costs),
+      residual: loan ? r0(loan - down - lenderFee - closing) : null, cash_to_close: r0(emd + appraisal + other), lender_covers: r0(loan || down) };
   }
   const [r] = await sql`update os.records set data = data || ${sql.json(patch as any)}, updated_at = now()
     where id = ${Number(body.record_id)} and business_id = ${bid} returning id`;
