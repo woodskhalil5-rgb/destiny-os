@@ -1783,7 +1783,16 @@ async function start(){
   isAdmin = !!me.admin; $("newBizBtn").hidden = !isAdmin; $("ovBtn").hidden = !isAdmin; $("ovBtnM").hidden = !isAdmin;
   if (!me.businesses.length && isAdmin) { $("gate").hidden = true; $("app").hidden = false; view = "new"; data = {team: [], working: [], approvals: [], content: [], records: [], tasks: [], business: {status: "setup"}, role: "owner"}; render(true); return; }
   if (!me.businesses.length) return showGate("You're signed in, but nobody has added you to a business yet. Ask the business owner to add you under Settings, People.");
-  const opts = me.businesses.map(b => `<option value="${b.id}">${esc(b.name)}${b.status === "live" ? "" : b.status === "paused" ? " (paused)" : " (not started)"}</option>`).join("");
+  // Tidy list: HQ first, then the owner's own businesses, then client accounts still setting up. The app-review demo
+  // stays reachable for its reviewer login but is hidden from the platform owner's menu.
+  if (isAdmin) me.businesses = me.businesses.filter(b => b.slug !== "demo-review" || me.businesses.length === 1);
+  const optOf = b => `<option value="${b.id}">${esc(b.name)}${b.status === "live" ? "" : b.status === "paused" ? " (paused)" : " (not started)"}</option>`;
+  const hq = me.businesses.filter(b => b.slug === "destiny-hq"), rest = me.businesses.filter(b => b.slug !== "destiny-hq");
+  const OWN = ["destiny-os", "jhp", "bid-desk", "dmg-nigeria"]; // Khalil's own businesses; everything else is a client account
+  const mine = rest.filter(b => OWN.includes(b.slug)), setup = rest.filter(b => !OWN.includes(b.slug));
+  const opts = isAdmin && setup.length && mine.length
+    ? hq.map(optOf).join("") + `<optgroup label="Your businesses">${mine.map(optOf).join("")}</optgroup><optgroup label="Client accounts">${setup.map(optOf).join("")}</optgroup>`
+    : [...hq, ...rest].map(optOf).join("");
   $("bizSel").innerHTML = opts; $("bizSelM").innerHTML = opts;
   let saved = ""; try { saved = localStorage.getItem("osBiz") || ""; } catch {}
   biz = me.businesses.some(b => b.id === saved) ? saved : me.businesses[0].id;
