@@ -1,0 +1,12 @@
+-- 0058: the businesses are DMG, JHP and Bid Desk. Destiny OS and Destiny Reels are DMG's products.
+--   Celeste: CEO of DMG (destiny-os business): Destiny OS, Destiny Reels, DMG Nigeria (Kenya on hold), client accounts.
+--   Grant:   CEO of JHP.
+--   Ezra:    CEO of Bid Desk (new bid-desk business; the /bids form posts its free bid check requests here).
+-- The destiny-reels business made for Ezra in 0057 is archived; the Reels app itself is untouched.
+-- Applied by hand on 2026-11-10 (see the session); the statements are recorded here for history:
+--   * insert os.businesses 'bid-desk' (internal, live, budget $100) with its config (mission, facts, rules,
+--     record type 'client': bid check requested, bid check sent, call booked, signed, lost) and switched-off agent rows
+--   * Ezra's executive row: enabled in bid-desk with the Bid Desk CEO job; disabled in destiny-reels; os.ceos moved
+--   * Celeste's executive job rewritten as CEO of DMG; os.ceos short = 'DMG'
+--   * destiny-reels archived; destiny-os renamed 'Destiny Marketing Group (DMG)'
+--   * os.ceo_numbers(): DMG numbers now include Destiny Reels; new Bid Desk numbers (bid check requests, paying clients)
