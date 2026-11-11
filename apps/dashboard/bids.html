@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bid Desk · Public bids for New Jersey contractors, done for you</title>
+<meta name="description" content="Bid Desk finds New Jersey public bids your company qualifies for, prepares the bid paperwork and tracks every deadline. You set the price and sign. Start with a free bid check.">
+<meta property="og:title" content="Bid Desk · Never miss a public bid you could win">
+<meta property="og:description" content="We find NJ public bids that fit your trade and counties, prep the paperwork and watch every deadline. Free bid check.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f5f7; --surface:#ffffff; --ink:#141b26; --soft:#3a4555; --muted:#667180; --line:#dde1e7;
+  --navy:#13294b; --navy-2:#0c1c35; --tint:#e8eef8; --amber:#f2a33a; --ok:#1d7a52; --bad:#b42318; --bad-tint:#fbe9e7;
+  --r-sm:10px; --r:14px; --r-lg:20px; --shadow:0 1px 2px rgba(20,27,38,.06),0 8px 28px rgba(20,27,38,.08);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 Figtree,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--navy)}
+.in{max-width:1080px;margin:0 auto;padding:0 18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-weight:700;font-size:16px;border:1px solid transparent;border-radius:var(--r-sm);padding:13px 20px;cursor:pointer;text-decoration:none}
+.btn.go{background:var(--amber);color:#21160a}
+.btn.line{background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}
+.btn.dark{background:var(--navy);color:#fff}
+.btn:disabled{opacity:.6;cursor:default}
+.btn:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+header.hero{background:var(--navy);color:#fff;padding:22px 0 64px}
+.bar{display:flex;align-items:center;gap:12px;margin-bottom:48px}
+.logo{width:44px;height:44px;border-radius:10px;background:var(--amber);display:grid;place-items:center;color:var(--navy-2);font-weight:800;font-size:20px}
+.bar b{font-size:19px;letter-spacing:-.01em}
+.bar span{display:block;font-size:14px;color:#c7d3e6;font-weight:500}
+.bar .end{margin-left:auto}
+.hero h1{font-size:50px;line-height:1.05;letter-spacing:-.03em;margin:0 0 16px;max-width:15em;text-wrap:balance}
+.hero p.lede{font-size:20px;color:#d9e2f0;margin:0 0 26px;max-width:34em}
+.hero .who{color:var(--amber);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 14px}
+.ctas{display:flex;gap:12px;flex-wrap:wrap}
+.fine{margin:18px 0 0;color:#c7d3e6;font-size:15px;display:flex;gap:6px 18px;flex-wrap:wrap}
+.fine span::before{content:"✓";color:var(--amber);font-weight:800;margin-right:6px}
+
+section{padding:64px 0}
+section.alt{background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.kicker{font-size:14px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px}
+h2{font-size:36px;line-height:1.1;letter-spacing:-.025em;margin:0 0 12px;text-wrap:balance}
+.sub{font-size:18px;color:var(--soft);margin:0 0 34px;max-width:40em}
+
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px}
+section.alt .card{background:var(--bg)}
+.card h3{margin:0 0 6px;font-size:19px;letter-spacing:-.01em}
+.card p{margin:0;color:var(--soft);font-size:16px}
+.ic{width:38px;height:38px;border-radius:10px;background:var(--tint);color:var(--navy);display:grid;place-items:center;font-weight:800;margin-bottom:12px}
+
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;counter-reset:s;list-style:none;padding:0;margin:0}
+.steps li{counter-increment:s;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px}
+.steps li::before{content:counter(s);display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;font-weight:800;margin-bottom:12px}
+.steps h3{margin:0 0 6px;font-size:18px}.steps p{margin:0;color:var(--soft);font-size:15px}
+
+.you{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.you .card ul{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;color:var(--soft);font-size:16px}
+.you .card li{display:flex;gap:8px}
+.you .us li::before{content:"✓";color:var(--ok);font-weight:800}
+.you .them li::before{content:"✎";color:var(--navy);font-weight:800}
+
+.price{display:flex;gap:16px;align-items:stretch;flex-wrap:wrap}
+.price .card{flex:1 1 280px}
+.amt{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:6px 0}
+.terms{margin:16px 0 0;color:var(--muted);font-size:15px;max-width:52em}
+
+.talk{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:40px;align-items:start}
+form{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow)}
+label{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;color:var(--soft)}
+label small{font-weight:400;color:var(--muted)}
+input,textarea,select{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 12px;width:100%}
+textarea{resize:vertical;min-height:90px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.checks{display:flex;flex-direction:column;gap:8px;font-weight:500}
+.check{flex-direction:row;align-items:flex-start;gap:10px;font-weight:500}
+.check input{width:auto;margin-top:4px}
+.err{color:var(--bad);background:var(--bad-tint);border-radius:var(--r-sm);padding:10px 12px;font-size:15px}
+.err:empty{display:none}
+.thanks{background:var(--tint);border-radius:var(--r);padding:20px;color:var(--navy-2)}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+
+footer{padding:28px 0 40px;color:var(--muted);font-size:14px}
+footer .in{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+
+@media (max-width:900px){.grid,.steps{grid-template-columns:1fr 1fr}.talk,.you{grid-template-columns:1fr}}
+@media (max-width:620px){.hero h1{font-size:36px}.hero p.lede{font-size:18px}h2{font-size:29px}.grid,.steps,.two{grid-template-columns:1fr}section{padding:48px 0}.bar .end{display:none}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="in">
+    <div class="bar">
+      <div class="logo" aria-hidden="true">B</div>
+      <div><b>Bid Desk</b><span>Public bids for New Jersey contractors</span></div>
+      <a class="btn line end" href="#check">Free bid check</a>
+    </div>
+    <p class="who">For New Jersey contractors</p>
+    <h1>Never miss a public bid you could win.</h1>
+    <p class="lede">Towns, counties, school districts and state agencies post work all year. We find the bids that fit your trade and your counties, prepare the paperwork and watch every deadline. You set the price and sign.</p>
+    <div class="ctas">
+      <a class="btn go" href="#check">Get a free bid check</a>
+      <a class="btn line" href="#how">How it works</a>
+    </div>
+    <p class="fine"><span>Bids matched to your trade and counties</span><span>Paperwork prepared for you</span><span>Every deadline tracked</span></p>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="in">
+      <p class="kicker">Why contractors use it</p>
+      <h2>Public work is steady work. Finding it is the hard part.</h2>
+      <p class="sub">Bids are scattered across dozens of state, county and town websites, each with its own forms, addenda and deadlines. Most small contractors don't have the hours to keep up. That's our job.</p>
+      <div class="grid">
+        <div class="card"><div class="ic">1</div><h3>We find the bids</h3><p>Every weekday we check state, county and town bid postings for work in your trade and your counties.</p></div>
+        <div class="card"><div class="ic">2</div><h3>Only the ones that fit</h3><p>Each bid is checked against your trade, job size and registrations, with one line on why it fits or what's missing.</p></div>
+        <div class="card"><div class="ic">3</div><h3>Paperwork prepared</h3><p>We build the checklist, fill in the standard forms from your saved documents, and tell you what's still needed.</p></div>
+        <div class="card"><div class="ic">4</div><h3>No missed deadlines</h3><p>Reminders before every due date and pre-bid meeting, and an alert the moment an addendum is posted.</p></div>
+        <div class="card"><div class="ic">5</div><h3>Registrations on watch</h3><p>We remind you before your PWCR, insurance certificates or business registration expire, so you can always bid.</p></div>
+        <div class="card"><div class="ic">6</div><h3>A record of every bid</h3><p>Submitted, won and lost, with award amounts, so you can see what's working.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt" id="how">
+    <div class="in">
+      <p class="kicker">How it works</p>
+      <h2>Four steps, and you stay in control.</h2>
+      <ol class="steps">
+        <li><h3>Tell us what you do</h3><p>Your trade, the counties you work in, your job size and your registrations.</p></li>
+        <li><h3>Get your matches</h3><p>A short email each morning with new bids that fit. Tap Pursue or Pass on each one.</p></li>
+        <li><h3>We prep the packet</h3><p>For each bid you pursue, we prepare the checklist and forms and chase anything missing.</p></li>
+        <li><h3>You price and sign</h3><p>You set your price and sign. Nothing is submitted without your approval.</p></li>
+      </ol>
+      <div class="you" style="margin-top:28px">
+        <div class="card us"><h3>We do</h3><ul><li>Find and read the bid notices</li><li>Match them to what you do</li><li>Prepare checklists and standard forms</li><li>Track deadlines, meetings and addenda</li><li>Remind you before registrations expire</li></ul></div>
+        <div class="card them"><h3>You do</h3><ul><li>Pick which bids to go after</li><li>Set your price</li><li>Sign the bid</li><li>Do the work you win</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="in">
+      <p class="kicker">Pricing</p>
+      <h2>Start free. Pay only if it's worth it.</h2>
+      <div class="price">
+        <div class="card"><h3>Free bid check</h3><div class="amt">$0</div><p>Tell us your trade and counties and we'll send you open bids that fit you right now. No card, no commitment.</p></div>
+        <div class="card"><h3>Done for you</h3><div class="amt">From $750 <small style="font-size:15px;color:var(--muted);font-weight:600">a month</small></div><p>Daily matches, packet prep, deadline and registration tracking. Full-service plans with registration help are available too.</p></div>
+      </div>
+      <p class="terms">We never promise you'll win a bid: public bids are awarded by the agency, usually to the lowest responsible bidder. What we promise is that you'll see the bids that fit you, on time, with the paperwork ready. Your prices and bids are never shared with anyone else.</p>
+    </div>
+  </section>
+
+  <section class="alt" id="check">
+    <div class="in talk">
+      <div>
+        <p class="kicker">Free bid check</p>
+        <h2>See what's open for you right now.</h2>
+        <p class="sub" style="margin-bottom:12px">Tell us what you do. Within one business day we'll send you open New Jersey bids that fit your trade and counties, and what you'd need to go after them.</p>
+        <p style="color:var(--soft);margin:0">Questions? Email <a href="mailto:admin@destinymarketinggroup.com">admin@destinymarketinggroup.com</a>.</p>
+      </div>
+      <form id="f" novalidate>
+        <div id="fields" style="display:flex;flex-direction:column;gap:14px">
+          <div class="two"><label>Your name<input id="name" autocomplete="name" required></label>
+            <label>Company name<input id="company" autocomplete="organization" required></label></div>
+          <div class="two"><label>Email<input id="email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" required></label>
+            <label><span>Phone <small>(optional)</small></span><input id="phone" type="tel" autocomplete="tel"></label></div>
+          <label>Your trade<input id="trade" list="trades" placeholder="e.g. Roofing" required>
+            <datalist id="trades"><option>Roofing</option><option>General construction</option><option>Paving and site work</option><option>Concrete and masonry</option><option>Electrical</option><option>Plumbing</option><option>HVAC</option><option>Painting</option><option>Landscaping and tree work</option><option>Snow removal</option><option>Fencing</option><option>Flooring</option><option>Demolition</option><option>Janitorial and cleaning</option></datalist></label>
+          <label>Counties you work in<input id="counties" placeholder="e.g. Camden, Burlington, Gloucester" required></label>
+          <label>Typical job size<select id="size"><option value="">Pick one</option><option>Under $25,000</option><option>$25,000 to $100,000</option><option>$100,000 to $500,000</option><option>Over $500,000</option></select></label>
+          <div class="checks"><span style="font-size:14px;font-weight:600;color:var(--soft)">What you already have <small style="font-weight:400;color:var(--muted)">(tick any)</small></span>
+            <label class="check"><input type="checkbox" id="pwcr"> Public Works Contractor Registration (PWCR)</label>
+            <label class="check"><input type="checkbox" id="brc"> NJ Business Registration Certificate</label>
+            <label class="check"><input type="checkbox" id="njstart"> NJSTART vendor account</label>
+            <label class="check"><input type="checkbox" id="bonding"> Bonding</label></div>
+          <label><span>Anything else <small>(optional)</small></span><textarea id="notes" rows="3" placeholder="e.g. We've never bid public work but want to start with towns near us."></textarea></label>
+          <div class="hp" aria-hidden="true"><label>Website<input id="website" tabindex="-1" autocomplete="off"></label></div>
+          <div class="err" id="err" role="alert"></div>
+          <button class="btn dark" id="go" type="submit">Get my free bid check</button>
+        </div>
+        <div class="thanks" id="thanks" hidden><b>Got it, thank you.</b><br>We'll send your bid check within one business day.</div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="in">
+    <span>© <span id="yr">2026</span> Bid Desk, a service of Destiny Marketing Group</span>
+    <span><a href="/privacy">Privacy</a> · <a href="mailto:admin@destinymarketinggroup.com">admin@destinymarketinggroup.com</a></span>
+  </div>
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+$("yr").textContent = new Date().getFullYear();
+$("f").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("err").textContent = ""; $("go").disabled = true;
+  const v = (id) => $(id).value.trim();
+  try {
+    if (v("name").length < 2) throw new Error("Add your name.");
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v("email"))) throw new Error("Add an email so we can send your bid check.");
+    if (v("trade").length < 2) throw new Error("Add your trade.");
+    if (v("counties").length < 2) throw new Error("Add the counties you work in.");
+    const has = [["pwcr", "PWCR"], ["brc", "Business Registration Certificate"], ["njstart", "NJSTART account"], ["bonding", "bonding"]].filter(([id]) => $(id).checked).map(([, n]) => n);
+    const message = ["BID DESK: free bid check request", "Company: " + v("company"), "Trade: " + v("trade"), "Counties: " + v("counties"),
+      "Typical job size: " + (v("size") || "not given"), "Already has: " + (has.length ? has.join(", ") : "none ticked"), v("notes") ? "Notes: " + v("notes") : ""].filter(Boolean).join("\n");
+    const r = await fetch("https://xicywfiquzqvlulwirln.supabase.co/functions/v1/os-growth", {method: "POST", headers: {"content-type": "application/json"},
+      body: JSON.stringify({slug: "destiny-os", action: "inquiry", name: v("name"), email: v("email"), phone: v("phone"), message, website: $("website").value})});
+    const j = await r.json().catch(() => ({error: "Something went wrong. Try again, or email us."}));
+    if (!r.ok) throw new Error(j.error || "Something went wrong. Try again, or email us.");
+    $("fields").hidden = true; $("thanks").hidden = false;
+  } catch (err) { $("err").textContent = err.message; } finally { $("go").disabled = false; }
+});
+</script>
+</body>
+</html>
